@@ -59,4 +59,12 @@ server/
 请求体：`{ "content": "你好", "model": "deepseek-chat" }`（`model` 可省略，用 `DEFAULT_MODEL`）。
 
 ## 环境变量
-见 `.env.example`。数据库 `SUPABASE_URL` / `SUPABASE_KEY`；AI 用 `API_KEY` + `API_BASE_URL`（默认 DeepSeek）。
+见 `.env.example`。数据库 `SUPABASE_URL` / `SUPABASE_KEY`。AI 按模型名自动路由到对应厂商，各配一个 Key：
+
+| 厂商 | 环境变量 | 匹配的模型名 |
+|---|---|---|
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-*` |
+| OpenAI | `OPENAI_API_KEY` | `gpt-*`、`o1`/`o3` 等 |
+| Anthropic（Claude） | `ANTHROPIC_API_KEY` | `claude-*` |
+
+> `API_KEY` / `API_BASE_URL` 仍保留为 DeepSeek 的兼容别名。
