@@ -6,6 +6,7 @@ import sessionsRouter from './routes/sessions.js';
 import messagesRouter from './routes/messages.js';
 import settingsRouter from './routes/settings.js';
 import appSettingsRouter from './routes/appSettings.js';
+import proactiveRouter from './routes/proactive.js';
 
 const app = express();
 app.use(cors());
@@ -21,6 +22,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/sessions', messagesRouter);
 app.use('/api/sessions', settingsRouter);
 app.use('/api/settings', appSettingsRouter);
+app.use('/api/proactive', proactiveRouter);
 
 // 404
 app.use((req, res) => {

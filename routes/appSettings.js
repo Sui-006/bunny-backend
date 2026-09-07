@@ -4,6 +4,8 @@ import { getAppSettings, saveAppSettings } from '../lib/db.js';
 const router = Router();
 
 const KEY_FIELDS = ['deepseek_api_key', 'openai_api_key', 'anthropic_api_key'];
+const BOOL_FIELDS = ['proactive_enabled', 'proactive_greeting_enabled'];
+const INT_NULL_FIELDS = ['proactive_idle_hours'];
 const FIELDS = [
   'personal_signature',
   'deepseek_api_key',
@@ -13,6 +15,11 @@ const FIELDS = [
   'anthropic_api_key',
   'anthropic_base_url',
   'anthropic_protocol',
+  'proactive_enabled',
+  'proactive_idle_hours',
+  'proactive_greeting_enabled',
+  'proactive_greeting_time',
+  'proactive_greeting_prompt',
 ];
 
 function maskKey(k) {
@@ -32,6 +39,11 @@ router.get('/', async (req, res, next) => {
         openai_base_url: s.openai_base_url || '',
         anthropic_base_url: s.anthropic_base_url || '',
         anthropic_protocol: s.anthropic_protocol || 'anthropic',
+        proactive_enabled: Boolean(s.proactive_enabled),
+        proactive_idle_hours: s.proactive_idle_hours ?? null,
+        proactive_greeting_enabled: Boolean(s.proactive_greeting_enabled),
+        proactive_greeting_time: s.proactive_greeting_time || '',
+        proactive_greeting_prompt: s.proactive_greeting_prompt || '',
         deepseek_api_key: maskKey(s.deepseek_api_key),
         openai_api_key: maskKey(s.openai_api_key),
         anthropic_api_key: maskKey(s.anthropic_api_key),
@@ -56,6 +68,15 @@ router.put('/', async (req, res, next) => {
         const v = String(body[key]).trim();
         if (!v || v.includes('•')) continue; // 空或打码占位：跳过，保留原 key
         partial[key] = v;
+      } else if (BOOL_FIELDS.includes(key)) {
+        partial[key] = Boolean(body[key]);
+      } else if (INT_NULL_FIELDS.includes(key)) {
+        const v = body[key];
+        if (v === null || v === '' || v === undefined) partial[key] = null;
+        else {
+          const n = Number(v);
+          partial[key] = Number.isFinite(n) ? n : null;
+        }
       } else {
         partial[key] = body[key];
       }

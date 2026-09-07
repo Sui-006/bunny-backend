@@ -1,0 +1,25 @@
+# 心跳：定时戳一下后端的 /api/proactive，让 AI 有机会主动发消息
+# 后端会自己判断该不该发（冷却 / 定时问候 / 空闲提醒），所以这里只管「准时敲门」。
+name: heartbeat
+
+on:
+  schedule:
+    # 每小时第 17 分钟（UTC）。问候窗口 90 分钟，足以覆盖每小时一次。
+    - cron: '17 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: heartbeat
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping proactive endpoint
+        run: |
+          curl -fsS \
+            --retry 4 --retry-delay 20 --retry-all-errors \
+            --connect-timeout 20 --max-time 120 \
+            https://bunny-backend-bv89.onrender.com/api/proactive \
+            || true
