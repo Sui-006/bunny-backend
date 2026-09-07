@@ -20,6 +20,7 @@ const FIELDS = [
   'proactive_greeting_enabled',
   'proactive_greeting_time',
   'proactive_greeting_prompt',
+  'bark_url',
 ];
 
 function maskKey(k) {
@@ -44,6 +45,7 @@ router.get('/', async (req, res, next) => {
         proactive_greeting_enabled: Boolean(s.proactive_greeting_enabled),
         proactive_greeting_time: s.proactive_greeting_time || '',
         proactive_greeting_prompt: s.proactive_greeting_prompt || '',
+        bark_url: s.bark_url || '',
         deepseek_api_key: maskKey(s.deepseek_api_key),
         openai_api_key: maskKey(s.openai_api_key),
         anthropic_api_key: maskKey(s.anthropic_api_key),

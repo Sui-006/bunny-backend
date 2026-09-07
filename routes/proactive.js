@@ -40,6 +40,19 @@ function timeToMinutes(t) {
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
+// 推一条 Bark 通知到用户手机（失败不阻断主流程）
+async function sendBarkNotification(barkUrl, title, body) {
+  if (!barkUrl) return;
+  const base = String(barkUrl).trim().replace(/\/+$/, '');
+  const url = `${base}/${encodeURIComponent(title)}/${encodeURIComponent(body)}`;
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) console.warn('[bark] 通知发送失败 HTTP', res.status);
+  } catch (e) {
+    console.warn('[bark] 通知发送异常：', e.message);
+  }
+}
+
 /**
  * GET /api/proactive —— 心跳触发点（幂等）
  * 由「前端打开页面」或「外部 cron」调用；内部判断此刻是否该主动发一条。
@@ -142,6 +155,10 @@ router.get('/', async (req, res, next) => {
     const patch = { proactive_last_at: now.toISOString() };
     if (reason === 'greeting') patch.proactive_last_greeting_date = today;
     await saveAppSettings(patch);
+
+    // 推 Bark 通知到手机
+    const title = reason === 'greeting' ? '问候 💌' : '想你了 💬';
+    await sendBarkNotification(app.bark_url, title, content);
 
     return res.json({ sent: true, reason, sessionId, message: assistantMessage });
   } catch (e) {
