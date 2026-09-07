@@ -5,6 +5,7 @@ import { config } from './lib/config.js';
 import sessionsRouter from './routes/sessions.js';
 import messagesRouter from './routes/messages.js';
 import settingsRouter from './routes/settings.js';
+import appSettingsRouter from './routes/appSettings.js';
 
 const app = express();
 app.use(cors());
@@ -19,6 +20,7 @@ app.get('/health', (req, res) => {
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/sessions', messagesRouter);
 app.use('/api/sessions', settingsRouter);
+app.use('/api/settings', appSettingsRouter);
 
 // 404
 app.use((req, res) => {

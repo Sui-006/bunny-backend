@@ -45,6 +45,8 @@ server/
 | POST | `/api/sessions/:sessionId/messages` | 发送消息 → AI 回复 |
 | GET | `/api/sessions/:sessionId/settings` | 读设置 |
 | PUT | `/api/sessions/:sessionId/settings` | 更新设置 |
+| GET | `/api/settings` | 全局设置（API key 只打码返回） |
+| PUT | `/api/settings` | 更新全局设置（key / 中转地址 / 个性签名） |
 
 ## 核心对话流程（POST .../messages）
 
@@ -68,3 +70,5 @@ server/
 | Anthropic（Claude） | `ANTHROPIC_API_KEY` | `claude-*` |
 
 > `API_KEY` / `API_BASE_URL` 仍保留为 DeepSeek 的兼容别名。
+>
+> 也可在网页「API 设置」里配置 key / 中转地址 / 个性签名，存到 Supabase `app_settings` 表（优先于环境变量）。表结构见 `supabase/migrations/001_app_settings.sql`。

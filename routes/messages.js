@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getSettings, DEFAULT_SETTINGS, createMessage, listMessages } from '../lib/db.js';
+import { getSettings, getAppSettings, DEFAULT_SETTINGS, createMessage, listMessages } from '../lib/db.js';
 import { prepareContext } from '../lib/context.js';
 import { chat } from '../lib/ai.js';
 import { config } from '../lib/config.js';
@@ -27,6 +27,8 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     if (!content) return res.status(400).json({ error: 'content 不能为空' });
 
     const settings = { ...DEFAULT_SETTINGS, ...((await getSettings(sessionId)) || {}) };
+    const app = await getAppSettings();
+    settings.personal_signature = app?.personal_signature;
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
 
     // 1. 落库用户消息
