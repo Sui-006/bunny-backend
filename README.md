@@ -1,0 +1,62 @@
+# Bunny's Home 后端
+
+Node.js + Express 后端：会话管理、消息收发、AI 调用、上下文记忆压缩。
+
+## 技术栈 / 依赖
+- express、dotenv、@supabase/supabase-js、cors
+
+## 快速开始
+```bash
+cd server
+npm install
+cp .env.example .env   # 填写 SUPABASE_URL/KEY、API_KEY
+npm run dev            # 或 npm start
+```
+
+未配置 `SUPABASE_URL` 时使用**内存存储**（重启即清空，仅本地调试）；未配置 `API_KEY` 时可设 `MOCK_AI=true` 返回假回复。
+
+## 项目结构
+```
+server/
+  server.js           入口
+  lib/
+    config.js         环境变量
+    db.js             数据层（Supabase + 内存回退）
+    ai.js             AI 调用（OpenAI 兼容协议）
+    context.js        上下文组装 + 记忆压缩
+    tokens.js         token 粗估
+  routes/
+    sessions.js
+    messages.js
+    settings.js
+```
+
+## API 路由
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/health` | 健康检查 `{ status: 'ok' }` |
+| GET | `/api/sessions` | 会话列表 |
+| POST | `/api/sessions` | 新建会话 `{ name? }` |
+| GET | `/api/sessions/:sessionId` | 会话详情（设置 + 最近消息） |
+| PATCH | `/api/sessions/:sessionId` | 重命名 `{ name }` |
+| DELETE | `/api/sessions/:sessionId` | 删除会话 |
+| GET | `/api/sessions/:sessionId/messages` | 消息列表 `?limit=` |
+| POST | `/api/sessions/:sessionId/messages` | 发送消息 → AI 回复 |
+| GET | `/api/sessions/:sessionId/settings` | 读设置 |
+| PUT | `/api/sessions/:sessionId/settings` | 更新设置 |
+
+## 核心对话流程（POST .../messages）
+
+```
+落库用户消息
+  → 组装上下文（system 提示词 + 记忆摘要 + 可见消息）
+  → token/轮数超阈值时：旧轮次压缩成摘要写入 memories，旧消息标记不可见
+  → 调用 AI（OpenAI 兼容协议，Bearer API_KEY）
+  → 落库回复（含 reasoning_content 与 usage）
+```
+
+请求体：`{ "content": "你好", "model": "deepseek-chat" }`（`model` 可省略，用 `DEFAULT_MODEL`）。
+
+## 环境变量
+见 `.env.example`。数据库 `SUPABASE_URL` / `SUPABASE_KEY`；AI 用 `API_KEY` + `API_BASE_URL`（默认 DeepSeek）。
