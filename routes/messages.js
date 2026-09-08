@@ -1,11 +1,32 @@
 import { Router } from 'express';
-import { getSettings, getAppSettings, DEFAULT_SETTINGS, createMessage, listMessages } from '../lib/db.js';
+import {
+  getSettings, getAppSettings, DEFAULT_SETTINGS,
+  createMessage, listMessages, deleteMessage, getLastAssistantMessage, touchSession,
+} from '../lib/db.js';
 import { prepareContext } from '../lib/context.js';
-import { chat } from '../lib/ai.js';
+import { chat, chatStream } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { sendBarkNotification } from '../lib/bark.js';
+import { McpSession, parseMcpServers } from '../lib/mcp.js';
 
 const router = Router();
+
+// 组装会话环境：设置 + 全局配置 + MCP 插件（若配置）
+async function buildChatEnv(sessionId) {
+  const settings = { ...DEFAULT_SETTINGS, ...((await getSettings(sessionId)) || {}) };
+  const app = await getAppSettings();
+  settings.personal_signature = app?.personal_signature;
+
+  let mcp = null;
+  let tools = [];
+  const servers = parseMcpServers(app?.mcp_servers);
+  if (servers.length) {
+    mcp = new McpSession(servers);
+    await mcp.start();
+    tools = mcp.tools;
+  }
+  return { settings, app, mcp, tools };
+}
 
 // GET /api/sessions/:sessionId/messages —— 消息列表（?limit=）
 router.get('/:sessionId/messages', async (req, res, next) => {
@@ -18,49 +39,107 @@ router.get('/:sessionId/messages', async (req, res, next) => {
   }
 });
 
-// POST /api/sessions/:sessionId/messages —— 核心对话流程
-// body: { content: string, model?: string }
-// 流程：落库用户消息 → 组装上下文（含记忆摘要，必要时压缩）→ 调用 AI → 落库回复
+// POST /api/sessions/:sessionId/messages —— 核心对话流程（支持流式 + MCP 工具）
 router.post('/:sessionId/messages', async (req, res, next) => {
   try {
     const { sessionId } = req.params;
     const content = (req.body?.content || '').trim();
     if (!content) return res.status(400).json({ error: 'content 不能为空' });
 
-    const settings = { ...DEFAULT_SETTINGS, ...((await getSettings(sessionId)) || {}) };
-    const app = await getAppSettings();
-    settings.personal_signature = app?.personal_signature;
+    const { settings, app, mcp, tools } = await buildChatEnv(sessionId);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
 
-    // 1. 落库用户消息
     const userMessage = await createMessage(sessionId, { role: 'user', content });
-
-    // 2. 组装上下文 + 记忆压缩
     const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
 
-    // 3. 调用 AI
-    const reply = await chat({
-      model,
-      system,
-      messages,
-      temperature: settings.temperature,
-      maxTokens: settings.max_reply_tokens,
-    });
+    const stream = settings.stream && tools.length === 0;
+    const notify = app?.reply_notify_enabled && app?.bark_url && req.body?.notify;
 
-    // 4. 落库 AI 回复（含推理内容、usage）
-    const assistantMessage = await createMessage(sessionId, {
-      role: 'assistant',
-      content: reply.content,
-      reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model },
-    });
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders?.();
 
-    // 普通回复也推 Bark（仅当用户不在该页面时，由前端 notify 标记）
-    if (app?.reply_notify_enabled && app?.bark_url && req.body?.notify) {
-      await sendBarkNotification(app.bark_url, '回复 💬', reply.content);
+      const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+      let full = '';
+      let result;
+      try {
+        result = await chatStream({
+          model, system, messages,
+          temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
+          onDelta: (d) => { full += d; send({ delta: d }); },
+        });
+        full = result.content || full;
+      } catch (e) {
+        send({ error: e.message });
+        send({ done: true });
+        res.end();
+        await mcp?.close();
+        return;
+      }
+
+      const assistantMessage = await createMessage(sessionId, {
+        role: 'assistant', content: full, reasoningContent: result.reasoningContent,
+        metadata: { usage: result.usage, model },
+      });
+      await touchSession(sessionId);
+      if (notify) await sendBarkNotification(app.bark_url, '回复 💬', full);
+
+      send({ done: true, assistantMessage, compressed });
+      res.end();
+      await mcp?.close();
+      return;
     }
 
+    // 非流式（含 MCP 工具循环）
+    const reply = await chat({
+      model, system, messages,
+      temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
+      tools,
+      callTool: tools.length ? (name, args) => mcp.callTool(name, args) : null,
+    });
+
+    const assistantMessage = await createMessage(sessionId, {
+      role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
+      metadata: { usage: reply.usage, model },
+    });
+    await touchSession(sessionId);
+    if (notify) await sendBarkNotification(app.bark_url, '回复 💬', reply.content);
+
+    await mcp?.close();
     res.status(201).json({ userMessage, assistantMessage, compressed });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /api/sessions/:sessionId/regenerate —— 重新生成最后一条 AI 回复
+router.post('/:sessionId/regenerate', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const { settings, app, mcp, tools } = await buildChatEnv(sessionId);
+    const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
+
+    const last = await getLastAssistantMessage(sessionId);
+    if (last) await deleteMessage(last.id);
+
+    const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
+    const reply = await chat({
+      model, system, messages,
+      temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
+      tools,
+      callTool: tools.length ? (name, args) => mcp.callTool(name, args) : null,
+    });
+
+    const assistantMessage = await createMessage(sessionId, {
+      role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
+      metadata: { usage: reply.usage, model },
+    });
+    await touchSession(sessionId);
+    await mcp?.close();
+
+    res.status(201).json({ assistantMessage, compressed });
   } catch (e) {
     next(e);
   }

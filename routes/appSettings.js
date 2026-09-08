@@ -25,6 +25,7 @@ const FIELDS = [
   'proactive_idle_hours',
   'bark_url',
   'reply_notify_enabled',
+  'mcp_servers',
 ];
 
 function maskKey(k) {
@@ -54,6 +55,7 @@ router.get('/', async (req, res, next) => {
         proactive_idle_hours: s.proactive_idle_hours ?? null,
         bark_url: s.bark_url || '',
         reply_notify_enabled: s.reply_notify_enabled !== false,
+        mcp_servers: (() => { try { return JSON.parse(s.mcp_servers || '[]'); } catch { return []; } })(),
         deepseek_api_key: maskKey(s.deepseek_api_key),
         openai_api_key: maskKey(s.openai_api_key),
         anthropic_api_key: maskKey(s.anthropic_api_key),
@@ -87,6 +89,8 @@ router.put('/', async (req, res, next) => {
           const n = Number(v);
           partial[key] = Number.isFinite(n) ? n : null;
         }
+      } else if (key === 'mcp_servers') {
+        partial[key] = JSON.stringify(Array.isArray(body[key]) ? body[key] : []);
       } else {
         partial[key] = body[key];
       }
