@@ -45,12 +45,12 @@ const pad2 = (n) => String(n).padStart(2, '0');
  * GET /api/proactive —— 心跳触发点（幂等）
  * 由「前端打开页面」或「外部 cron」调用；内部判断此刻是否该主动发一条。
  * 返回 { sent: boolean, reason, sessionId?, message? }
- *   reason: disabled | no_session | cooldown | none | empty | morning | night | idle
+ *   reason: disabled | no_session | cooldown | none | empty | morning | noon | night | idle
  */
 router.get('/', async (req, res, next) => {
   try {
     const app = await getAppSettings();
-    if (!app || !app.proactive_enabled) {
+    if (!app) {
       return res.json({ sent: false, reason: 'disabled' });
     }
 
@@ -86,7 +86,22 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    // B. 晚安问候
+    // B. 午安问候
+    if (!reason) {
+      const noonTime = timeToMinutes(app.proactive_noon_time || '12:00');
+      if (
+        app.proactive_noon_enabled &&
+        noonTime !== null &&
+        app.proactive_last_noon_date !== today
+      ) {
+        if (nowMin >= noonTime && nowMin < noonTime + 90) {
+          reason = 'noon';
+          instruction = `现在是${pad2(shNow.getHours())}:${pad2(shNow.getMinutes())}，请主动向用户发一条午安问候，自然亲切，简短一点，体现你对 ta 的了解。`;
+        }
+      }
+    }
+
+    // C. 晚安问候
     if (!reason) {
       const nightTime = timeToMinutes(app.proactive_night_time || '22:00');
       if (
@@ -101,7 +116,7 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    // C. 空闲提醒（N 小时没消息）
+    // D. 空闲提醒（N 小时没消息）
     if (!reason && app.proactive_idle_enabled && app.proactive_idle_hours) {
       const idleHours = Number(app.proactive_idle_hours);
       const lastAt = await getLastMessageAt(sessionId);
@@ -156,11 +171,12 @@ router.get('/', async (req, res, next) => {
     // 记录本次主动消息时间 + 问候日期，防重复
     const patch = { proactive_last_at: now.toISOString() };
     if (reason === 'morning') patch.proactive_last_morning_date = today;
+    if (reason === 'noon') patch.proactive_last_noon_date = today;
     if (reason === 'night') patch.proactive_last_night_date = today;
     await saveAppSettings(patch);
 
     // 推 Bark 通知到手机
-    const titles = { morning: '早安 ☀️', night: '晚安 🌙', idle: '想你了 💬' };
+    const titles = { morning: '早安 ☀️', noon: '午安 🌤️', night: '晚安 🌙', idle: '想你了 💬' };
     const title = titles[reason] || '问候 💌';
     await sendBarkNotification(app.bark_url, title, content);
 
