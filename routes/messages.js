@@ -3,6 +3,7 @@ import { getSettings, getAppSettings, DEFAULT_SETTINGS, createMessage, listMessa
 import { prepareContext } from '../lib/context.js';
 import { chat } from '../lib/ai.js';
 import { config } from '../lib/config.js';
+import { sendBarkNotification } from '../lib/bark.js';
 
 const router = Router();
 
@@ -53,6 +54,11 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       reasoningContent: reply.reasoningContent,
       metadata: { usage: reply.usage, model },
     });
+
+    // 普通回复也推 Bark（仅当用户不在该页面时，由前端 notify 标记）
+    if (app?.reply_notify_enabled && app?.bark_url && req.body?.notify) {
+      await sendBarkNotification(app.bark_url, '回复 💬', reply.content);
+    }
 
     res.status(201).json({ userMessage, assistantMessage, compressed });
   } catch (e) {

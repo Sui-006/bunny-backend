@@ -4,7 +4,7 @@ import { getAppSettings, saveAppSettings } from '../lib/db.js';
 const router = Router();
 
 const KEY_FIELDS = ['deepseek_api_key', 'openai_api_key', 'anthropic_api_key'];
-const BOOL_FIELDS = ['proactive_enabled', 'proactive_greeting_enabled'];
+const BOOL_FIELDS = ['proactive_enabled', 'proactive_greeting_enabled', 'reply_notify_enabled'];
 const INT_NULL_FIELDS = ['proactive_idle_hours'];
 const FIELDS = [
   'personal_signature',
@@ -21,6 +21,7 @@ const FIELDS = [
   'proactive_greeting_time',
   'proactive_greeting_prompt',
   'bark_url',
+  'reply_notify_enabled',
 ];
 
 function maskKey(k) {
@@ -46,6 +47,7 @@ router.get('/', async (req, res, next) => {
         proactive_greeting_time: s.proactive_greeting_time || '',
         proactive_greeting_prompt: s.proactive_greeting_prompt || '',
         bark_url: s.bark_url || '',
+        reply_notify_enabled: Boolean(s.reply_notify_enabled),
         deepseek_api_key: maskKey(s.deepseek_api_key),
         openai_api_key: maskKey(s.openai_api_key),
         anthropic_api_key: maskKey(s.anthropic_api_key),

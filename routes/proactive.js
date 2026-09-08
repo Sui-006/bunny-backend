@@ -13,6 +13,7 @@ import {
 import { prepareContext } from '../lib/context.js';
 import { chat } from '../lib/ai.js';
 import { config } from '../lib/config.js';
+import { sendBarkNotification } from '../lib/bark.js';
 
 const router = Router();
 
@@ -39,19 +40,6 @@ function timeToMinutes(t) {
 }
 
 const pad2 = (n) => String(n).padStart(2, '0');
-
-// 推一条 Bark 通知到用户手机（失败不阻断主流程）
-async function sendBarkNotification(barkUrl, title, body) {
-  if (!barkUrl) return;
-  const base = String(barkUrl).trim().replace(/\/+$/, '');
-  const url = `${base}/${encodeURIComponent(title)}/${encodeURIComponent(body)}`;
-  try {
-    const res = await fetch(url, { method: 'GET' });
-    if (!res.ok) console.warn('[bark] 通知发送失败 HTTP', res.status);
-  } catch (e) {
-    console.warn('[bark] 通知发送异常：', e.message);
-  }
-}
 
 /**
  * GET /api/proactive —— 心跳触发点（幂等）
