@@ -53,12 +53,21 @@ router.get('/:sessionId', async (req, res, next) => {
   }
 });
 
-// PATCH /api/sessions/:sessionId —— 重命名
+// PATCH /api/sessions/:sessionId —— 重命名 / 置顶（按需传 name、pinned）
 router.patch('/:sessionId', async (req, res, next) => {
   try {
-    const name = (req.body?.name || '').trim();
-    if (!name) return res.status(400).json({ error: 'name 不能为空' });
-    const session = await updateSession(req.params.sessionId, { name });
+    const { name, pinned } = req.body || {};
+    const patch = {};
+    if (name !== undefined) {
+      const trimmed = String(name).trim();
+      if (!trimmed) return res.status(400).json({ error: 'name 不能为空' });
+      patch.name = trimmed;
+    }
+    if (pinned !== undefined) patch.pinned = Boolean(pinned);
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: '没有可更新的字段' });
+    }
+    const session = await updateSession(req.params.sessionId, patch);
     res.json({ session });
   } catch (e) {
     next(e);
