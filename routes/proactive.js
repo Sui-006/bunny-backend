@@ -45,7 +45,7 @@ const pad2 = (n) => String(n).padStart(2, '0');
  * GET /api/proactive —— 心跳触发点（幂等）
  * 由「前端打开页面」或「外部 cron」调用；内部判断此刻是否该主动发一条。
  * 返回 { sent: boolean, reason, sessionId?, message? }
- *   reason: disabled | no_session | cooldown | none | empty | greeting | idle
+ *   reason: disabled | no_session | cooldown | none | empty | morning | night | idle
  */
 router.get('/', async (req, res, next) => {
   try {
@@ -71,24 +71,38 @@ router.get('/', async (req, res, next) => {
     let reason = null;
     let instruction = null;
 
-    // A. 定时问候（当天没发过，且落在 [问候时间, +90min) 窗口内，容忍 cron 延迟）
-    const greetingTime = timeToMinutes(app.proactive_greeting_time);
+    const nowMin = shNow.getHours() * 60 + shNow.getMinutes();
+
+    // A. 早安问候（当天没发过，且落在 [时间, +90min) 窗口内，容忍 cron 延迟）
+    const morningTime = timeToMinutes(app.proactive_morning_time || '08:00');
     if (
-      app.proactive_greeting_enabled &&
-      greetingTime !== null &&
-      app.proactive_last_greeting_date !== today
+      app.proactive_morning_enabled &&
+      morningTime !== null &&
+      app.proactive_last_morning_date !== today
     ) {
-      const nowMin = shNow.getHours() * 60 + shNow.getMinutes();
-      if (nowMin >= greetingTime && nowMin < greetingTime + 90) {
-        reason = 'greeting';
-        instruction =
-          (app.proactive_greeting_prompt || '').trim() ||
-          `现在是${pad2(shNow.getHours())}:${pad2(shNow.getMinutes())}，请主动向用户发一条自然亲切的问候（按时间判断早安/午安/晚安），简短一点，体现你对 ta 的了解。`;
+      if (nowMin >= morningTime && nowMin < morningTime + 90) {
+        reason = 'morning';
+        instruction = `现在是${pad2(shNow.getHours())}:${pad2(shNow.getMinutes())}，请主动向用户发一条早安问候，自然亲切，简短一点，体现你对 ta 的了解。`;
+      }
+    }
+
+    // B. 晚安问候
+    if (!reason) {
+      const nightTime = timeToMinutes(app.proactive_night_time || '22:00');
+      if (
+        app.proactive_night_enabled &&
+        nightTime !== null &&
+        app.proactive_last_night_date !== today
+      ) {
+        if (nowMin >= nightTime && nowMin < nightTime + 90) {
+          reason = 'night';
+          instruction = `现在是${pad2(shNow.getHours())}:${pad2(shNow.getMinutes())}，请主动向用户发一条晚安问候，温柔一点，简短，体现你对 ta 的了解。`;
+        }
       }
     }
 
     // C. 空闲提醒（N 小时没消息）
-    if (!reason && app.proactive_idle_hours) {
+    if (!reason && app.proactive_idle_enabled && app.proactive_idle_hours) {
       const idleHours = Number(app.proactive_idle_hours);
       const lastAt = await getLastMessageAt(sessionId);
       if (idleHours > 0 && lastAt) {
@@ -141,11 +155,13 @@ router.get('/', async (req, res, next) => {
 
     // 记录本次主动消息时间 + 问候日期，防重复
     const patch = { proactive_last_at: now.toISOString() };
-    if (reason === 'greeting') patch.proactive_last_greeting_date = today;
+    if (reason === 'morning') patch.proactive_last_morning_date = today;
+    if (reason === 'night') patch.proactive_last_night_date = today;
     await saveAppSettings(patch);
 
     // 推 Bark 通知到手机
-    const title = reason === 'greeting' ? '问候 💌' : '想你了 💬';
+    const titles = { morning: '早安 ☀️', night: '晚安 🌙', idle: '想你了 💬' };
+    const title = titles[reason] || '问候 💌';
     await sendBarkNotification(app.bark_url, title, content);
 
     return res.json({ sent: true, reason, sessionId, message: assistantMessage });

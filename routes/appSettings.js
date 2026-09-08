@@ -4,7 +4,7 @@ import { getAppSettings, saveAppSettings } from '../lib/db.js';
 const router = Router();
 
 const KEY_FIELDS = ['deepseek_api_key', 'openai_api_key', 'anthropic_api_key'];
-const BOOL_FIELDS = ['proactive_enabled', 'proactive_greeting_enabled', 'reply_notify_enabled'];
+const BOOL_FIELDS = ['proactive_enabled', 'proactive_morning_enabled', 'proactive_night_enabled', 'proactive_idle_enabled', 'reply_notify_enabled'];
 const INT_NULL_FIELDS = ['proactive_idle_hours'];
 const FIELDS = [
   'personal_signature',
@@ -16,10 +16,12 @@ const FIELDS = [
   'anthropic_base_url',
   'anthropic_protocol',
   'proactive_enabled',
+  'proactive_morning_enabled',
+  'proactive_morning_time',
+  'proactive_night_enabled',
+  'proactive_night_time',
+  'proactive_idle_enabled',
   'proactive_idle_hours',
-  'proactive_greeting_enabled',
-  'proactive_greeting_time',
-  'proactive_greeting_prompt',
   'bark_url',
   'reply_notify_enabled',
 ];
@@ -42,12 +44,14 @@ router.get('/', async (req, res, next) => {
         anthropic_base_url: s.anthropic_base_url || '',
         anthropic_protocol: s.anthropic_protocol || 'anthropic',
         proactive_enabled: Boolean(s.proactive_enabled),
+        proactive_morning_enabled: s.proactive_morning_enabled !== false,
+        proactive_morning_time: s.proactive_morning_time || '08:00',
+        proactive_night_enabled: s.proactive_night_enabled !== false,
+        proactive_night_time: s.proactive_night_time || '22:00',
+        proactive_idle_enabled: Boolean(s.proactive_idle_enabled),
         proactive_idle_hours: s.proactive_idle_hours ?? null,
-        proactive_greeting_enabled: Boolean(s.proactive_greeting_enabled),
-        proactive_greeting_time: s.proactive_greeting_time || '',
-        proactive_greeting_prompt: s.proactive_greeting_prompt || '',
         bark_url: s.bark_url || '',
-        reply_notify_enabled: Boolean(s.reply_notify_enabled),
+        reply_notify_enabled: s.reply_notify_enabled !== false,
         deepseek_api_key: maskKey(s.deepseek_api_key),
         openai_api_key: maskKey(s.openai_api_key),
         anthropic_api_key: maskKey(s.anthropic_api_key),
