@@ -38,6 +38,24 @@ router.post('/task/parse', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /api/ai/alarm/parse —— 自然语言 → 提醒意图分类（普通提醒 / 时间敏感 / 闹钟）
+// 只有用户明确「设闹钟 / 叫我 / 强提醒 / 到点一定要提醒我」才判定为 ALARM。
+router.post('/alarm/parse', async (req, res, next) => {
+  try {
+    const text = String(req.body?.text || '').trim();
+    if (!text) throw new HttpError(400, 'INVALID', 'text 不能为空');
+    const reply = await aiCall({
+      model: config.defaultModel, temperature: 0.2, maxTokens: 400,
+      system: '你是提醒解析助手。根据用户的话判断这是普通提醒/日程、时间敏感提醒，还是明确的闹钟（强提醒）。只输出 JSON：{"notificationType":"NORMAL"|"TIME_SENSITIVE"|"ALARM","alarmIntent":true|false,"time":"HH:mm","date":"YYYY-MM-DD或空","repeat":"once"|"daily"|"weekdays"|"custom","title":"...","body":"..."}。规则：只有用户明确说「设闹钟/叫我/强提醒/到点一定要提醒我」等才设 notificationType=ALARM 且 alarmIntent=true；普通会议/任务/提醒用 NORMAL 或 TIME_SENSITIVE，绝不能因为事件重要就升级成 ALARM。时间/日期不确定就填空字符串。title/body 用自然中文。',
+      messages: [{ role: 'user', content: text }],
+    });
+    let parsed = null;
+    try { parsed = JSON.parse(stripFences(reply.content)); } catch {}
+    if (!parsed || typeof parsed !== 'object') throw new HttpError(502, 'PARSE_FAILED', 'AI 返回无法解析');
+    ok(res, parsed);
+  } catch (e) { next(e); }
+});
+
 // POST /api/ai/plan —— 生成计划预览（不落库，等用户确认）
 router.post('/plan', async (req, res, next) => {
   try {

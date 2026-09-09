@@ -4,6 +4,8 @@ import { getAppSettings, saveAppSettings } from '../lib/db.js';
 const router = Router();
 
 const KEY_FIELDS = ['deepseek_api_key', 'openai_api_key', 'anthropic_api_key'];
+// Bark 地址含 device token，视同密钥：不打码、不落前端，PUT 时打码值跳过不回写
+const SECRET_URL_FIELDS = ['bark_url'];
 const BOOL_FIELDS = ['proactive_morning_enabled', 'proactive_noon_enabled', 'proactive_night_enabled', 'proactive_idle_enabled', 'reply_notify_enabled'];
 const INT_NULL_FIELDS = ['proactive_idle_hours'];
 const FIELDS = [
@@ -34,6 +36,15 @@ function maskKey(k) {
   return k.slice(0, 4) + '••••' + k.slice(-4);
 }
 
+// Bark 地址形如 https://api.day.app/{token}，只暴露末尾 4 位
+function maskBarkUrl(u) {
+  if (!u) return '';
+  const token = String(u).split('/').filter(Boolean).pop() || '';
+  if (!token) return '••••••••';
+  if (token.length <= 8) return '••••••••';
+  return '••••••••' + token.slice(-4);
+}
+
 // GET /api/settings —— 全局设置（API key 只返回打码值，永不返回明文）
 router.get('/', async (req, res, next) => {
   try {
@@ -53,7 +64,8 @@ router.get('/', async (req, res, next) => {
         proactive_night_time: s.proactive_night_time || '22:00',
         proactive_idle_enabled: Boolean(s.proactive_idle_enabled),
         proactive_idle_hours: s.proactive_idle_hours ?? null,
-        bark_url: s.bark_url || '',
+        bark_set: Boolean(s.bark_url),
+        bark_url: maskBarkUrl(s.bark_url),
         reply_notify_enabled: s.reply_notify_enabled !== false,
         mcp_servers: (() => { try { return JSON.parse(s.mcp_servers || '[]'); } catch { return []; } })(),
         deepseek_api_key: maskKey(s.deepseek_api_key),
@@ -79,6 +91,10 @@ router.put('/', async (req, res, next) => {
       if (KEY_FIELDS.includes(key)) {
         const v = String(body[key]).trim();
         if (!v || v.includes('•')) continue; // 空或打码占位：跳过，保留原 key
+        partial[key] = v;
+      } else if (SECRET_URL_FIELDS.includes(key)) {
+        const v = String(body[key]).trim();
+        if (!v || v.includes('•')) continue; // 空或打码占位：跳过，保留原 Bark 地址
         partial[key] = v;
       } else if (BOOL_FIELDS.includes(key)) {
         partial[key] = Boolean(body[key]);

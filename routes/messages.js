@@ -6,7 +6,8 @@ import {
 import { prepareContext } from '../lib/context.js';
 import { chat, chatStream } from '../lib/ai.js';
 import { config } from '../lib/config.js';
-import { sendBarkNotification } from '../lib/bark.js';
+import { sendBark } from '../lib/bark.js';
+import { composeNotification, barkLevelFor } from '../lib/notify.js';
 import { McpSession, parseMcpServers } from '../lib/mcp.js';
 
 const router = Router();
@@ -26,6 +27,26 @@ async function buildChatEnv(sessionId) {
     tools = mcp.tools;
   }
   return { settings, app, mcp, tools };
+}
+
+// 回复通知：标题/正文由 AI 生成（普通通知，绝不 critical/call）
+async function notifyReply(barkUrl, model, content) {
+  try {
+    const composed = await composeNotification({
+      model,
+      context: `AI 刚回复了用户一条消息。请生成一条简短的手机通知（标题+正文），概括或自然引出这条回复。type=NORMAL。回复内容：${content}`,
+    });
+    const lvl = composed && composed.type === 'ALARM' ? 'normal' : barkLevelFor(composed?.type);
+    await sendBark({
+      barkUrl,
+      title: composed?.title || '新的回复',
+      body: composed?.body || content,
+      level: lvl,
+    });
+  } catch (e) {
+    // 通知失败不阻断主流程
+    console.warn('[messages] 回复通知发送异常：', e.message);
+  }
 }
 
 // GET /api/sessions/:sessionId/messages —— 消息列表（?limit=）
@@ -85,7 +106,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
         metadata: { usage: result.usage, model },
       });
       await touchSession(sessionId);
-      if (notify) await sendBarkNotification(barkUrl, '回复 💬', full);
+      if (notify) await notifyReply(barkUrl, model, full);
 
       send({ done: true, assistantMessage, compressed });
       res.end();
@@ -106,7 +127,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       metadata: { usage: reply.usage, model },
     });
     await touchSession(sessionId);
-    if (notify) await sendBarkNotification(barkUrl, '回复 💬', reply.content);
+    if (notify) await notifyReply(barkUrl, model, reply.content);
 
     await mcp?.close();
     res.status(201).json({ userMessage, assistantMessage, compressed });

@@ -13,7 +13,8 @@ import {
 import { prepareContext } from '../lib/context.js';
 import { chat } from '../lib/ai.js';
 import { config } from '../lib/config.js';
-import { sendBarkNotification } from '../lib/bark.js';
+import { sendBark } from '../lib/bark.js';
+import { composeNotification, barkLevelFor } from '../lib/notify.js';
 
 const router = Router();
 
@@ -175,10 +176,19 @@ router.get('/', async (req, res, next) => {
     if (reason === 'night') patch.proactive_last_night_date = today;
     await saveAppSettings(patch);
 
-    // 推 Bark 通知到手机
-    const titles = { morning: '早安 ☀️', noon: '午安 🌤️', night: '晚安 🌙', idle: '想你了 💬' };
-    const title = titles[reason] || '问候 💌';
-    await sendBarkNotification(app.bark_url || config.barkUrl, title, content);
+    // 推 Bark 通知到手机：标题/正文由 AI 生成（普通通知，绝不 critical/call）
+    const reasonLabel = { morning: '早安问候', noon: '午安问候', night: '晚安问候', idle: '空闲关怀' }[reason] || '主动消息';
+    const composed = await composeNotification({
+      model,
+      context: `类型：${reasonLabel}。AI 主动发了一条消息，内容：${content}`,
+    });
+    const lvl = composed && composed.type === 'ALARM' ? 'normal' : barkLevelFor(composed?.type);
+    await sendBark({
+      barkUrl: app.bark_url || config.barkUrl,
+      title: composed?.title || reasonLabel,
+      body: composed?.body || content,
+      level: lvl,
+    });
 
     return res.json({ sent: true, reason, sessionId, message: assistantMessage });
   } catch (e) {
