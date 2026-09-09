@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的计划 · Bunny's Home</title>
+<style>
+  @font-face {
+    font-family: 'BAUHS93';
+    src: url('BAUHS93.TTF') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  :root {
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --line: #e6e9ef;
+    --line-soft: #eef1f6;
+    --text: #1f2733;
+    --text-2: #5b6472;
+    --text-3: #9aa3b2;
+    --font: 'BAUHS93', -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --sidebar-w: 248px;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea, select { font-family: inherit; }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: rgba(99,102,241,0.15); }
+
+  /* ---------- App shell ---------- */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 49; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .sidebar-overlay.show { opacity: 1; pointer-events: auto; }
+
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+    background: var(--panel); border-right: 1px solid var(--line);
+    padding: 20px 14px; display: flex; flex-direction: column; z-index: 50;
+    transition: transform .24s ease;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 600;
+    padding: 4px 8px 18px; letter-spacing: .3px;
+  }
+  .logo .dot { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg,#6366f1,#8b5cf6); display: grid; place-items: center; color: #fff; font-size: 12px; }
+  .nav-group { margin-top: 6px; }
+  .nav-label { font-size: 11px; color: var(--text-3); letter-spacing: 1px; padding: 4px 10px; margin: 14px 0 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 9px 10px; border-radius: 9px; font-size: 14px; color: var(--text-2);
+    margin-bottom: 2px; transition: background .15s, color .15s;
+  }
+  .nav-item:hover { background: var(--line-soft); color: var(--text); }
+  .nav-item.active { background: #eef2ff; color: #4f46e5; font-weight: 600; }
+  .nav-item .ico { width: 20px; text-align: center; font-size: 15px; }
+  .sidebar-foot { margin-top: auto; font-size: 12px; color: var(--text-3); padding: 10px; }
+
+  .main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; display: flex; flex-direction: column; }
+  .mobile-bar { display: none; }
+
+  /* ---------- Header ---------- */
+  .page-header {
+    padding: 22px 32px 16px; background: var(--bg);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
+  }
+  .page-header .top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .page-title-wrap { display: flex; align-items: center; gap: 12px; }
+  .menu-btn { display: none; font-size: 20px; padding: 6px 8px; border-radius: 8px; }
+  .menu-btn:hover { background: var(--line-soft); }
+  .page-title { font-size: 22px; font-weight: 700; letter-spacing: .3px; }
+  .page-sub { font-size: 13px; color: var(--text-3); margin-top: 3px; }
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .search-box { position: relative; }
+  .search-box input {
+    width: 200px; padding: 8px 12px 8px 32px; border: 1px solid var(--line);
+    border-radius: 9px; font-size: 13px; background: var(--panel); color: var(--text); outline: none;
+  }
+  .search-box input:focus { border-color: #c7cdfc; box-shadow: 0 0 0 3px rgba(99,102,241,0.10); }
+  .search-box .mag { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 14px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 9px;
+    font-size: 13.5px; font-weight: 600; background: var(--panel); border: 1px solid var(--line);
+    color: var(--text-2); transition: all .15s;
+  }
+  .btn:hover { border-color: #c9cedb; color: var(--text); }
+  .btn-primary { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+  .btn-primary:hover { background: #4338ca; border-color: #4338ca; color: #fff; }
+  .btn-ghost { background: transparent; border-color: transparent; }
+  .btn-ghost:hover { background: var(--line-soft); }
+  .count-badge { font-size: 12px; color: var(--text-3); background: var(--line-soft); padding: 4px 9px; border-radius: 20px; }
+
+  /* ---------- Content ---------- */
+  .page-content { padding: 24px 32px 60px; flex: 1; }
+  .plans-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; align-items: start; }
+
+  /* ---------- Plan card ---------- */
+  .plan-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+    display: flex; flex-direction: column;
+  }
+  .plan-card.archived { opacity: .62; }
+  .plan-card .card-head {
+    padding: 14px 16px; border-bottom: 1px solid var(--tc-border, var(--line));
+    background: var(--tc-soft, var(--line-soft));
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  }
+  .plan-card .card-head .title-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .color-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--tc); flex: 0 0 auto; box-shadow: 0 0 0 3px var(--tc-border, transparent); }
+  .plan-card h3 { font-size: 15.5px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plan-card .period { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+  .archived-badge { font-size: 11px; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 6px; }
+  .card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .field-label { font-size: 11.5px; font-weight: 600; color: var(--text-3); letter-spacing: .4px; margin-bottom: 6px; }
+  .card-body textarea, .card-body input[type=text], .card-body input[type=date] {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 13.5px; color: var(--text); background: #fbfcfe; outline: none; resize: vertical;
+  }
+  .card-body textarea:focus, .card-body input:focus { border-color: var(--tc, #6366f1); box-shadow: 0 0 0 3px var(--tc-soft, rgba(99,102,241,.1)); }
+
+  .goal-list { display: flex; flex-direction: column; gap: 8px; }
+  .goal-row { display: flex; align-items: center; gap: 8px; }
+  .goal-row .g-title { flex: 1; min-width: 0; }
+  .goal-row .g-progress { width: 64px; }
+  .goal-row .g-due { width: 128px; }
+  .goal-row .g-check { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--line); display: grid; place-items: center; color: transparent; flex: 0 0 auto; font-size: 12px; }
+  .goal-row .g-check.done { background: var(--tc); border-color: var(--tc); color: #fff; }
+  .progress-track { height: 6px; background: var(--line-soft); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; background: var(--tc); border-radius: 4px; transition: width .2s; }
+
+  .icon-btn { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--text-3); font-size: 14px; }
+  .icon-btn:hover { background: var(--line-soft); color: var(--text); }
+  .icon-btn.danger:hover { background: #fee2e2; color: #dc2626; }
+  .add-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--tc, #4f46e5); font-weight: 600; padding: 4px 2px; }
+  .add-link:hover { text-decoration: underline; }
+
+  /* ---------- Stage timeline ---------- */
+  .stage-item { display: flex; gap: 14px; }
+  .stage-rail { display: flex; flex-direction: column; align-items: center; width: 20px; }
+  .stage-node { width: 13px; height: 13px; border-radius: 50%; background: var(--tc); flex: 0 0 auto; margin-top: 4px; box-shadow: 0 0 0 4px var(--tc-soft, transparent); }
+  .stage-line { flex: 1; width: 2px; background: var(--tc-border, var(--line)); margin: 4px 0; }
+  .stage-body { flex: 1; min-width: 0; }
+
+  /* ---------- Monthly calendar ---------- */
+  .month-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .month-nav .month-title { font-size: 16px; font-weight: 700; min-width: 130px; text-align: center; }
+  .nav-arrow { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; font-size: 16px; color: var(--text-2); }
+  .nav-arrow:hover { background: var(--line-soft); }
+  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; min-width: 720px; }
+  .cal-scroll { overflow-x: auto; }
+  .dow { text-align: center; font-size: 12px; color: var(--text-3); font-weight: 600; padding: 4px 0 8px; }
+  .day-cell {
+    min-height: 118px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px; display: flex; flex-direction: column; gap: 5px; transition: border .15s, background .15s;
+  }
+  .day-cell.outside { background: #fafbfd; opacity: .55; }
+  .day-cell.today { border-color: var(--tc, #6366f1); box-shadow: 0 0 0 2px var(--tc-soft, rgba(99,102,241,.12)); }
+  .day-cell.dragover { border-color: var(--tc, #6366f1); background: var(--tc-soft, #eef2ff); }
+  .day-cell .day-num { font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+  .day-cell.today .day-num { color: var(--tc, #4f46e5); }
+  .task-chip {
+    display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 7px; border-radius: 7px;
+    background: var(--line-soft); cursor: grab; user-select: none;
+  }
+  .task-chip:active { cursor: grabbing; }
+  .task-chip .t-check { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--text-3); flex: 0 0 auto; display: grid; place-items: center; color: transparent; font-size: 9px; }
+  .task-chip.done .t-check { background: var(--tc); border-color: var(--tc); color: #fff; }
+  .task-chip.done .t-title { text-decoration: line-through; color: var(--text-3); }
+  .task-chip .t-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task-chip .prio { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+  .day-add { margin-top: auto; color: var(--text-3); font-size: 12px; padding: 3px; border-radius: 6px; text-align: center; }
+  .day-add:hover { color: var(--tc, #4f46e5); background: var(--line-soft); }
+
+  /* ---------- Weekly ---------- */
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; min-width: 760px; }
+  .week-scroll { overflow-x: auto; }
+  .week-col { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-height: 320px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .week-col.today { border-color: var(--tc, #6366f1); }
+  .week-col.dragover { background: var(--tc-soft, #eef2ff); border-color: var(--tc, #6366f1); }
+  .week-col .w-day { font-size: 12.5px; font-weight: 700; }
+  .week-col .w-date { font-size: 11px; color: var(--text-3); }
+  .task-row { display: flex; align-items: center; gap: 7px; font-size: 12.5px; padding: 6px 7px; border-radius: 8px; background: var(--line-soft); cursor: grab; }
+  .task-row:active { cursor: grabbing; }
+  .task-row.done .t-title { text-decoration: line-through; color: var(--text-3); }
+  .task-row .t-time { font-size: 10.5px; color: var(--text-3); font-family: ui-monospace, monospace; }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 5px; background: var(--tc-soft, #eef2ff); color: var(--tc, #4f46e5); }
+
+  /* ---------- Dashboard ---------- */
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  .dash-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; cursor: pointer; transition: box-shadow .15s, transform .15s; }
+  .dash-card:hover { box-shadow: 0 6px 20px rgba(16,24,40,0.07); transform: translateY(-1px); }
+  .dash-card .d-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dash-card .d-title { font-size: 14px; font-weight: 700; }
+  .dash-card .d-count { margin-left: auto; font-size: 11.5px; color: var(--text-3); }
+  .dash-metric { font-size: 15px; font-weight: 700; margin: 4px 0 8px; }
+  .dash-sub { font-size: 12.5px; color: var(--text-3); }
+
+  /* ---------- Empty state ---------- */
+  .empty { text-align: center; padding: 70px 20px; color: var(--text-3); }
+  .empty .e-ico { font-size: 44px; margin-bottom: 14px; }
+  .empty .e-title { font-size: 16px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+  .empty .e-sub { font-size: 13px; }
+
+  /* ---------- Menu dropdown ---------- */
+  .menu { position: fixed; z-index: 100; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(16,24,40,0.14); padding: 5px; min-width: 168px; }
+  .menu-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 11px; border-radius: 7px; font-size: 13.5px; color: var(--text-2); text-align: left; }
+  .menu-item:hover { background: var(--line-soft); color: var(--text); }
+  .menu-item.danger { color: #dc2626; }
+  .menu-item.danger:hover { background: #fee2e2; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn .15s ease; }
+  .modal { background: var(--panel); border-radius: 14px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(16,24,40,0.25); animation: pop .18s ease; }
+  .modal-head { padding: 18px 20px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { font-size: 16px; font-weight: 700; }
+  .modal-body { padding: 4px 20px 8px; }
+  .modal-foot { padding: 12px 20px 18px; display: flex; justify-content: flex-end; gap: 10px; }
+  .form-field { margin-bottom: 14px; }
+  .form-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+  .form-field input, .form-field textarea, .form-field select {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; font-size: 13.5px; color: var(--text); background: #fbfcfe; outline: none; resize: vertical;
+  }
+  .form-field input:focus, .form-field textarea:focus, .form-field select:focus { border-color: #c7cdfc; box-shadow: 0 0 0 3px rgba(99,102,241,0.10); }
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .swatch { width: 28px; height: 28px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: transform .1s; }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.sel { border-color: var(--text); box-shadow: 0 0 0 2px var(--panel); }
+  .custom-color { width: 30px; height: 30px; border: 1px dashed var(--text-3); border-radius: 8px; padding: 0; overflow: hidden; cursor: pointer; }
+  .custom-color input { width: 100%; height: 100%; border: none; padding: 0; cursor: pointer; background: transparent; }
+
+  /* ---------- Toast ---------- */
+  .toast-root { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .toast { background: #1f2733; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13.5px; box-shadow: 0 8px 24px rgba(16,24,40,0.25); animation: toastIn .2s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop { from { opacity: 0; transform: scale(.96) translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 30px rgba(16,24,40,0.2); }
+    .main { margin-left: 0; }
+    .menu-btn { display: inline-flex; }
+    .page-header { padding: 16px 18px 14px; }
+    .page-content { padding: 18px; }
+    .search-box input { width: 150px; }
+  }
+  @media (max-width: 520px) {
+    .plans-grid, .dash-grid { grid-template-columns: 1fr; }
+    .search-box input { width: 120px; }
+    .header-actions { gap: 7px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar-overlay" id="overlay" onclick="P.toggleSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="logo" onclick="P.go('index')"><span class="dot">🐰</span> Bunny's Home</div>
+    <div class="nav-group">
+      <div class="nav-label">计划</div>
+      <button class="nav-item" data-route="plans" onclick="P.go('plans')"><span class="ico">🗂️</span> 全部计划</button>
+      <button class="nav-item" data-route="long-term" onclick="P.go('long-term')"><span class="ico">🎯</span> 长期计划</button>
+      <button class="nav-item" data-route="stages" onclick="P.go('stages')"><span class="ico">🧩</span> 阶段计划</button>
+      <button class="nav-item" data-route="monthly" onclick="P.go('monthly')"><span class="ico">📆</span> 月度计划</button>
+      <button class="nav-item" data-route="weekly" onclick="P.go('weekly')"><span class="ico">📅</span> 周计划</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">其他</div>
+      <button class="nav-item" onclick="P.openSettings()"><span class="ico">⚙️</span> 设置</button>
+      <button class="nav-item" onclick="location.href='./index.html'"><span class="ico">💬</span> 返回聊天</button>
+    </div>
+    <div class="sidebar-foot">数据保存在本机浏览器</div>
+  </aside>
+
+  <main class="main">
+    <header class="page-header" id="header"></header>
+    <div class="page-content" id="content"></div>
+  </main>
+</div>
+<div id="modalRoot"></div>
+<div id="menuRoot"></div>
+<div class="toast-root" id="toastRoot"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   工具函数
+============================================================ */
+const pad = n => String(n).padStart(2, '0');
+const now = () => new Date();
+const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayStr = () => fmtDate(now());
+const parseDate = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const monthStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+const monthTitle = ms => { const [y,m] = ms.split('-'); return `${y}年${Number(m)}月`; };
+const ymd = d => `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`;
+const startOfWeek = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const day = (x.getDay()+6)%7; x.setDate(x.getDate()-day); return x; };
+const weekTitle = start => {
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate()+6);
+  return `${ymd(start)} - ${pad(end.getMonth()+1)}.${pad(end.getDate())}`;
+};
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2,8));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hexToRgb = hex => {
+  const h = hex.replace('#','');
+  const f = h.length === 3 ? h.split('').map(c => c+c).join('') : h;
+  const n = parseInt(f, 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+};
+const colorVars = hex => {
+  const { r, g, b } = hexToRgb(hex);
+  return {
+    '--tc': hex,
+    '--tc-soft': `rgba(${r},${g},${b},0.11)`,
+    '--tc-border': `rgba(${r},${g},${b},0.30)`
+  };
+};
+const colorStyle = hex => Object.entries(colorVars(hex)).map(([k,v]) => `${k}:${v}`).join(';');
+
+const PRESETS = [
+  { name:'Blue',   c:'#3b82f6' }, { name:'Purple', c:'#8b5cf6' },
+  { name:'Green',  c:'#10b981' }, { name:'Orange', c:'#f97316' },
+  { name:'Red',    c:'#ef4444' }, { name:'Pink',   c:'#ec4899' },
+  { name:'Yellow', c:'#eab308' }, { name:'Teal',   c:'#14b8a6' },
+  { name:'Gray',   c:'#6b7280' }
+];
+const DEFAULT_COLOR = { 'long-term':'#3b82f6', 'stage':'#8b5cf6', 'monthly':'#10b981', 'weekly':'#f97316' };
+const TYPE_META = {
+  'long-term': { label:'长期计划', sub:'管理你的长期目标与未来方向', newLabel:'新建长期计划', def:'我的长期计划' },
+  'stage':     { label:'阶段计划', sub:'把长期目标拆解成可执行的阶段', newLabel:'新建阶段计划', def:'第一阶段' },
+  'monthly':   { label:'月度计划', sub:'以月为单位安排你的计划', newLabel:'新建月度计划', def:null },
+  'weekly':    { label:'周计划',   sub:'以周为单位安排你的计划', newLabel:'新建周计划', def:null }
+};
+const PRIO = { none:{l:'无', c:'#d1d5db'}, low:{l:'低', c:'#34d399'}, medium:{l:'中', c:'#fbbf24'}, high:{l:'高', c:'#f87171'} };
+
+/* ============================================================
+   数据层（localStorage）
+============================================================ */
+const LS_KEY = 'bunny.plans.v1';
+
+function defaultPlan(type, anchor) {
+  const base = {
+    id: uid(), type, title: '', description: '', startDate:'', endDate:'',
+    themeColor: DEFAULT_COLOR[type], archived: false,
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+  if (type === 'long-term') { base.title = TYPE_META['long-term'].def; base.longGoal = ''; base.stageGoals = []; }
+  if (type === 'stage') { base.title = TYPE_META['stage'].def; base.stageGoal = ''; base.goals = []; base.results = []; }
+  if (type === 'monthly') { base.month = anchor || monthStr(now()); base.title = monthTitle(base.month); base.tasks = []; }
+  if (type === 'weekly') { const ws = anchor ? fmtDate(startOfWeek(parseDate(anchor))) : fmtDate(startOfWeek(now())); base.weekStart = ws; base.title = weekTitle(parseDate(ws)); base.tasks = []; }
+  return base;
+}
+function defaultStore() {
+  return {
+    'long-term': [ defaultPlan('long-term') ],
+    'stage':     [ defaultPlan('stage') ],
+    'monthly':   [ defaultPlan('monthly') ],
+    'weekly':    [ defaultPlan('weekly') ]
+  };
+}
+function loadStore() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return defaultStore();
+    const data = JSON.parse(raw);
+    for (const k of ['long-term','stage','monthly','weekly']) {
+      if (!Array.isArray(data[k])) data[k] = [];
+      if (data[k].length === 0) data[k] = [ defaultPlan(k) ];
+    }
+    return data;
+  } catch { return defaultStore(); }
+}
+function saveStore() { localStorage.setItem(LS_KEY, JSON.stringify(P.db)); }
+
+/* ============================================================
+   全局状态
+============================================================ */
+const P = {
+  db: loadStore(),
+  ui: {
+    route: 'plans',
+    showArchived: false,
+    search: '',
+    viewMonth: monthStr(now()),   // 月度日历当前查看的月份
+    viewWeek: fmtDate(startOfWeek(now())), // 周视图当前查看的周（周一）
+  },
+  typeKeys: { 'long-term':'long-term', 'stage':'stage', 'monthly':'monthly', 'weekly':'weekly' }
+};
+
+function plansOf(type) { return P.db[P.typeKeys[type]] || []; }
+function findPlan(type, id) { return plansOf(type).find(p => p.id === id); }
+function activePlans(type) { return plansOf(type).filter(p => !p.archived); }
+function archivedPlans(type) { return plansOf(type).filter(p => p.archived); }
+
+/* ============================================================
+   路由
+============================================================ */
+function parseHash() {
+  const h = location.hash.replace(/^#\/?/, '');
+  if (!h) return 'plans';
+  if (h.startsWith('plans/long-term')) return 'long-term';
+  if (h.startsWith('plans/stages')) return 'stages';
+  if (h.startsWith('plans/monthly')) return 'monthly';
+  if (h.startsWith('plans/weekly')) return 'weekly';
+  return 'plans';
+}
+const ROUTE_HASH = { 'plans':'#/plans', 'long-term':'#/plans/long-term', 'stages':'#/plans/stages', 'monthly':'#/plans/monthly', 'weekly':'#/plans/weekly' };
+
+P.go = function(route) {
+  if (route === 'index') { location.href = './index.html'; return; }
+  P.ui.route = route;
+  P.ui.search = '';
+  if (route === 'monthly') P.ui.viewMonth = monthStr(now());
+  if (route === 'weekly') P.ui.viewWeek = fmtDate(startOfWeek(now()));
+  if (location.hash !== ROUTE_HASH[route]) location.hash = ROUTE_HASH[route];
+  else render();
+  P.closeMenu(); P.toggleSidebar(false);
+};
+P.toggleSidebar = function(force) {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('overlay');
+  const open = force !== undefined ? force : !sb.classList.contains('open');
+  sb.classList.toggle('open', open);
+  ov.classList.toggle('show', open);
+};
+
+/* ============================================================
+   渲染
+============================================================ */
+function render() {
+  P.ui.route = parseHash();
+  renderSidebar();
+  renderHeader();
+  const c = document.getElementById('content');
+  const route = P.ui.route;
+  if (route === 'plans') c.innerHTML = viewDashboard();
+  else if (route === 'long-term') c.innerHTML = viewLongTerm();
+  else if (route === 'stages') c.innerHTML = viewStage();
+  else if (route === 'monthly') c.innerHTML = viewMonthly();
+  else if (route === 'weekly') c.innerHTML = viewWeekly();
+}
+
+function renderSidebar() {
+  document.querySelectorAll('.nav-item[data-route]').forEach(el => {
+    el.classList.toggle('active', el.dataset.route === P.ui.route);
+  });
+}
+
+function renderHeader() {
+  const route = P.ui.route;
+  const meta = route === 'plans' ? { label:'我的计划', sub:'长期 · 阶段 · 月度 · 周', newLabel:null } : TYPE_META[route];
+  const total = route === 'plans'
+    ? Object.keys(P.typeKeys).reduce((s,k) => s + P.db[P.typeKeys[k]].filter(p => !p.archived).length, 0)
+    : plansOf(route).filter(p => !p.archived).length;
+  const hasArchived = route !== 'plans' && archivedPlans(route).length > 0;
+  const h = document.getElementById('header');
+  h.innerHTML = `
+    <div class="top-row">
+      <div class="page-title-wrap">
+        <button class="menu-btn" onclick="P.toggleSidebar()">☰</button>
+        <div>
+          <div class="page-title">${esc(meta.label)}</div>
+          <div class="page-sub">${esc(meta.sub)}</div>
+        </div>
+        <span class="count-badge">${total} 个计划</span>
+      </div>
+      <div class="header-actions">
+        <div class="search-box">
+          <span class="mag">⌕</span>
+          <input id="searchInput" type="text" placeholder="搜索…" value="${esc(P.ui.search)}" oninput="P.onSearch(this.value)">
+        </div>
+        ${hasArchived ? `<button class="btn" onclick="P.toggleArchived()">${P.ui.showArchived ? '← 返回' : '🗂 已归档'}</button>` : ''}
+        ${route !== 'plans' ? `<button class="btn btn-primary" onclick="P.openCreate('${route}')">＋ ${esc(meta.newLabel)}</button>` : ''}
+      </div>
+    </div>`;
+}
+
+P.onSearch = function(v) { P.ui.search = v.trim(); renderContentOnly(); };
+P.toggleArchived = function() { P.ui.showArchived = !P.ui.showArchived; render(); };
+
+function renderContentOnly() {
+  const c = document.getElementById('content');
+  const route = P.ui.route;
+  if (route === 'plans') c.innerHTML = viewDashboard();
+  else if (route === 'long-term') c.innerHTML = viewLongTerm();
+  else if (route === 'stages') c.innerHTML = viewStage();
+  else if (route === 'monthly') c.innerHTML = viewMonthly();
+  else if (route === 'weekly') c.innerHTML = viewWeekly();
+}
+
+/* ============================================================
+   通用组件
+============================================================ */
+P.toast = function(msg) {
+  const root = document.getElementById('toastRoot');
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  root.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 2200);
+};
+
+P.modal = function(html) {
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-overlay" onmousedown="if(event.target===this)P.closeModal()"><div class="modal">${html}</div></div>`;
+};
+P.closeModal = function() { document.getElementById('modalRoot').innerHTML = ''; };
+
+P._confirmCb = null;
+P.confirm = function(title, msg, onYes) {
+  P._confirmCb = onYes;
+  P.modal(`
+    <div class="modal-head"><h3>${esc(title)}</h3><button class="icon-btn" onclick="P.closeModal()">✕</button></div>
+    <div class="modal-body"><p style="font-size:13.5px;color:var(--text-2);line-height:1.6">${esc(msg)}</p></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="P.closeModal()">取消</button>
+      <button class="btn btn-primary" style="background:#dc2626;border-color:#dc2626" onclick="P.confirmYes()">删除</button>
+    </div>`);
+};
+P.confirmYes = function() {
+  const cb = P._confirmCb; P._confirmCb = null; P.closeModal();
+  if (typeof cb === 'function') cb();
+};
+
+/* 下拉菜单 */
+P.openMenu = function(e, items) {
+  e.stopPropagation();
+  P.closeMenu();
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.innerHTML = items.map(it => {
+    const cls = it.danger ? 'menu-item danger' : 'menu-item';
+    return `<button class="${cls}" onclick="P.closeMenu();${it.fn}">${esc(it.label)}</button>`;
+  }).join('');
+  document.getElementById('menuRoot').appendChild(menu);
+  const r = menu.getBoundingClientRect();
+  let x = e.clientX, y = e.clientY;
+  if (x + r.width > innerWidth - 8) x = innerWidth - r.width - 8;
+  if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8;
+  menu.style.left = x + 'px'; menu.style.top = y + 'px';
+  setTimeout(() => document.addEventListener('click', P.closeMenu, { once:true }), 0);
+};
+P.closeMenu = function() { document.getElementById('menuRoot').innerHTML = ''; };
+
+function planMenu(type, plan) {
+  const items = [];
+  items.push({ label:'✏️ 编辑名称', fn:`P.editName('${type}','${plan.id}')` });
+  items.push({ label:'🎨 修改主题颜色', fn:`P.pickColor('${type}','${plan.id}')` });
+  items.push({ label:'📑 复制计划', fn:`P.duplicate('${type}','${plan.id}')` });
+  items.push(plan.archived
+    ? { label:'↩️ 恢复', fn:`P.archive('${type}','${plan.id}',false)` }
+    : { label:'📥 归档', fn:`P.archive('${type}','${plan.id}',true)` });
+  items.push({ label:'🗑️ 删除', danger:true, fn:`P.remove('${type}','${plan.id}')` });
+  return items;
+}
+
+/* ============================================================
+   计划 CRUD
+============================================================ */
+P.openCreate = function(type) {
+  const isMonthly = type === 'monthly';
+  const isWeekly = type === 'weekly';
+  const defName = isMonthly ? monthTitle(P.ui.viewMonth) : isWeekly ? weekTitle(parseDate(P.ui.viewWeek)) : TYPE_META[type].def + ' ' + (plansOf(type).length + 1);
+  P.modal(`
+    <div class="modal-head"><h3>${esc(TYPE_META[type].newLabel)}</h3><button class="icon-btn" onclick="P.closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>计划名称</label>
+        <input id="cName" type="text" value="${esc(defName)}" placeholder="输入计划名称">
+      </div>
+      ${isMonthly ? `<div class="form-field"><label>月份</label><input id="cMonth" type="month" value="${esc(P.ui.viewMonth)}"></div>` : ''}
+      ${isWeekly ? `<div class="form-field"><label>周起始（周一）</label><input id="cWeek" type="date" value="${esc(P.ui.viewWeek)}"></div>` : ''}
+      ${(!isMonthly && !isWeekly) ? `
+        <div class="form-field"><label>开始日期</label><input id="cStart" type="date"></div>
+        <div class="form-field"><label>结束日期</label><input id="cEnd" type="date"></div>` : ''}
+      <div class="form-field">
+        <label>主题颜色</label>
+        <div class="swatch-row" id="cSwatches">${swatchHtml(DEFAULT_COLOR[type])}</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="P.closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="P.submitCreate('${type}')">创建计划</button>
+    </div>`);
+  const si = document.getElementById('cSwatches');
+  si.addEventListener('click', e => { const s = e.target.closest('.swatch'); if (s) selectSwatch(si, s.dataset.c); });
+  const custom = document.getElementById('cSwatches').querySelector('.custom-color input');
+  if (custom) custom.addEventListener('input', e => { const s = si.querySelector('.swatch.sel'); if (s) s.dataset.c = e.target.value; s && (s.style.background = e.target.value); });
+};
+
+function swatchHtml(sel) {
+  return PRESETS.map(p => `<div class="swatch ${p.c===sel?'sel':''}" data-c="${p.c}" style="background:${p.c}" title="${p.name}"></div>`).join('')
+    + `<label class="custom-color" title="自定义"><input type="color" value="${sel}"></label>`;
+}
+function selectSwatch(container, c) {
+  container.querySelectorAll('.swatch').forEach(s => s.classList.toggle('sel', s.dataset.c === c));
+}
+function readSwatch(container) {
+  const sel = container.querySelector('.swatch.sel');
+  if (sel) return sel.dataset.c;
+  const custom = container.querySelector('.custom-color input');
+  return custom ? custom.value : '#6366f1';
+}
+
+P.submitCreate = function(type) {
+  const name = (document.getElementById('cName').value || '').trim() || TYPE_META[type].def;
+  let color = readSwatch(document.getElementById('cSwatches'));
+  const plan = { id: uid(), type, title: name, description:'', startDate:'', endDate:'', themeColor: color, archived:false, createdAt:Date.now(), updatedAt:Date.now() };
+  if (type === 'monthly') {
+    plan.month = document.getElementById('cMonth').value || P.ui.viewMonth;
+    plan.title = name;
+    plan.tasks = [];
+    P.ui.viewMonth = plan.month;
+  } else if (type === 'weekly') {
+    const wd = document.getElementById('cWeek').value || P.ui.viewWeek;
+    plan.weekStart = fmtDate(startOfWeek(parseDate(wd)));
+    plan.title = name;
+    plan.tasks = [];
+    P.ui.viewWeek = plan.weekStart;
+  } else {
+    plan.startDate = document.getElementById('cStart').value || '';
+    plan.endDate = document.getElementById('cEnd').value || '';
+    if (type === 'long-term') { plan.longGoal = ''; plan.stageGoals = []; }
+    if (type === 'stage') { plan.stageGoal = ''; plan.goals = []; plan.results = []; }
+  }
+  P.db[P.typeKeys[type]].unshift(plan);
+  saveStore(); P.closeModal(); render();
+  P.toast('已创建「' + plan.title + '」');
+};
+
+P.editName = function(type, id) {
+  const plan = findPlan(type, id); if (!plan) return;
+  P.modal(`
+    <div class="modal-head"><h3>编辑名称</h3><button class="icon-btn" onclick="P.closeModal()">✕</button></div>
+    <div class="modal-body"><div class="form-field"><label>计划名称</label><input id="eName" type="text" value="${esc(plan.title)}"></div></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="P.closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="P.saveName('${type}','${id}')">保存</button>
+    </div>`);
+  document.getElementById('eName').focus(); document.getElementById('eName').select();
+};
+P.saveName = function(type, id) {
+  const v = (document.getElementById('eName').value || '').trim();
+  if (!v) { P.toast('名称不能为空'); return; }
+  const plan = findPlan(type, id); if (!plan) return;
+  plan.title = v; plan.updatedAt = Date.now();
+  saveStore(); P.closeModal(); render(); P.toast('已保存');
+};
+
+P.pickColor = function(type, id) {
+  const plan = findPlan(type, id); if (!plan) return;
+  P.modal(`
+    <div class="modal-head"><h3>主题颜色</h3><button class="icon-btn" onclick="P.closeModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--text-3);margin-bottom:12px">该颜色只作用于当前计划表</p>
+      <div class="swatch-row" id="pSwatches">${swatchHtml(plan.themeColor)}</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="P.saveColor('${type}','${id}')">完成</button></div>`);
+  const si = document.getElementById('pSwatches');
+  si.addEventListener('click', e => { const s = e.target.closest('.swatch'); if (s) selectSwatch(si, s.dataset.c); });
+};
+P.saveColor = function(type, id) {
+  const color = readSwatch(document.getElementById('pSwatches'));
+  const plan = findPlan(type, id); if (!plan) return;
+  plan.themeColor = color; plan.updatedAt = Date.now();
+  saveStore(); P.closeModal(); render(); P.toast('颜色已更新');
+};
+
+P.duplicate = function(type, id) {
+  const plan = findPlan(type, id); if (!plan) return;
+  const copy = JSON.parse(JSON.stringify(plan));
+  copy.id = uid(); copy.title = plan.title + ' (副本)'; copy.archived = false; copy.createdAt = Date.now(); copy.updatedAt = Date.now();
+  if (type === 'monthly') { copy.month = monthStr(now()); copy.title = monthTitle(copy.month); }
+  if (type === 'weekly') { copy.weekStart = fmtDate(startOfWeek(now())); copy.title = weekTitle(parseDate(copy.weekStart)); }
+  (copy.tasks || []).forEach(t => t.id = uid());
+  (copy.stageGoals || []).forEach(g => g.id = uid());
+  (copy.goals || []).forEach(g => g.id = uid());
+  (copy.results || []).forEach(r => r.id = uid());
+  plansOf(type).unshift(copy);
+  saveStore(); render(); P.toast('已复制');
+};
+
+P.archive = function(type, id, val) {
+  const plan = findPlan(type, id); if (!plan) return;
+  plan.archived = val; plan.updatedAt = Date.now();
+  saveStore(); render(); P.toast(val ? '已归档' : '已恢复');
+};
+
+P.remove = function(type, id) {
+  const plan = findPlan(type, id); if (!plan) return;
+  P.confirm('删除计划', `确定要删除「${plan.title}」吗？该计划下的所有任务/目标都会被删除，且不可恢复。`, () => {
+    const arr = P.db[P.typeKeys[type]];
+    const idx = arr.findIndex(p => p.id === id);
+    if (idx > -1) arr.splice(idx, 1);
+    if (arr.filter(p => !p.archived).length === 0) arr.push(defaultPlan(type));
+    saveStore(); render(); P.toast('已删除');
+  });
+};
+
+/* ============================================================
+   长期计划
+============================================================ */
+function viewLongTerm() {
+  const plans = visiblePlans('long-term');
+  if (plans.length === 0) return emptyState('还没有长期计划', '点击右上角「+ 新建长期计划」创建你的第一个长期目标', 'long-term');
+  return `<div class="plans-grid">${plans.map(p => longTermCard(p)).join('')}</div>`;
+}
+
+function longTermCard(p) {
+  const goal = p.longGoal || '';
+  const goals = p.stageGoals || [];
+  const period = (p.startDate && p.endDate) ? `${p.startDate} ~ ${p.endDate}` : '预计周期';
+  return `<div class="plan-card ${p.archived?'archived':''}" style="${colorStyle(p.themeColor)}">
+    <div class="card-head">
+      <div class="title-row">
+        <span class="color-dot"></span>
+        <div><h3>${esc(p.title)}</h3><div class="period">${esc(period)}</div></div>
+        ${p.archived ? '<span class="archived-badge">已归档</span>' : ''}
+      </div>
+      <button class="icon-btn" onclick="P.openMenu(event, planMenu('long-term','${p.id}'))">⋯</button>
+    </div>
+    <div class="card-body">
+      <div>
+        <div class="field-label">长期目标</div>
+        <textarea rows="2" placeholder="输入长期目标…" onchange="P.setLongGoal('${p.id}', this.value)">${esc(goal)}</textarea>
+      </div>
+      <div>
+        <div class="field-label">计划拆解 · 阶段目标</div>
+        <div class="goal-list">
+          ${goals.map(g => `
+            <div class="goal-row">
+              <button class="g-check ${g.completed?'done':''}" onclick="P.toggleStageGoal('${p.id}','${g.id}')">✓</button>
+              <input class="g-title" type="text" value="${esc(g.title)}" placeholder="阶段目标" onchange="P.setStageGoal('${p.id}','${g.id}','title',this.value)">
+              <input class="g-progress" type="number" min="0" max="100" value="${g.progress||0}" title="完成度 %" onchange="P.setStageGoal('${p.id}','${g.id}','progress',this.value)">
+              <input class="g-due" type="date" value="${esc(g.dueDate||'')}" title="截止日期" onchange="P.setStageGoal('${p.id}','${g.id}','dueDate',this.value)">
+              <button class="icon-btn danger" onclick="P.delStageGoal('${p.id}','${g.id}')">✕</button>
+            </div>`).join('')}
+        </div>
+        <button class="add-link" onclick="P.addStageGoal('${p.id}')">＋ 添加阶段目标</button>
+      </div>
+      ${goals.length ? `<div class="progress-track"><div class="progress-fill" style="width:${avgProgress(goals)}%"></div></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function avgProgress(goals) {
+  if (!goals.length) return 0;
+  return Math.round(goals.reduce((s,g) => s + (Number(g.progress)||0), 0) / goals.length);
+}
+
+P.setLongGoal = function(id, v) { const p = findPlan('long-term', id); if (!p) return; p.longGoal = v; p.updatedAt = Date.now(); saveStore(); };
+P.addStageGoal = function(id) { const p = findPlan('long-term', id); if (!p) return; p.stageGoals = p.stageGoals || []; p.stageGoals.push({ id:uid(), title:'', progress:0, dueDate:'', completed:false }); p.updatedAt = Date.now(); saveStore(); render(); };
+P.setStageGoal = function(pid, gid, field, v) { const p = findPlan('long-term', pid); if (!p) return; const g = p.stageGoals.find(x => x.id === gid); if (!g) return; if (field === 'progress') g.progress = Math.max(0, Math.min(100, Number(v)||0)); else g[field] = v; p.updatedAt = Date.now(); saveStore(); };
+P.toggleStageGoal = function(pid, gid) { const p = findPlan('long-term', pid); if (!p) return; const g = p.stageGoals.find(x => x.id === gid); if (!g) return; g.completed = !g.completed; if (g.completed) g.progress = 100; else if (g.progress === 100) g.progress = 0; p.updatedAt = Date.now(); saveStore(); render(); };
+P.delStageGoal = function(pid, gid) { const p = findPlan('long-term', pid); if (!p) return; p.stageGoals = p.stageGoals.filter(x => x.id !== gid); p.updatedAt = Date.now(); saveStore(); render(); };
+
+/* ============================================================
+   阶段计划
+============================================================ */
+function viewStage() {
+  const plans = visiblePlans('stage');
+  if (plans.length === 0) return emptyState('还没有阶段计划', '点击右上角「+ 新建阶段计划」', 'stage');
+  return `<div class="plans-grid">${plans.map(p => stageCard(p)).join('')}</div>`;
+}
+
+function stageCard(p) {
+  const goals = p.goals || [];
+  const results = p.results || [];
+  const period = (p.startDate || p.endDate) ? `${p.startDate||'?'} ~ ${p.endDate||'?'}` : '';
+  return `<div class="plan-card ${p.archived?'archived':''}" style="${colorStyle(p.themeColor)}">
+    <div class="card-head">
+      <div class="title-row">
+        <span class="color-dot"></span>
+        <div><h3>${esc(p.title)}</h3>${period ? `<div class="period">${esc(period)}</div>` : ''}</div>
+        ${p.archived ? '<span class="archived-badge">已归档</span>' : ''}
+      </div>
+      <button class="icon-btn" onclick="P.openMenu(event, planMenu('stage','${p.id}'))">⋯</button>
+    </div>
+    <div class="card-body">
+      <div>
+        <div class="field-label">阶段目标</div>
+        <textarea rows="2" placeholder="这个阶段要达成什么？" onchange="P.setStageGoal('${p.id}', this.value)">${esc(p.stageGoal||'')}</textarea>
+      </div>
+      <div class="stage-item">
+        <div class="stage-rail"><span class="stage-node"></span><span class="stage-line"></span></div>
+        <div class="stage-body">
+          <div class="field-label">目标</div>
+          <div class="goal-list">
+            ${goals.map(g => `
+              <div class="goal-row">
+                <button class="g-check ${g.completed?'done':''}" onclick="P.toggleStageSub('${p.id}','${g.id}')">✓</button>
+                <input class="g-title" type="text" value="${esc(g.title)}" placeholder="目标" onchange="P.setStageSub('${p.id}','${g.id}',this.value)">
+                <button class="icon-btn danger" onclick="P.delStageSub('${p.id}','${g.id}')">✕</button>
+              </div>`).join('')}
+          </div>
+          <button class="add-link" onclick="P.addStageSub('${p.id}')">＋ 添加目标</button>
+        </div>
+      </div>
+      <div class="stage-item">
+        <div class="stage-rail"><span class="stage-node"></span></div>
+        <div class="stage-body">
+          <div class="field-label">阶段性成果</div>
+          <div class="goal-list">
+            ${results.map(r => `
+              <div class="goal-row">
+                <input class="g-title" type="text" value="${esc(r.title)}" placeholder="成果" onchange="P.setStageResult('${p.id}','${r.id}',this.value)">
+                <input class="g-progress" type="number" min="0" max="100" value="${r.progress||0}" title="完成度 %" onchange="P.setStageResultProgress('${p.id}','${r.id}',this.value)">
+                <button class="icon-btn danger" onclick="P.delStageResult('${p.id}','${r.id}')">✕</button>
+              </div>`).join('')}
+          </div>
+          <button class="add-link" onclick="P.addStageResult('${p.id}')">＋ 添加成果</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+P.setStageGoal = function(id, v) { const p = findPlan('stage', id); if (!p) return; p.stageGoal = v; p.updatedAt = Date.now(); saveStore(); };
+P.addStageSub = function(id) { const p = findPlan('stage', id); if (!p) return; p.goals = p.goals || []; p.goals.push({ id:uid(), title:'', completed:false }); p.updatedAt = Date.now(); saveStore(); render(); };
+P.setStageSub = function(pid, gid, v) { const p = findPlan('stage', pid); if (!p) return; const g = p.goals.find(x => x.id === gid); if (g) { g.title = v; p.updatedAt = Date.now(); saveStore(); } };
+P.toggleStageSub = function(pid, gid) { const p = findPlan('stage', pid); if (!p) return; const g = p.goals.find(x => x.id === gid); if (g) { g.completed = !g.completed; p.updatedAt = Date.now(); saveStore(); render(); } };
+P.delStageSub = function(pid, gid) { const p = findPlan('stage', pid); if (!p) return; p.goals = p.goals.filter(x => x.id !== gid); p.updatedAt = Date.now(); saveStore(); render(); };
+P.addStageResult = function(id) { const p = findPlan('stage', id); if (!p) return; p.results = p.results || []; p.results.push({ id:uid(), title:'', progress:0 }); p.updatedAt = Date.now(); saveStore(); render(); };
+P.setStageResult = function(pid, rid, v) { const p = findPlan('stage', pid); if (!p) return; const r = p.results.find(x => x.id === rid); if (r) { r.title = v; p.updatedAt = Date.now(); saveStore(); } };
+P.setStageResultProgress = function(pid, rid, v) { const p = findPlan('stage', pid); if (!p) return; const r = p.results.find(x => x.id === rid); if (r) { r.progress = Math.max(0, Math.min(100, Number(v)||0)); p.updatedAt = Date.now(); saveStore(); } };
+P.delStageResult = function(pid, rid) { const p = findPlan('stage', pid); if (!p) return; p.results = p.results.filter(x => x.id !== rid); p.updatedAt = Date.now(); saveStore(); render(); };
+
+/* ============================================================
+   月度计划
+============================================================ */
+function viewMonthly() {
+  const ms = P.ui.viewMonth;
+  const [y, m] = ms.split('-').map(Number);
+  const plan = plansOf('monthly').find(p => p.month === ms && !p.archived);
+  const themeColor = plan ? plan.themeColor : DEFAULT_COLOR['monthly'];
+
+  const first = new Date(y, m-1, 1);
+  const startOffset = (first.getDay()+6) % 7; // 周一起始
+  const cells = [];
+  const gridStart = new Date(y, m-1, 1 - startOffset);
+  const today = todayStr();
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+    const ds = fmtDate(d);
+    const inMonth = d.getMonth() === (m-1);
+    let tasks = (plan ? plan.tasks : []).filter(t => t.date === ds);
+    if (P.ui.search) tasks = tasks.filter(t => t.title.toLowerCase().includes(P.ui.search.toLowerCase()));
+    cells.push(`
+      <div class="day-cell ${inMonth?'':'outside'} ${ds===today?'today':''}" data-date="${ds}"
+        ondragover="P.dragOver(event)" ondragleave="this.classList.remove('dragover')" ondrop="P.dragDrop(event,'${ms}','${ds}')">
+        <div class="day-num">${d.getDate()}</div>
+        ${tasks.map(t => taskChip(t, plan.id, themeColor)).join('')}
+        ${inMonth ? `<button class="day-add" onclick="P.openTask('${plan?plan.id:''}','${ds}')">＋</button>` : ''}
+      </div>`);
+  }
+
+  return `
+    <div class="month-nav">
+      <button class="nav-arrow" onclick="P.shiftMonth(-1)">‹</button>
+      <span class="month-title" style="color:${themeColor}">${monthTitle(ms)}</span>
+      <button class="nav-arrow" onclick="P.shiftMonth(1)">›</button>
+      <button class="btn" onclick="P.gotoToday()">今天</button>
+      ${plan ? `<span class="count-badge">${plan.tasks.filter(t=>t.completed).length} / ${plan.tasks.length} 完成</span>` : `<span class="count-badge">本月暂无计划</span>`}
+    </div>
+    <div class="cal-scroll">
+      <div class="calendar">
+        ${['周一','周二','周三','周四','周五','周六','周日'].map(w => `<div class="dow">${w}</div>`).join('')}
+        ${cells.join('')}
+      </div>
+    </div>
+    <div style="margin-top:14px;font-size:12.5px;color:var(--text-3)">${plan ? `当前计划表：<b style="color:${themeColor}">${esc(plan.title)}</b> · 点击日期可添加任务 · 拖拽任务可调整日期` : '这个月还没有计划表，点右上角「+ 新建月度计划」开始'}</div>`;
+}
+
+P.shiftMonth = function(delta) {
+  const [y, m] = P.ui.viewMonth.split('-').map(Number);
+  const d = new Date(y, m-1 + delta, 1);
+  P.ui.viewMonth = monthStr(d);
+  render();
+};
+P.gotoToday = function() { P.ui.viewMonth = monthStr(now()); render(); };
+
+function taskChip(t, planId, themeColor) {
+  const prio = PRIO[t.priority] || PRIO.none;
+  return `<div class="task-chip ${t.completed?'done':''}" draggable="true"
+    ondragstart="P.dragStart(event,'${planId}','${t.id}')" onclick="P.openTask('${planId}','${t.date}','${t.id}')"
+    title="${esc(t.title)}${t.note ? ' · '+esc(t.note) : ''}">
+    <button class="t-check ${t.completed?'done':''}" onclick="event.stopPropagation();P.toggleTask('${planId}','${t.id}')">✓</button>
+    <span class="t-title">${esc(t.title)}</span>
+    <span class="prio" style="background:${prio.c}"></span>
+  </div>`;
+}
+
+/* ============================================================
+   周计划
+============================================================ */
+function viewWeekly() {
+  const ws = P.ui.viewWeek;
+  const plan = plansOf('weekly').find(p => p.weekStart === ws && !p.archived);
+  const themeColor = plan ? plan.themeColor : DEFAULT_COLOR['weekly'];
+  const start = parseDate(ws);
+  const today = todayStr();
+  const days = ['星期一','星期二','星期三','星期四','星期五','星期六','星期日'];
+
+  const cols = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const ds = fmtDate(d);
+    let tasks = (plan ? plan.tasks : []).filter(t => t.date === ds);
+    if (P.ui.search) tasks = tasks.filter(t => t.title.toLowerCase().includes(P.ui.search.toLowerCase()));
+    cols.push(`
+      <div class="week-col ${ds===today?'today':''}" data-date="${ds}"
+        ondragover="P.dragOver(event)" ondragleave="this.classList.remove('dragover')" ondrop="P.dragDrop(event,'${ws}','${ds}')">
+        <div class="w-day" style="color:${themeColor}">${days[i]}</div>
+        <div class="w-date">${d.getMonth()+1}月${d.getDate()}日</div>
+        ${tasks.map(t => weekTaskRow(t, plan.id, themeColor)).join('')}
+        <button class="day-add" onclick="P.openTask('${plan?plan.id:''}','${ds}')">＋</button>
+      </div>`);
+  }
+
+  return `
+    <div class="month-nav">
+      <button class="nav-arrow" onclick="P.shiftWeek(-1)">‹</button>
+      <span class="month-title" style="color:${themeColor}">${weekTitle(start)}</span>
+      <button class="nav-arrow" onclick="P.shiftWeek(1)">›</button>
+      <button class="btn" onclick="P.thisWeek()">本周</button>
+      ${plan ? `<span class="count-badge">${plan.tasks.filter(t=>t.completed).length} / ${plan.tasks.length} 完成</span>` : `<span class="count-badge">本周暂无计划</span>`}
+    </div>
+    <div class="week-scroll">
+      <div class="week-grid">${cols.join('')}</div>
+    </div>
+    <div style="margin-top:14px;font-size:12.5px;color:var(--text-3)">${plan ? `当前计划表：<b style="color:${themeColor}">${esc(plan.title)}</b> · 拖拽任务可调整日期` : '这一周还没有计划表，点右上角「+ 新建周计划」开始'}</div>`;
+}
+
+P.shiftWeek = function(delta) {
+  const d = parseDate(P.ui.viewWeek); d.setDate(d.getDate() + delta*7);
+  P.ui.viewWeek = fmtDate(d); render();
+};
+P.thisWeek = function() { P.ui.viewWeek = fmtDate(startOfWeek(now())); render(); };
+
+function weekTaskRow(t, planId, themeColor) {
+  const prio = PRIO[t.priority] || PRIO.none;
+  return `<div class="task-row ${t.completed?'done':''}" draggable="true"
+    ondragstart="P.dragStart(event,'${planId}','${t.id}')" onclick="P.openTask('${planId}','${t.date}','${t.id}')">
+    <button class="t-check ${t.completed?'done':''}" style="width:14px;height:14px;border-radius:4px;border:1.5px solid var(--text-3);flex:0 0 auto;display:grid;place-items:center;color:transparent;font-size:9px;${t.completed?`background:${themeColor};border-color:${themeColor};color:#fff`:''}" onclick="event.stopPropagation();P.toggleTask('${planId}','${t.id}')">✓</button>
+    ${t.time ? `<span class="t-time">${esc(t.time)}</span>` : ''}
+    <span class="t-title" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</span>
+    <span class="prio" style="width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${prio.c}"></span>
+  </div>`;
+}
+
+/* ============================================================
+   任务 CRUD（月度 / 周度共用）
+============================================================ */
+function ensurePlan(type, date) {
+  let plan;
+  if (type === 'monthly') {
+    const ms = date.slice(0, 7);
+    plan = plansOf('monthly').find(p => p.month === ms && !p.archived);
+    if (!plan) {
+      plan = defaultPlan('monthly', ms);
+      P.db.monthly.unshift(plan);
+    }
+  } else {
+    const ws = fmtDate(startOfWeek(parseDate(date)));
+    plan = plansOf('weekly').find(p => p.weekStart === ws && !p.archived);
+    if (!plan) {
+      plan = defaultPlan('weekly', ws);
+      P.db.weekly.unshift(plan);
+    }
+  }
+  return plan;
+}
+
+P.openTask = function(planId, date, taskId) {
+  let plan;
+  const type = P.ui.route; // monthly / weekly
+  if (planId) plan = findPlan(type, planId);
+  if (!plan) plan = ensurePlan(type, date);
+  if (!plan) return;
+  const task = taskId ? plan.tasks.find(t => t.id === taskId) : null;
+  P.modal(`
+    <div class="modal-head"><h3>${task ? '编辑任务' : '添加任务'}</h3><button class="icon-btn" onclick="P.closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-field"><label>任务名称</label><input id="tTitle" type="text" value="${esc(task?task.title:'')}" placeholder="要做什么？"></div>
+      <div class="form-field"><label>日期</label><input id="tDate" type="date" value="${esc(task?task.date:date)}"></div>
+      ${type === 'weekly' ? `<div class="form-field"><label>时间</label><input id="tTime" type="time" value="${esc(task?task.time||'':'')}"></div>` : ''}
+      <div class="form-field"><label>优先级</label>
+        <select id="tPrio">
+          ${Object.entries(PRIO).map(([k,v]) => `<option value="${k}" ${task&&task.priority===k?'selected':''}>${v.l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field"><label>备注</label><textarea id="tNote" rows="2" placeholder="补充说明…">${esc(task?task.note||'':'')}</textarea></div>
+    </div>
+    <div class="modal-foot">
+      ${task ? `<button class="btn" style="color:#dc2626" onclick="P.deleteTask('${plan.id}','${task.id}')">删除</button>` : ''}
+      <button class="btn" onclick="P.closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="P.saveTask('${plan.id}','${task?task.id:''}')">保存</button>
+    </div>`);
+};
+
+P.saveTask = function(planId, taskId) {
+  const type = P.ui.route;
+  const plan = findPlan(type, planId); if (!plan) return;
+  const title = (document.getElementById('tTitle').value || '').trim();
+  if (!title) { P.toast('请输入任务名称'); return; }
+  const date = document.getElementById('tDate').value || todayStr();
+  const prio = document.getElementById('tPrio').value;
+  const note = (document.getElementById('tNote').value || '').trim();
+  const time = document.getElementById('tTime') ? document.getElementById('tTime').value : '';
+  plan.tasks = plan.tasks || [];
+  if (taskId) {
+    const t = plan.tasks.find(x => x.id === taskId);
+    if (t) { Object.assign(t, { title, date, prio, note, time }); }
+  } else {
+    plan.tasks.push({ id: uid(), title, date, prio, note, time, completed: false });
+  }
+  plan.updatedAt = Date.now();
+  saveStore(); P.closeModal(); render(); P.toast('已保存');
+};
+
+P.toggleTask = function(planId, taskId) {
+  const type = P.ui.route;
+  const plan = findPlan(type, planId); if (!plan) return;
+  const t = plan.tasks.find(x => x.id === taskId); if (!t) return;
+  t.completed = !t.completed; plan.updatedAt = Date.now();
+  saveStore(); render();
+};
+P.deleteTask = function(planId, taskId) {
+  const type = P.ui.route;
+  const plan = findPlan(type, planId); if (!plan) return;
+  plan.tasks = plan.tasks.filter(x => x.id !== taskId);
+  plan.updatedAt = Date.now();
+  saveStore(); P.closeModal(); render(); P.toast('已删除任务');
+};
+
+/* ---------- 拖拽 ---------- */
+P.dragStart = function(e, planId, taskId) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({ planId, taskId }));
+  e.dataTransfer.effectAllowed = 'move';
+};
+P.dragOver = function(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); e.dataTransfer.dropEffect = 'move'; };
+P.dragDrop = function(e, fromPlanId, toDate) {
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  let data; try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  if (!data || !data.taskId) return;
+  const type = P.ui.route;
+  let srcPlan = findPlan(type, data.planId);
+  if (!srcPlan) return;
+  const task = srcPlan.tasks.find(t => t.id === data.taskId);
+  if (!task) return;
+  // 目标计划：确保该日期属于一个计划表
+  let dstPlan;
+  if (type === 'monthly') dstPlan = ensurePlan('monthly', toDate);
+  else dstPlan = ensurePlan('weekly', toDate);
+  if (dstPlan.id === srcPlan.id) {
+    task.date = toDate;
+  } else {
+    srcPlan.tasks = srcPlan.tasks.filter(t => t.id !== data.taskId);
+    task.date = toDate;
+    dstPlan.tasks = dstPlan.tasks || [];
+    dstPlan.tasks.push(task);
+  }
+  srcPlan.updatedAt = Date.now(); dstPlan.updatedAt = Date.now();
+  saveStore(); render(); P.toast('已移动到 ' + toDate);
+};
+
+/* ============================================================
+   Dashboard（全部计划）
+============================================================ */
+function viewDashboard() {
+  const cards = [];
+  const meta = [
+    { type:'long-term', icon:'🎯', label:'长期计划' },
+    { type:'stage', icon:'🧩', label:'阶段计划' },
+    { type:'monthly', icon:'📆', label:'月度计划' },
+    { type:'weekly', icon:'📅', label:'周计划' }
+  ];
+  for (const m of meta) {
+    const type = m.type;
+    const acts = activePlans(type);
+    const current = acts[0];
+    let metric = '', sub = '', themeColor = DEFAULT_COLOR[type];
+    if (current) themeColor = current.themeColor;
+    if (type === 'long-term') {
+      const goals = current ? (current.stageGoals||[]) : [];
+      const pct = current ? avgProgress(goals) : 0;
+      metric = current ? current.title : '暂无';
+      sub = `${goals.length} 个阶段目标 · 完成度 ${pct}%`;
+    } else if (type === 'stage') {
+      const goals = current ? (current.goals||[]) : [];
+      const done = goals.filter(g => g.completed).length;
+      metric = current ? current.title : '暂无';
+      sub = `${done}/${goals.length} 目标完成`;
+    } else if (type === 'monthly') {
+      const ms = monthStr(now());
+      const plan = plansOf('monthly').find(p => p.month === ms && !p.archived);
+      if (plan) { themeColor = plan.themeColor; const done = plan.tasks.filter(t=>t.completed).length; metric = plan.title; sub = `${done} / ${plan.tasks.length} 完成`; }
+      else { metric = monthTitle(ms); sub = '本月暂无计划'; }
+    } else {
+      const ws = fmtDate(startOfWeek(now()));
+      const plan = plansOf('weekly').find(p => p.weekStart === ws && !p.archived);
+      if (plan) { themeColor = plan.themeColor; const done = plan.tasks.filter(t=>t.completed).length; metric = plan.title; sub = `${done} / ${plan.tasks.length} 完成`; }
+      else { metric = weekTitle(startOfWeek(now())); sub = '本周暂无计划'; }
+    }
+    cards.push(`
+      <div class="dash-card" style="${colorStyle(themeColor)}" onclick="P.go('${type}')">
+        <div class="d-head"><span>${m.icon}</span><span class="d-title" style="color:var(--tc)">${m.label}</span><span class="d-count">${acts.length} 个计划</span></div>
+        <div class="dash-metric">${esc(metric)}</div>
+        <div class="dash-sub">${esc(sub)}</div>
+      </div>`);
+  }
+  return `<div class="dash-grid">${cards.join('')}</div>`;
+}
+
+/* ============================================================
+   空状态 / 设置
+============================================================ */
+function visiblePlans(type) {
+  let list = activePlans(type);
+  if (P.ui.search) list = list.filter(p => p.title.toLowerCase().includes(P.ui.search.toLowerCase()) || (p.description||'').toLowerCase().includes(P.ui.search.toLowerCase()));
+  if (P.ui.showArchived) list = list.concat(archivedPlans(type));
+  return list;
+}
+function emptyState(title, sub, type) {
+  return `<div class="empty">
+    <div class="e-ico">${type==='monthly'?'📆':type==='weekly'?'📅':type==='stage'?'🧩':'🎯'}</div>
+    <div class="e-title">${esc(title)}</div>
+    <div class="e-sub">${esc(sub)}</div>
+  </div>`;
+}
+
+P.openSettings = function() {
+  let total = 0, tasks = 0;
+  for (const k of ['long-term','stage','monthly','weekly']) {
+    total += P.db[k].length;
+    P.db[k].forEach(p => tasks += (p.tasks||[]).length);
+  }
+  P.modal(`
+    <div class="modal-head"><h3>设置</h3><button class="icon-btn" onclick="P.closeModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-2);line-height:1.7">
+        计划表：<b>${total}</b> 个<br>任务：<b>${tasks}</b> 个<br>
+        数据保存在本机浏览器（localStorage），仅你自己可见。
+      </p>
+    </div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <div style="display:flex;gap:10px">
+        <button class="btn" onclick="P.exportData()">导出 JSON</button>
+        <button class="btn" style="color:#dc2626;border-color:#fecaca" onclick="P.clearData()">清空数据</button>
+      </div>
+      <button class="btn btn-primary" onclick="P.closeModal()">关闭</button>
+    </div>`);
+};
+P.exportData = function() {
+  const blob = new Blob([JSON.stringify(P.db, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bunny-plans.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  P.toast('已导出');
+};
+P.clearData = function() {
+  P.confirm('清空数据', '确定要清空所有计划数据吗？此操作不可恢复。', () => {
+    localStorage.removeItem(LS_KEY);
+    P.db = defaultStore();
+    saveStore(); render(); P.toast('已清空');
+  });
+};
+
+/* ============================================================
+   初始化
+============================================================ */
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>

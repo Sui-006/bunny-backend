@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { listPlans, createPlan, updatePlan, deletePlan } from '../lib/db.js';
 
+// 旧版「待办 / 本月 / 年度」计划板（已被四级计划取代，保留兼容，挂载在 /api/plans-board）
 const router = Router();
 const CATEGORIES = ['todo', 'month', 'year'];
 
-// GET /api/plans —— 全部计划（前端按 category 分组）
 router.get('/', async (req, res, next) => {
   try {
     const plans = await listPlans();
@@ -14,7 +14,6 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/plans —— 新增一条计划
 router.post('/', async (req, res, next) => {
   try {
     const category = req.body?.category;
@@ -28,7 +27,6 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-// PATCH /api/plans/:id —— 改内容 / 标记完成
 router.patch('/:id', async (req, res, next) => {
   try {
     const { content, done } = req.body || {};
@@ -46,7 +44,6 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /api/plans/:id
 router.delete('/:id', async (req, res, next) => {
   try {
     await deletePlan(req.params.id);
