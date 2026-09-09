@@ -53,7 +53,8 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
 
     const stream = settings.stream && tools.length === 0;
-    const notify = app?.reply_notify_enabled && app?.bark_url && req.body?.notify;
+    const barkUrl = app?.bark_url || config.barkUrl;
+    const notify = app?.reply_notify_enabled && barkUrl && req.body?.notify;
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -84,7 +85,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
         metadata: { usage: result.usage, model },
       });
       await touchSession(sessionId);
-      if (notify) await sendBarkNotification(app.bark_url, '回复 💬', full);
+      if (notify) await sendBarkNotification(barkUrl, '回复 💬', full);
 
       send({ done: true, assistantMessage, compressed });
       res.end();
@@ -105,7 +106,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       metadata: { usage: reply.usage, model },
     });
     await touchSession(sessionId);
-    if (notify) await sendBarkNotification(app.bark_url, '回复 💬', reply.content);
+    if (notify) await sendBarkNotification(barkUrl, '回复 💬', reply.content);
 
     await mcp?.close();
     res.status(201).json({ userMessage, assistantMessage, compressed });

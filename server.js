@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config } from './lib/config.js';
 import sessionsRouter from './routes/sessions.js';
 import messagesRouter from './routes/messages.js';
@@ -25,6 +27,10 @@ app.use('/api/sessions', settingsRouter);
 app.use('/api/settings', appSettingsRouter);
 app.use('/api/proactive', proactiveRouter);
 app.use('/api/plans', plansRouter);
+
+// 静态前端（合并部署：手机直接访问 Render 地址即可打开界面）
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // 404
 app.use((req, res) => {

@@ -178,7 +178,7 @@ router.get('/', async (req, res, next) => {
     // 推 Bark 通知到手机
     const titles = { morning: '早安 ☀️', noon: '午安 🌤️', night: '晚安 🌙', idle: '想你了 💬' };
     const title = titles[reason] || '问候 💌';
-    await sendBarkNotification(app.bark_url, title, content);
+    await sendBarkNotification(app.bark_url || config.barkUrl, title, content);
 
     return res.json({ sent: true, reason, sessionId, message: assistantMessage });
   } catch (e) {
