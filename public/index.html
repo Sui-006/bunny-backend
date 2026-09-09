@@ -2629,9 +2629,31 @@ const WeatherProvider = {
   async refresh() {
     if (!aiCan('weather')) return null;
     let w = DB.weather;
-    if (!w || Date.now() - (w.updatedAt || 0) > 3600 * 1000) { w = this.mock(); DB.weather = w; saveDB(); }
+    if (!w || Date.now() - (w.updatedAt || 0) > 3600 * 1000) {
+      w = await this.fetchReal() || this.mock();
+      DB.weather = w; saveDB(); render();
+    }
     this.evaluate(w);
     return w;
+  },
+  // 拉真实天气（高德，服务端封装）。失败返回 null，由调用方回退 mock。
+  async fetchReal() {
+    try {
+      const coords = await this.currentCoords();
+      if (!coords) return null;
+      const r = await fetch(API_BASE + '/api/weather?lat=' + coords.lat + '&lng=' + coords.lng);
+      if (!r.ok) return null;
+      const d = (await r.json()).data;
+      if (!d || !d.text) return null;
+      return { text: d.text, temp: d.temp, code: d.code, humidity: d.humidity, city: d.city, source: 'amap', updatedAt: Date.now() };
+    } catch (e) { return null; }
+  },
+  // 拿坐标：优先最近缓存过的真实定位；否则若已授权定位则实时取一次；否则 null（不主动弹权限框）。
+  async currentCoords() {
+    const c = DB.location;
+    if (c && c.lat && c.lng && Date.now() - (c.updatedAt || 0) < 3600 * 1000) return c;
+    if (aiCan('location')) { const loc = await LocationProvider.getCurrentLocation(); return (loc && loc.lat) ? loc : null; }
+    return null;
   },
   mock() {
     const opts = [{ text: '晴', temp: 26, code: 'sunny' }, { text: '多云', temp: 23, code: 'cloudy' }, { text: '小雨', temp: 18, code: 'rain' }, { text: '阴', temp: 21, code: 'overcast' }];
@@ -2655,8 +2677,10 @@ const LocationProvider = {
     });
   },
   async reverseGeocode(lat, lng) {
-    const key = (window && window.__AMAP_KEY__) || '';
-    if (key) { try { const r = await fetch('https://restapi.amap.com/v3/geocode/regeo?key=' + key + '&location=' + lng + ',' + lat); const j = await r.json(); if (j.status === '1' && j.regeocode && j.regeocode.addressComponent) return j.regeocode.addressComponent.city || j.regeocode.addressComponent.province || '未知'; } catch (e) {} }
+    try {
+      const r = await fetch(API_BASE + '/api/geocode?lat=' + lat + '&lng=' + lng);
+      if (r.ok) { const d = (await r.json()).data; if (d && (d.city || d.district)) return d.city || d.district; }
+    } catch (e) {}
     return '（已获取定位）';
   },
   mock() { return { city: '（Mock）未开启定位', lat: null, lng: null, source: 'mock', updatedAt: Date.now() }; },
@@ -2908,9 +2932,15 @@ function weatherSectionHtml() {
   let html = '<div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">';
   if (w) { const ico = { sunny: '☀️', cloudy: '⛅', rain: '🌧', overcast: '☁️' }[w.code] || '🌤'; html += '<span class="chip">' + ico + ' ' + esc(w.text) + ' ' + esc(String(w.temp)) + '°C' + (w.source === 'mock' ? ' <span style="opacity:.6">Mock</span>' : '') + '</span>'; }
   if (loc) html += '<span class="chip">📍 ' + esc(loc.city) + '</span>';
+  html += '<button class="btn btn-sm" onclick="refreshWeather()" title="刷新天气">↻ 刷新</button>';
   if (!w) html += '<button class="btn btn-sm" onclick="aiLocationModal()">开启定位/天气</button>';
   html += '</div>';
   return html;
+}
+async function refreshWeather() {
+  if (!aiCan('weather')) { toast('天气权限已关闭，请先在「我的AI 设置」中打开', true); return; }
+  await WeatherProvider.refresh();
+  toast(DB.weather && DB.weather.source === 'amap' ? '已更新实时天气' : '当前为 Mock 天气（未定位或未配置 AMAP_KEY）');
 }
 
 /* ---- 权限开关 UI ---- */
@@ -2928,9 +2958,13 @@ function aiLocationModal() {
 }
 function aiLocationAllow() {
   aiPerm().location = true; saveDB();
-  LocationProvider.getCurrentLocation().then((loc) => {
+  LocationProvider.getCurrentLocation().then(async (loc) => {
     toast('定位成功：' + esc(loc.city)); render();
     AIBus.emit({ type: 'LOCATION_CHANGED', entityType: 'location', payload: loc });
+    // 拿到位置后顺手拉一次真实天气
+    const w = await WeatherProvider.fetchReal();
+    if (w) { DB.weather = w; saveDB(); render(); WeatherProvider.evaluate(w); AIBus.emit({ type: 'WEATHER_UPDATED', entityType: 'weather', payload: w }); }
+    else toast('天气暂未更新（未配置 AMAP_KEY 或网络异常）');
   });
 }
 

@@ -32,3 +32,5 @@ services:
         value: "true"
       - key: FRONTEND_URL
         sync: false
+      - key: AMAP_KEY
+        sync: false

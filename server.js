@@ -36,6 +36,7 @@ import mcpRouter from './routes/mcp.js';
 import memoryRouter from './routes/memory.js';
 import aiRouter from './routes/ai.js';
 import filesRouter from './routes/files.js';
+import geoRouter from './routes/geo.js';
 
 const app = express();
 
@@ -79,6 +80,9 @@ app.use('/api/mcp', requireAuth, mcpRouter);
 app.use('/api/memory', requireAuth, memoryRouter);
 app.use('/api/ai', requireAuth, aiRouter);
 app.use('/api/files', requireAuth, filesRouter);
+
+// 天气 / 定位（高德服务端封装；公开数据代理，不挂 requireAuth）
+app.use('/api', geoRouter);
 
 // 静态前端（合并部署：手机直接访问 Render 地址即可打开界面）
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
