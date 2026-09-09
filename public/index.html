@@ -1721,7 +1721,30 @@ function deleteConversation(id) { DB.conversations = DB.conversations.filter((c)
 
 /* ================= MUSIC PLAYER ================= */
 let playerTimer = null;
+let musicAudio = null, musicAudioSrc = '', _musicResults = [], _neteaseUser = null, _neteasePlaylists = [], _qrKey = '', _qrTimer = null;
 function fmtTime(s) { s = Math.max(0, Math.floor(s)); return pad(Math.floor(s / 60)) + ':' + pad(s % 60); }
+function currentTrackIsReal() { const t = currentTrack(); return !!(t && t.url); }
+function ensureAudio() {
+  if (!musicAudio) {
+    musicAudio = new Audio();
+    musicAudio.preload = 'auto';
+    musicAudio.addEventListener('timeupdate', () => { if (!isNaN(musicAudio.currentTime)) { DB.player.currentTime = musicAudio.currentTime; playerUpdateProgressUI(); } });
+    musicAudio.addEventListener('ended', () => { playerNext(); });
+  }
+  musicAudio.volume = DB.player.volume || 0.8;
+  return musicAudio;
+}
+function applyAudio() {
+  const t = currentTrack();
+  if (t && t.url) {
+    const a = ensureAudio();
+    if (musicAudioSrc !== t.url) { musicAudioSrc = t.url; a.src = t.url; }
+  } else if (musicAudio) {
+    try { musicAudio.pause(); musicAudio.removeAttribute('src'); musicAudio.load(); } catch (e) {}
+    musicAudioSrc = '';
+  }
+  playerSyncTimer();
+}
 function viewPlayer() {
   const p = DB.player; const track = p.playlist[p.current] || { title: '—', artist: '—', duration: 0 };
   const cover = track.cover || '';
@@ -1734,39 +1757,152 @@ function viewPlayer() {
   html += '<div style="width:100%;max-width:380px"><div class="seek" onclick="playerSeek(event)"><span style="width:' + pct + '%"></span><div class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:11px;margin-top:6px"><span id="ptCur">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>';
   html += '<div class="player-controls"><button class="pctrl" onclick="playerPrev()">⏮</button><button class="pctrl play" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" onclick="playerNext()">⏭</button></div>';
   html += '<div class="row" style="width:100%;max-width:300px;gap:10px"><span>🔈</span><input type="range" min="0" max="1" step="0.05" value="' + p.volume + '" style="flex:1" oninput="playerVolume(this.value)"></div>';
+  html += '<div class="row" style="gap:8px;margin-top:8px;width:100%;max-width:420px"><input id="musicSearch" class="input" style="flex:1" placeholder="搜索网易云歌曲…" onkeydown="if(event.key===\'Enter\')musicSearch()"><button class="btn btn-primary" onclick="musicSearch()">搜索</button><button class="btn btn-sm" onclick="musicLoginModal()">' + (_neteaseUser ? '🎧 ' + esc(_neteaseUser.nickname) : '登录网易云') + '</button></div>';
+  html += '<div id="musicResults" style="width:100%;max-width:420px"></div>';
+  if (_neteasePlaylists && _neteasePlaylists.length) html += '<div class="row" style="gap:6px;width:100%;max-width:420px;flex-wrap:wrap">' + _neteasePlaylists.slice(0, 8).map((pl) => '<button class="btn btn-sm" onclick="musicAddPlaylist(' + pl.id + ')">' + esc(pl.name) + ' · ' + pl.count + '</button>').join('') + '</div>';
   html += '<div class="section-head" style="margin-top:8px"><h2>播放列表</h2></div>';
-  html += p.playlist.map((t, i) => '<div class="conv-item" style="' + (i === p.current ? 'background:var(--accent-tint)' : '') + '" onclick="playerSelect(' + i + ')"><div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#6b8cae,#8b5cf6);display:flex;align-items:center;justify-content:center">🎵</div><div class="grow"><div style="font-weight:600">' + esc(t.title) + '</div><div class="c-last">' + esc(t.artist) + '</div></div><span class="muted">' + fmtTime(t.duration) + '</span></div>').join('');
+  html += p.playlist.map((t, i) => '<div class="conv-item" style="' + (i === p.current ? 'background:var(--accent-tint)' : '') + '" onclick="playerSelect(' + i + ')"><div style="width:38px;height:38px;border-radius:10px;' + (t.cover ? 'background-image:url(' + t.cover + ');background-size:cover;background-position:center;' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6);') + 'display:flex;align-items:center;justify-content:center">' + (t.cover ? '' : '🎵') + '</div><div class="grow"><div style="font-weight:600">' + esc(t.title) + '</div><div class="c-last">' + esc(t.artist) + '</div></div><span class="muted">' + fmtTime(t.duration) + '</span></div>').join('');
   html += '</div>';
   return html;
+}
+function playerUpdateProgressUI() {
+  const p = DB.player; const track = p.playlist[p.current]; if (!track) return;
+  const pct = track.duration ? (p.currentTime / track.duration * 100) : 0;
+  const el = document.getElementById('ptCur'); if (el) el.textContent = fmtTime(p.currentTime);
+  const knob = document.querySelector('.seek-knob'); const bar = document.querySelector('.seek > span');
+  if (bar) bar.style.width = pct + '%'; if (knob) knob.style.left = pct + '%';
 }
 function playerTick() {
   const p = DB.player; const track = p.playlist[p.current]; if (!track) return;
   p.currentTime = Math.min(track.duration || 0, p.currentTime + 1);
-  const el = document.getElementById('ptCur'); if (el) el.textContent = fmtTime(p.currentTime);
-  const knob = document.querySelector('.seek-knob'); const bar = document.querySelector('.seek > span');
-  const pct = track.duration ? p.currentTime / track.duration * 100 : 0;
-  if (bar) bar.style.width = pct + '%'; if (knob) knob.style.left = pct + '%';
+  playerUpdateProgressUI();
   if (p.currentTime >= track.duration) playerNext();
 }
-function playerSyncTimer() { clearInterval(playerTimer); playerTimer = null; if (DB.player.playing) playerTimer = setInterval(playerTick, 1000); }
-function playerPlayPause() { DB.player.playing = !DB.player.playing; saveDB(); playerSyncTimer(); render(); AIBus.emit({ type: DB.player.playing ? 'MUSIC_PLAY' : 'MUSIC_PAUSE', entityType: 'music' }); }
+function playerSyncTimer() { clearInterval(playerTimer); playerTimer = null; const t = currentTrack(); if (DB.player.playing && t && !t.url) playerTimer = setInterval(playerTick, 1000); }
+function playerPlayPause() {
+  const t = currentTrack();
+  if (t && t.url) {
+    const a = ensureAudio();
+    if (DB.player.playing) { a.pause(); DB.player.playing = false; }
+    else { DB.player.playing = true; a.play().catch(() => { DB.player.playing = false; }); }
+  } else DB.player.playing = !DB.player.playing;
+  playerSyncTimer(); saveDB(); render();
+  AIBus.emit({ type: DB.player.playing ? 'MUSIC_PLAY' : 'MUSIC_PAUSE', entityType: 'music' });
+}
 function toggleTogether() {
   DB.player.togetherListening = !DB.player.togetherListening;
   saveDB(); render();
   if (DB.player.togetherListening) { toast('♥ 一起听'); aiLogActivity('music', '开启了「一起听」'); }
   else toast('已退出一起听');
 }
-function playerPrev() { DB.player.current = (DB.player.current - 1 + DB.player.playlist.length) % DB.player.playlist.length; DB.player.currentTime = 0; saveDB(); render(); AIBus.emit({ type: 'MUSIC_CHANGED', entityType: 'music', payload: currentTrack() }); }
-function playerNext() { DB.player.current = (DB.player.current + 1) % DB.player.playlist.length; DB.player.currentTime = 0; saveDB(); render(); AIBus.emit({ type: 'MUSIC_CHANGED', entityType: 'music', payload: currentTrack() }); }
-function playerSelect(i) { DB.player.current = i; DB.player.currentTime = 0; DB.player.playing = true; saveDB(); playerSyncTimer(); render(); AIBus.emit({ type: 'MUSIC_CHANGED', entityType: 'music', payload: currentTrack() }); }
-function playerVolume(v) { DB.player.volume = +v; saveDB(); }
+async function playTrack(i, autoplay) {
+  const p = DB.player; const t = p.playlist[i]; if (!t) return;
+  if (t.id && !t.url) {
+    try {
+      const r = await fetch(API_BASE + '/api/music/song-url?id=' + t.id);
+      const j = await r.json();
+      t.url = (j.data && j.data.url) || null;
+      if (!t.url) toast('⚠️ 这首歌暂无播放源（可能需登录/VIP）');
+      saveDB();
+    } catch (e) {}
+  }
+  p.current = i; p.currentTime = 0; p.playing = autoplay;
+  applyAudio();
+  if (autoplay && currentTrackIsReal()) ensureAudio().play().catch(() => { p.playing = false; });
+  playerSyncTimer(); saveDB(); render();
+  AIBus.emit({ type: 'MUSIC_CHANGED', entityType: 'music', payload: currentTrack() });
+}
+function playerSelect(i) { playTrack(i, true); }
+function moveTrack(delta) { const p = DB.player; const wasPlaying = p.playing; playTrack((p.current + delta + p.playlist.length) % p.playlist.length, wasPlaying); }
+function playerPrev() { moveTrack(-1); }
+function playerNext() { moveTrack(1); }
+function playerVolume(v) { DB.player.volume = +v; if (musicAudio) musicAudio.volume = DB.player.volume; saveDB(); }
 function playerSeek(e) {
   const p = DB.player; const track = p.playlist[p.current]; if (!track || !track.duration) return;
   const r = e.currentTarget.getBoundingClientRect(); const ratio = (e.clientX - r.left) / r.width;
-  p.currentTime = Math.max(0, Math.min(track.duration, ratio * track.duration)); saveDB();
-  const el = document.getElementById('ptCur'); if (el) el.textContent = fmtTime(p.currentTime);
-  const pct = p.currentTime / track.duration * 100; const knob = document.querySelector('.seek-knob'); const bar = document.querySelector('.seek > span');
-  if (bar) bar.style.width = pct + '%'; if (knob) knob.style.left = pct + '%';
+  p.currentTime = Math.max(0, Math.min(track.duration, ratio * track.duration));
+  if (currentTrackIsReal() && musicAudio) musicAudio.currentTime = p.currentTime;
+  saveDB(); playerUpdateProgressUI();
+}
+/* ---- 网易云：搜索 / 登录 / 歌单 ---- */
+async function musicSearch() {
+  const input = document.getElementById('musicSearch'); if (!input) return;
+  const kw = input.value.trim(); if (!kw) return;
+  const box = document.getElementById('musicResults'); if (!box) return;
+  box.innerHTML = '<div class="muted" style="padding:8px">搜索中…</div>';
+  try {
+    const r = await fetch(API_BASE + '/api/music/search?keywords=' + encodeURIComponent(kw) + '&limit=20');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const songs = (await r.json()).data || [];
+    _musicResults = songs;
+    if (!songs.length) { box.innerHTML = '<div class="muted" style="padding:8px">没有结果</div>'; return; }
+    box.innerHTML = songs.map((s, i) => '<div class="conv-item" onclick="musicAddFromResult(' + i + ')"><div style="width:38px;height:38px;border-radius:8px;' + (s.cover ? 'background-image:url(' + s.cover + ');background-size:cover;background-position:center;' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6);') + 'display:flex;align-items:center;justify-content:center">' + (s.cover ? '' : '🎵') + '</div><div class="grow"><div style="font-weight:600">' + esc(s.name) + '</div><div class="c-last">' + esc(s.artist) + (s.album ? ' · ' + esc(s.album) : '') + '</div></div><span class="muted">' + fmtTime(s.duration) + '</span></div>').join('');
+  } catch (e) { box.innerHTML = '<div class="muted" style="padding:8px">搜索失败：' + esc(e.message) + '</div>'; }
+}
+function musicAddFromResult(i) { const s = _musicResults[i]; if (s) musicAddSong(s); }
+function musicAddSong(s) {
+  const track = { id: s.id, title: s.name, artist: s.artist, cover: s.cover, duration: s.duration, url: null };
+  DB.player.playlist.push(track);
+  const idx = DB.player.playlist.length - 1;
+  saveDB();
+  fetch(API_BASE + '/api/music/song-url?id=' + s.id).then(r => r.json()).then(j => {
+    track.url = (j.data && j.data.url) || null;
+    if (!track.url) toast('⚠️ 暂无播放源（可能需登录/VIP）');
+    saveDB();
+  }).catch(() => {}).finally(() => playTrack(idx, true));
+}
+async function musicAddPlaylist(id) {
+  try {
+    const r = await fetch(API_BASE + '/api/music/playlist?id=' + id);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const songs = (await r.json()).data || [];
+    songs.forEach((s) => DB.player.playlist.push({ id: s.id, title: s.name, artist: s.artist, cover: s.cover, duration: s.duration, url: null }));
+    saveDB(); render(); toast('已加入 ' + songs.length + ' 首');
+  } catch (e) { toast('获取歌单失败：' + e.message, true); }
+}
+async function musicLoginModal() {
+  if (_neteaseUser) {
+    const rows = (_neteasePlaylists || []).map((pl) => '<div class="conv-item" onclick="OS.closeModal();musicAddPlaylist(' + pl.id + ')"><div class="grow"><div style="font-weight:600">' + esc(pl.name) + '</div><div class="c-last">' + pl.count + ' 首</div></div></div>').join('');
+    modal('<div class="modal-head"><h3>网易云 · ' + esc(_neteaseUser.nickname) + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' + (rows || '<div class="muted">暂无歌单</div>') + '</div><div class="modal-foot"><button class="btn" onclick="musicLogout()">退出登录</button></div>');
+    return;
+  }
+  try {
+    const r = await fetch(API_BASE + '/api/music/login/qr');
+    const d = (await r.json()).data;
+    if (!d || !d.qrimg) { toast('获取二维码失败', true); return; }
+    _qrKey = d.key;
+    modal('<div class="modal-head"><h3>登录网易云</h3><button class="x" onclick="OS.closeModal();if(_qrTimer){clearInterval(_qrTimer)}">✕</button></div><div class="modal-body" style="text-align:center"><img src="' + d.qrimg + '" style="width:220px;height:220px;border-radius:12px"><div class="muted" style="margin-top:8px">打开网易云 App 扫码登录</div><div id="qrHint" class="muted" style="margin-top:4px">等待扫码…</div></div>');
+    _qrTimer = setInterval(() => musicQrPoll(d.key), 2000);
+  } catch (e) { toast('登录失败：' + e.message, true); }
+}
+async function musicQrPoll(key) {
+  try {
+    const r = await fetch(API_BASE + '/api/music/login/check?key=' + key);
+    const d = (await r.json()).data; if (!d) return;
+    const hint = document.getElementById('qrHint');
+    if (d.code === 803) { if (_qrTimer) clearInterval(_qrTimer); if (hint) hint.textContent = '登录成功 ♥'; toast('网易云登录成功：' + (d.nickname || '')); await musicRefreshStatus(); OS.closeModal(); }
+    else if (d.code === 800) { if (_qrTimer) clearInterval(_qrTimer); if (hint) hint.textContent = '二维码已过期，请重新打开'; }
+    else if (d.code === 802) { if (hint) hint.textContent = '已扫码，请在手机上确认'; }
+    else if (d.code === 801) { if (hint) hint.textContent = '等待扫码…'; }
+  } catch (e) {}
+}
+async function musicRefreshStatus() {
+  try {
+    const r = await fetch(API_BASE + '/api/music/status');
+    if (!r.ok) return;
+    const u = (await r.json()).data || null;
+    const changed = (!!u !== !!_neteaseUser) || (u && _neteaseUser && u.userId !== _neteaseUser.userId);
+    _neteaseUser = u;
+    if (u) {
+      const pr = await fetch(API_BASE + '/api/music/playlists');
+      _neteasePlaylists = pr.ok ? ((await pr.json()).data || []) : [];
+    } else _neteasePlaylists = [];
+    if (changed) render();
+  } catch (e) {}
+}
+async function musicLogout() {
+  try { await fetch(API_BASE + '/api/music/logout', { method: 'POST' }); } catch (e) {}
+  _neteaseUser = null; _neteasePlaylists = []; render(); toast('已退出网易云');
 }
 
 /* ================= WORKSPACE ================= */
@@ -2070,45 +2206,9 @@ function clearData() { localStorage.removeItem(LS_KEY); DB = defaultDB(); saveDB
 /* ================= SETTINGS / APPEARANCE ================= */
 const CHINESE_FONTS = [
   ['汇文明朝体','Huiwen-mincho'],
-  ['千图笔锋手写体','qiantubifengshouxieti'],
-  ['钟齐志莽行书','Zhi Mang Xing'],
-  ['玄冬楷书','XuandongKaishu'],
   ['站酷小薇','xiaowei'],
   ['曉聲通秋茄','ToneOZ-Tsuipita-TC'],
   ['余繁新语','YuFanXinYu'],
-  ['程荣光刻楷','chengrongguangke'],
-  ['润植家康熙字典美化体','nzgrKangxi'],
-  ['平方赖江湖飞扬体','平方赖江湖飞扬体'],
-  ['原俠正楷','GuanKiapTsingKhai-T'],
-  ['游趣体','Child Fun Sans Demo'],
-  ['白路棒棒手写体','bailubangbangshouxieti'],
-  ['平方萌萌哒','PING FANG MENG MNEG DA'],
-  ['平方公子体','PING FANG GONG ZI TI'],
-  ['平方赖江湖琅琊体','平方赖江湖琅琊体'],
-  ['也字工厂小石头','YEFONTXiaoShiTou'],
-  ['装甲明朝体','SoukouMincho'],
-  ['素材集市社会体','SuCaiJiShi-SheHuiTi'],
-  ['黄引齐招牌体','huangyinqi zhaopai'],
-  ['演示佛系体','Slidefu'],
-  ['铁蒺藜体','Tiejili'],
-  ['鸿雷行书简体','hongleixingshu'],
-  ['逐浪萌芽字','ZoomlaMengyas-A080'],
-  ['江西拙楷','jiangxizhuokai'],
-  ['白无常可可体','BWCKKT'],
-  ['演示悠然小楷','slideyouran'],
-  ['标小智龙珠体','LogoSC LongZhuTi'],
-  ['仓耳周珂正大榜书','TsangerZhoukeZhengdabangshu'],
-  ['目哉像素体','MuzaiPixel'],
-  ['上图东观体','STDongGuanTi Bld'],
-  ['抖音美好体','Douyin Sans'],
-  ['霞鹜文楷','LXGW Bright Medium'],
-  ['月星楷','Moon Stars Kai T HW'],
-  ['寒蝉全圆体','寒蝉全圆体 Bold'],
-  ['字制区喜脉喜欢体','FontQu Smile 常规'],
-  ['峄山碑篆体','峄山碑篆体'],
-  ['飞波正点体','Feibo Zheng Dots'],
-  ['韩契在民体','Hangeuljaemin4.0'],
-  ['摄图摩登小方体','shetumodengxiaofangti'],
 ];
 const ENGLISH_FONTS = [
   ['Bauhaus 93（默认）', 'BAUHS93'],
@@ -2129,7 +2229,7 @@ function viewSettingsAppearance() {
   for (const f of ENGLISH_FONTS) enOpts += '<option value="' + "'" + f[1] + "'" + '"' + ((a.fontEn || '').includes(f[1]) ? ' selected' : '') + '>' + f[0] + '</option>';
   html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field" style="margin:0"><label>英文字体</label><select class="select" onchange="setEnglishFont(this.value)">' + enOpts + '</select></div></div>';
   let zhOpts = '<option value=""' + (!a.font ? ' selected' : '') + '>系统默认</option><option value="\'PingFang SC\',\'Microsoft YaHei\',sans-serif"' + (a.font.includes('PingFang') ? ' selected' : '') + '>苹方 / 微软雅黑</option><option value="\'Songti SC\',\'SimSun\',serif"' + (a.font.includes('Songti') ? ' selected' : '') + '>宋体</option><option value="\'Kaiti SC\',\'KaiTi\',serif"' + (a.font.includes('Kaiti') ? ' selected' : '') + '>楷体</option><option value="ui-monospace,Consolas,monospace"' + (a.font.includes('Consolas') ? ' selected' : '') + '>等宽</option>';
-  zhOpts += '<optgroup label="中文字体（40 款）">';
+  zhOpts += '<optgroup label="中文字体（4 款）">';
   for (const f of CHINESE_FONTS) zhOpts += '<option value="' + "'" + f[1] + "', sans-serif" + '"' + ((a.font || '').includes(f[1]) ? ' selected' : '') + '>' + f[0] + '</option>';
   zhOpts += '</optgroup>';
   html += '<div class="card card-pad"><div class="field" style="margin:0"><label>中文字体</label><select class="select" onchange="setFont(this.value)">' + zhOpts + '</select></div></div>';
@@ -3068,6 +3168,7 @@ function aiProactiveTick() { /* 预留：定时主动感知入口 */ }
 
 init();
 aiBootstrap();
+musicRefreshStatus();
 
 /*__APPEND__*/
   </script>
