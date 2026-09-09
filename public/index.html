@@ -652,6 +652,7 @@ function defaultDB() {
       { id: uid(), type: 'ai', title: '我的AI', body: '欢迎来到 Bunny\'s Home 👋', read: false, time: Date.now() },
       { id: uid(), type: 'task', title: '任务提醒', body: '你有 5 个待办任务在今天', read: false, time: Date.now() - 3600000 },
     ],
+    alarms: [],
   };
 }
 
@@ -672,6 +673,7 @@ function loadDB() {
   if (!Array.isArray(db.workspace)) db.workspace = [];
   if (!Array.isArray(db.conversations)) db.conversations = [];
   if (!Array.isArray(db.notifications)) db.notifications = [];
+  if (!Array.isArray(db.alarms)) db.alarms = [];
   if (!db.player) db.player = def.player;
   if (db.player.togetherListening == null) db.player.togetherListening = false;
   if (!db.appearance) db.appearance = def.appearance;
@@ -804,7 +806,7 @@ function closeMenu() { document.getElementById('menuRoot').innerHTML = ''; }
 
 /* ---------------- router ---------------- */
 const ROUTES = {
-  '/today': 'Home', '/calendar': '日历', '/plans': '计划',
+  '/today': 'Home', '/calendar': '日历', '/alarm': '闹钟', '/plans': '计划',
   '/plans/long-term': '长期计划', '/plans/stage': '阶段计划', '/plans/monthly': '月度计划', '/plans/weekly': '周计划',
   '/habit': '习惯', '/health': '健康', '/statistics': '统计',
   '/messages': '消息', '/chat': '我的AI · 对话', '/player': '音乐', '/workspace': '工作台', '/family': '家庭',
@@ -844,11 +846,11 @@ const OS = {
 function navGroups() {
   const n = (route, ico, label, badge) => ({ route, ico, label, badge });
   return [
-    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/calendar', '📅', 'Calendar') ] },
+    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/calendar', '📅', 'Calendar'), n('/alarm', '⏰', '闹钟') ] },
     { title: 'PLANS', items: [ n('/plans/long-term', '🎯', 'Long-term'), n('/plans/stage', '🧭', 'Stage'), n('/plans/monthly', '📆', 'Monthly'), n('/plans/weekly', '🗓', 'Weekly') ] },
     { title: 'LIFE', items: [ n('/habit', '🌱', 'Habits'), n('/health', '❤️', 'Health'), n('/statistics', '📊', 'Statistics'), n('/shopping', '🛒', 'Shopping') ] },
     { title: 'WORK', items: [ n('/workspace', '🧰', 'Workspace'), n('/family', '👨‍👩‍👧', 'Family') ] },
-    { title: 'MEDIA', items: [ n('/player', '🎵', 'Music'), n('/screen-time', '⏳', 'Screen Time') ] },
+    { title: 'MEDIA', items: [ n('/player', '🎵', 'Music') ] },
     { title: 'COMMUNICATION', items: [ n('/messages', '💬', 'Messages') ] },
     { title: '♥ 我的AI', ai: true, items: [ n('/chat', '💬', 'AI Chat'), n('/ai/memory', '🧠', 'AI Memory'), n('/ai/activity', '💗', 'AI Activity') ] },
   ];
@@ -883,7 +885,11 @@ function renderSidebar() {
   html += '<button class="nav-item' + (OS.route.startsWith('/settings') ? ' active' : '') + '" onclick="OS.toggleSidebar(false);OS.go(\'/settings\')"><span class="ico">⚙️</span><span class="lbl">Settings</span></button>';
   html += '<button class="nav-item" onclick="OS.toggleSidebar(false);OS.go(\'/notifications\')"><span class="ico">🔔</span><span class="lbl">Notifications</span>' + (unread ? '<span class="badge">' + unread + '</span>' : '') + '</button>';
   html += '</div>';
+  const sc = el.querySelector('.nav-scroll');
+  const st = sc ? sc.scrollTop : 0;
   el.innerHTML = html;
+  const sc2 = el.querySelector('.nav-scroll');
+  if (sc2) sc2.scrollTop = st;
 }
 function renderTopbar() {
   const el = document.getElementById('topbar');
@@ -938,6 +944,7 @@ function render() {
     html = '<div class="view-inner">';
     if (r === '/today') html += viewToday();
     else if (r === '/calendar') html += viewCalendar();
+    else if (r === '/alarm') html += viewAlarm();
     else if (r === '/plans') html += viewPlansOverview();
     else if (r.startsWith('/plans/')) html += viewPlanType(r.split('/')[2]);
     else if (r === '/habit') html += viewHabit();
@@ -976,6 +983,7 @@ function afterRender(r) {
   if (r === '/calendar') { bindCalendar(); }
   if (r === '/settings/mcp') { loadMcp(); }
   if (r === '/settings/api') { openApiFill(); }
+  if (r === '/settings/notifications') { loadBarkStatus(); }
 }
 
 /* ================= TASKS ================= */
@@ -2046,6 +2054,139 @@ function notifIcon(t) { return { ai: '♥', task: '✅', habit: '🌱', plan: '�
 function markRead(id) { const n = DB.notifications.find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
 function markAllRead() { DB.notifications.forEach((n) => n.read = true); saveDB(); render(); }
 
+/* ================= ALARMS (闹钟) =================
+   闹钟 = 强提醒。只有用户明确「设闹钟 / 叫我 / 强提醒」才应新建闹钟。
+   到点后由后端 /api/notifications/tick 扫描并发送 Bark 强提醒（critical+响铃+呼叫）。 */
+const ALARM_REPEAT = { once: '一次性', daily: '每天', weekdays: '工作日', custom: '自定义' };
+function alarmsSorted() { return (DB.alarms || []).slice().sort((a, b) => String(a.time || '').localeCompare(String(b.time || ''))); }
+function alarmById(id) { return (DB.alarms || []).find((a) => a.id === id); }
+function alarmRepeatLabel(a) {
+  if (a.repeat === 'custom') {
+    const names = ['日', '一', '二', '三', '四', '五', '六'];
+    const days = (Array.isArray(a.days) ? a.days : []).slice().sort();
+    return days.length ? '每周 ' + days.map((d) => names[d]).join('、') : '自定义';
+  }
+  return ALARM_REPEAT[a.repeat] || '一次性';
+}
+function alarmDateLabel(a) { return (a.repeat === 'once' && a.date) ? fmtDateHuman(a.date) : ''; }
+function alarmRowHtml(a) {
+  const bark = a.bark !== false;
+  const sub = [alarmRepeatLabel(a), a.body].filter(Boolean).join(' · ');
+  const meta = [alarmDateLabel(a), bark ? '🔔 Bark 强提醒' : '仅页面提醒'].filter(Boolean).join(' · ');
+  return '<div class="conv-item" style="align-items:flex-start">' +
+    '<div style="width:54px;text-align:center;font-size:20px;font-weight:800;color:var(--accent-strong);line-height:1.2">' + esc(a.time || '--:--') + '</div>' +
+    '<div class="grow"><div style="font-weight:600;font-size:14px">' + esc(a.title || '闹钟') + '</div>' +
+    (sub ? '<div class="c-last">' + esc(sub) + '</div>' : '') +
+    '<div class="muted" style="font-size:11px;margin-top:3px">' + esc(meta) + '</div></div>' +
+    '<div class="row" style="gap:6px;align-items:center">' +
+    '<button class="btn btn-sm ' + (a.enabled ? 'btn-primary' : '') + '" onclick="event.stopPropagation();toggleAlarm(\'' + a.id + '\')">' + (a.enabled ? '开' : '关') + '</button>' +
+    '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();alarmModal(\'' + a.id + '\')">✎</button>' +
+    '<button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="event.stopPropagation();deleteAlarm(\'' + a.id + '\')">🗑</button>' +
+    '</div></div>';
+}
+function viewAlarm() {
+  const list = alarmsSorted();
+  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">闹钟</div><div class="muted">' + list.length + ' 个闹钟 · 到点通过 Bark 强提醒</div></div>' +
+    '<button class="btn btn-primary" onclick="newAlarmModal()">＋ 新建闹钟</button></div>';
+  html += '<div class="field" style="margin-bottom:12px"><input class="input" id="alarmText" placeholder="或直接告诉祂：如「明早 8 点叫我起床」" onkeydown="if(event.key===\'Enter\')createAlarmFromText(this.value)"><button class="btn btn-soft btn-block" style="margin-top:8px" onclick="createAlarmFromText(document.getElementById(\'alarmText\').value)">✨ 让 AI 创建</button></div>';
+  html += '<div class="card card-pad" style="padding:6px 8px">' + (list.length ? list.map(alarmRowHtml).join('') : '<div class="empty"><div class="eico">⏰</div><div class="etitle">还没有闹钟</div><div class="esub">点击上方按钮，或让 AI 帮你设一个</div></div>') + '</div>';
+  html += '<div class="muted" style="font-size:11px;margin-top:12px">强提醒（闹钟）到点会以「紧急+响铃+呼叫」推送到手机；普通提醒不会这样。只有你说「设闹钟 / 叫我 / 强提醒」时才算闹钟。</div>';
+  return html;
+}
+let _alarmDraft = null;
+function newAlarmModal() { alarmModal(null); }
+function alarmModal(id) {
+  const a = id ? alarmById(id) : null;
+  _alarmDraft = a ? { days: (a.days || []).slice(), bark: a.bark !== false } : { days: [], bark: true };
+  const t = a || { time: '08:00', repeat: 'daily', title: '', body: '', date: todayStr() };
+  const repeatOpts = Object.keys(ALARM_REPEAT).map((r) => '<option value="' + r + '"' + (t.repeat === r ? ' selected' : '') + '>' + ALARM_REPEAT[r] + '</option>').join('');
+  modal('<div class="modal-head"><h3>' + (a ? '编辑闹钟' : '新建闹钟') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
+    '<div class="field"><label>时间</label><input class="input" type="time" id="alTime" value="' + esc(t.time || '08:00') + '"></div>' +
+    '<div class="field"><label>标题</label><input class="input" id="alTitle" value="' + esc(t.title || '') + '" placeholder="如 起床"></div>' +
+    '<div class="field"><label>正文</label><textarea class="textarea" id="alBody" placeholder="到点提醒时说的话">' + esc(t.body || '') + '</textarea></div>' +
+    '<div class="field"><label>重复</label><select class="select" id="alRepeat" onchange="alarmModalRepeatChanged()">' + repeatOpts + '</select></div>' +
+    '<div class="field" id="alDateField" style="' + (t.repeat === 'once' ? '' : 'display:none') + '"><label>日期</label><input class="input" type="date" id="alDate" value="' + esc(t.date || todayStr()) + '"></div>' +
+    '<div class="field" id="alDaysField" style="' + (t.repeat === 'custom' ? '' : 'display:none') + '"><label>星期</label><div class="row" style="gap:4px;flex-wrap:wrap" id="alDays"></div></div>' +
+    '<div class="field"><div class="row" style="justify-content:space-between"><label style="margin:0">Bark 强提醒（紧急+响铃+呼叫）</label><button class="btn btn-sm ' + (_alarmDraft.bark ? 'btn-primary' : '') + '" id="alBarkBtn" onclick="toggleAlarmBark()">' + (_alarmDraft.bark ? '开' : '关') + '</button></div></div>' +
+    '<input type="hidden" id="alId" value="' + (a ? a.id : '') + '">' +
+    '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveAlarm()">保存</button></div>');
+  renderAlarmDays();
+}
+function alarmModalRepeatChanged() {
+  const r = document.getElementById('alRepeat').value;
+  document.getElementById('alDateField').style.display = (r === 'once') ? '' : 'none';
+  document.getElementById('alDaysField').style.display = (r === 'custom') ? '' : 'none';
+}
+function renderAlarmDays() {
+  const el = document.getElementById('alDays'); if (!el) return;
+  const names = ['日', '一', '二', '三', '四', '五', '六'];
+  el.innerHTML = names.map((n, i) => '<button type="button" class="btn btn-sm ' + (_alarmDraft.days.includes(i) ? 'btn-primary' : '') + '" onclick="toggleAlarmDay(' + i + ')">周' + n + '</button>').join('');
+}
+function toggleAlarmDay(i) {
+  const idx = _alarmDraft.days.indexOf(i);
+  if (idx >= 0) _alarmDraft.days.splice(idx, 1); else _alarmDraft.days.push(i);
+  renderAlarmDays();
+}
+function toggleAlarmBark() {
+  _alarmDraft.bark = !_alarmDraft.bark;
+  const btn = document.getElementById('alBarkBtn');
+  if (btn) { btn.textContent = _alarmDraft.bark ? '开' : '关'; btn.classList.toggle('btn-primary', _alarmDraft.bark); }
+}
+function saveAlarm() {
+  const id = document.getElementById('alId').value;
+  const time = document.getElementById('alTime').value;
+  if (!time) { toast('请选择时间', true); return; }
+  const data = {
+    title: document.getElementById('alTitle').value.trim(),
+    body: document.getElementById('alBody').value.trim(),
+    time,
+    repeat: document.getElementById('alRepeat').value,
+    date: document.getElementById('alDate').value || '',
+    days: (_alarmDraft.days || []).slice(),
+    bark: _alarmDraft.bark,
+    updatedAt: Date.now(),
+  };
+  if (id) Object.assign(alarmById(id), data);
+  else DB.alarms.push({ id: uid(), enabled: true, lastFired: {}, createdAt: Date.now(), ...data });
+  closeModal(); saveDB(); render(); toast('已保存 ✓');
+}
+function toggleAlarm(id) { const a = alarmById(id); if (!a) return; a.enabled = !a.enabled; saveDB(); render(); }
+function deleteAlarm(id) { confirmDialog('删除闹钟', '删除这个闹钟？', () => { DB.alarms = DB.alarms.filter((x) => x.id !== id); saveDB(); render(); toast('已删除'); }, '删除'); }
+// 后端轮询：触发到点闹钟的 Bark 强提醒（幂等，lastFired 去重）
+async function alarmTick() { try { await fetch(API_BASE + '/api/notifications/tick'); } catch (e) { /* 后端不可达静默 */ } }
+// 闹钟服务：供 AI 行动 / 其它模块复用
+const AlarmService = {
+  create(a) {
+    const rec = { id: uid(), title: (a && a.title) || '闹钟', body: (a && a.body) || '', time: (a && a.time) || '08:00', date: (a && a.date) || '', repeat: (a && a.repeat) || 'once', days: (a && Array.isArray(a.days)) ? a.days : [], enabled: true, bark: !a || a.bark !== false, lastFired: {}, createdAt: Date.now(), updatedAt: Date.now() };
+    DB.alarms.push(rec); saveDB(); render(); return rec;
+  },
+  toggle(id) { const a = alarmById(id); if (a) { a.enabled = !a.enabled; saveDB(); render(); } },
+  remove(id) { DB.alarms = DB.alarms.filter((x) => x.id !== id); saveDB(); render(); },
+  async parse(text) {
+    const r = await fetch(API_BASE + '/api/ai/alarm/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+    return j.data || {};
+  },
+};
+async function createAlarmFromText(text) {
+  text = (text || '').trim();
+  if (!text) { toast('先说一句话，比如「明早 8 点叫我起床」', true); return; }
+  const input = document.getElementById('alarmText'); if (input) input.value = '';
+  toast('正在理解…');
+  try {
+    const p = await AlarmService.parse(text);
+    if (p.notificationType === 'ALARM' && p.alarmIntent) {
+      AlarmService.create({ title: p.title || '闹钟', body: p.body || '', time: p.time || '08:00', date: p.date || '', repeat: p.repeat || 'once' });
+      toast('闹钟已设好：' + (p.time || '') + ' ' + (p.title || ''));
+    } else {
+      toast('这不像明确的「设闹钟」请求，已按普通提醒理解：' + (p.title || text), true);
+    }
+  } catch (e) {
+    toast('AI 创建失败：' + e.message + '（后端未连接或密钥未配置）', true);
+  }
+}
+
 /* ================= GLOBAL SEARCH ================= */
 function viewSearch() {
   const q = OS.ui.search.trim().toLowerCase();
@@ -2321,10 +2462,59 @@ function removeMcp(i) { mcpServers.splice(i, 1); renderMcpList(); saveMcpServers
 
 /* ================= SETTINGS / NOTIFICATIONS (proactive) ================= */
 function notifSet() { if (!DB.notifSettings) DB.notifSettings = { morning: true, morningTime: '08:00', noon: false, noonTime: '12:00', night: true, nightTime: '22:00', idle: false, idleHours: 6, replyNotify: true }; return DB.notifSettings; }
+
+/* ---- Bark 配置（服务端发送，密钥不进前端） ---- */
+let _barkSettings = { bark_set: false, bark_url: '' };
+function barkSettingsCardHtml() {
+  return '<div class="card card-pad" style="margin-bottom:14px">' +
+    '<div class="spread" style="margin-bottom:8px"><div style="font-weight:700">📱 Bark 手机推送</div><div id="barkStatus">加载中…</div></div>' +
+    '<div class="muted" style="font-size:11px;margin-bottom:12px">通知由后端 Bark Service 统一发送；密钥保存在服务端，前端只显示打码，绝不落盘到前端代码。</div>' +
+    '<div class="row" style="gap:8px"><button class="btn btn-sm btn-soft" onclick="barkConfigureModal()">配置 Bark</button><button class="btn btn-sm btn-primary" onclick="barkTest()">测试通知（普通）</button></div></div>';
+}
+async function loadBarkStatus() {
+  try {
+    const r = await fetch(API_BASE + '/api/settings'); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const s = (await r.json()).settings || {};
+    _barkSettings = { bark_set: Boolean(s.bark_set), bark_url: s.bark_url || '' };
+  } catch (e) { _barkSettings = { bark_set: false, bark_url: '' }; }
+  renderBarkStatus();
+}
+function renderBarkStatus() {
+  const el = document.getElementById('barkStatus'); if (!el) return;
+  el.innerHTML = _barkSettings.bark_set
+    ? '<span style="color:#2e7d32;font-weight:700">● 已连接</span> <span class="muted" style="font-size:12px;font-family:monospace">' + esc(_barkSettings.bark_url) + '</span>'
+    : '<span style="color:#c0392b;font-weight:700">● 未配置</span>';
+}
+function barkConfigureModal() {
+  modal('<div class="modal-head"><h3>配置 Bark</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
+    '<div class="field"><label>Bark 地址（api.day.app 完整地址）</label><input class="input" id="barkUrlInput" placeholder="https://api.day.app/你的设备Token"></div>' +
+    '<div class="muted" style="font-size:11px">' + (_barkSettings.bark_set ? '当前：' + esc(_barkSettings.bark_url) : '尚未配置') + '</div>' +
+    '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="barkSave()">保存</button></div>');
+}
+async function barkSave() {
+  const v = document.getElementById('barkUrlInput').value.trim();
+  if (!v) { toast('请填写 Bark 地址', true); return; }
+  try {
+    const r = await fetch(API_BASE + '/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bark_url: v }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    closeModal(); toast('Bark 已保存 ✓'); loadBarkStatus();
+  } catch (e) { toast('保存失败：' + e.message + '（后端未连接）', true); }
+}
+async function barkTest() {
+  toast('正在发送测试通知…');
+  try {
+    const r = await fetch(API_BASE + '/api/notifications/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+    const d = j.data || {};
+    toast(d.sent ? '已发送普通测试通知 ✓' : ('未发送：' + (d.reason || '未知')));
+  } catch (e) { toast('测试失败：' + e.message + '（请先配置 Bark）', true); }
+}
+
 function viewSettingsNotif() {
   const s = notifSet();
   const row = (label, key, sub) => '<div class="field"><div class="row" style="justify-content:space-between"><div><label style="margin:0">' + label + '</label><div class="muted" style="font-size:10.5px">' + sub + '</div></div><button class="btn btn-sm ' + (s[key] ? 'btn-primary' : '') + '" onclick="toggleNotif(\'' + key + '\')">' + (s[key] ? '开' : '关') + '</button></div></div>';
-  let html = '<div class="h1" style="margin-bottom:16px">Notifications</div><div class="card card-pad">' +
+  let html = '<div class="h1" style="margin-bottom:16px">Notifications</div>' + barkSettingsCardHtml() + '<div class="card card-pad">' +
     row('早安问候', 'morning', '每天早上主动来一条') +
     '<div class="field"><label>早安时间</label><input class="input" type="time" id="morningTime" value="' + s.morningTime + '" onchange="notifSet().morningTime=this.value;saveDB()"></div>' +
     row('午安问候', 'noon', '中午主动来一条') +
@@ -2490,7 +2680,7 @@ function createTaskFromAi() {
   openTaskModal(null, null, null);
   setTimeout(() => { const el = document.getElementById('tkTitle'); if (el) el.value = content; }, 80);
 }
-async function checkProactive() { try { const r = await fetch(API_BASE + '/api/proactive'); if (!r.ok) return; const data = await r.json(); if (data.sent) pushNotification('ai', aiSet().aiName || 'AI', '来了一条主动消息'); } catch (e) {} }
+async function checkProactive() { try { const r = await fetch(API_BASE + '/api/proactive'); if (!r.ok) return; const data = await r.json(); if (data.sent) pushNotification('ai', aiSet().aiName || 'AI', (data.message && data.message.content) || '来了一条主动消息'); } catch (e) {} }
 
 /* ================= INIT ================= */
 function init() {
@@ -2499,6 +2689,8 @@ function init() {
   setTimeout(() => { const sp = document.getElementById('splash'); if (sp) { sp.classList.add('fade-out'); setTimeout(() => sp.remove(), 700); } }, 2500);
   checkProactive();
   SYNC.bootstrap();
+  alarmTick();
+  setInterval(alarmTick, 60000);
 }
 
 /* ================= ♥ 我的AI · CORE ENGINE ================= */
@@ -2534,7 +2726,7 @@ const AIBus = {
 /* ---- 统一上下文 ---- */
 function currentPageInfo() {
   const r = OS.route;
-  const map = { '/today': '首页', '/calendar': '日历', '/habit': '习惯', '/health': '健康', '/statistics': '统计', '/shopping': '购物清单', '/screen-time': '屏幕使用时间', '/chat': '对话', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/player': '音乐', '/workspace': '工作台', '/family': '家庭', '/messages': '消息', '/notes': '笔记' };
+  const map = { '/today': '首页', '/calendar': '日历', '/alarm': '闹钟', '/habit': '习惯', '/health': '健康', '/statistics': '统计', '/shopping': '购物清单', '/screen-time': '屏幕使用时间', '/chat': '对话', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/player': '音乐', '/workspace': '工作台', '/family': '家庭', '/messages': '消息', '/notes': '笔记' };
   let label = map[r] || '';
   if (r.startsWith('/plans/')) label = '计划 · ' + ((TYPE_META[r.split('/')[2]] || {}).label || '');
   if (r.startsWith('/settings')) label = '设置';
@@ -3008,8 +3200,8 @@ function aiCompanionStatus() {
 function aiNoticeHtml(n) {
   const icon = { INFO: '💡', REMINDER: '⏰', IMPORTANT: '❗', GENTLE_NUDGE: '🌿' }[n.kind] || '💡';
   let html = '<div class="ai-notice"><div style="font-size:16px">' + icon + '</div><div class="body"><div style="font-weight:700;font-size:13.5px">' + esc(n.title) + '</div><div class="muted" style="font-size:12.5px">' + esc(n.body) + '</div>';
-  if (n.actions && n.actions.length) html += '<div class="actions">' + n.actions.map((a) => '<button class="btn btn-sm ' + (a.primary ? 'btn-primary' : '') + '" onclick="aiNoticeAction(\'' + n.id + '\',\'' + a.key + '\')">' + esc(a.label) + '</button>').join('') + '</div>';
-  html += '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="aiMarkNoticeRead(\'' + n.id + '\')">✕</button></div>';
+  if (n.actions && n.actions.length) html += '<div class="actions">' + n.actions.map((a) => '<button class="btn btn-sm ' + (a.primary ? 'btn-primary' : '') + '" onclick="event.stopPropagation();aiNoticeAction(\'' + n.id + '\',\'' + a.key + '\')">' + esc(a.label) + '</button>').join('') + '</div>';
+  html += '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="event.stopPropagation();dismissReminder(\'' + n.id + '\')">✕</button></div>';
   return html;
 }
 function aiCompanionHeader() {
@@ -3026,6 +3218,8 @@ function aiCompanionHeader() {
   return html;
 }
 function aiMarkNoticeRead(id) { const n = (DB.ai.notifications || []).find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
+// 仅关闭提醒，不跳转（“我知道了”）
+function dismissReminder(id) { const n = (DB.ai.notifications || []).find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
 function weatherSectionHtml() {
   const w = DB.weather; const loc = DB.location;
   if (!w && !loc) return '';
@@ -3079,6 +3273,7 @@ function aiNoticeAction(nid, key) {
     case 'umbrella_reject': aiRejectUmbrella(); break;
     case 'mem_yes': if (_aiPendingMem) { aiAddMemory(_aiPendingMem.content, _aiPendingMem.category, _aiPendingMem.sourceType, _aiPendingMem.sourceId); toast('已记住 ♥'); } _aiPendingMem = null; break;
     case 'mem_no': _aiPendingMem = null; break;
+    case 'dismiss': break; // 仅关闭，不跳转
     case 'open_shopping': OS.go('/shopping'); return;
     case 'open_memory': OS.go('/ai/memory'); return;
     case 'open_journal': OS.go('/journal'); return;
@@ -3108,7 +3303,7 @@ function aiOnScreenOver() {
   const over = screenTimeOver(); if (!over) return;
   aiMarkAsked('screen_nudge');
   const n = AINotificationComposer.screen(over);
-  AINotify.send(n.severity, n.title, n.message, [{ key: 'open_memory', label: n.actionLabel, primary: true }], { render: true });
+  AINotify.send(n.severity, n.title, n.message, [{ key: 'dismiss', label: n.actionLabel, primary: true }], { render: true });
   aiSetState('在意', 2, '看到你屏幕时间有点长，有点在意你的眼睛。', 'screenTime', 'screenTime', null, null);
 }
 

@@ -184,7 +184,7 @@ router.get('/', async (req, res, next) => {
     });
     const lvl = composed && composed.type === 'ALARM' ? 'normal' : barkLevelFor(composed?.type);
     await sendBark({
-      barkUrl: app.bark_url || config.barkUrl,
+      barkUrl: config.barkUrl || app.bark_url,
       title: composed?.title || reasonLabel,
       body: composed?.body || content,
       level: lvl,

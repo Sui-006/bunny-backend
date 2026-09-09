@@ -11,7 +11,8 @@ const router = Router();
 // 读取 Bark 地址（网页配置优先，环境变量兜底）
 async function resolveBarkUrl() {
   const app = await getAppSettings();
-  return app?.bark_url || config.barkUrl || '';
+  // 优先 Render 环境变量 BARK_URL；数据库 bark_url 仅作兜底（避免旧短值抢占）
+  return config.barkUrl || app?.bark_url || '';
 }
 
 // 通知类型归一化；ALARM 必须显式携带 alarmIntent=true 才放行（强提醒安全闸）

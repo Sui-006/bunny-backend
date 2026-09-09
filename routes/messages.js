@@ -74,7 +74,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
 
     const stream = settings.stream && tools.length === 0;
-    const barkUrl = app?.bark_url || config.barkUrl;
+    const barkUrl = config.barkUrl || app?.bark_url;
     const notify = app?.reply_notify_enabled && barkUrl && req.body?.notify;
 
     if (stream) {
