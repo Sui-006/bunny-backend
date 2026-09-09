@@ -869,10 +869,6 @@
       </h3>
       <p class="api-hint">让 AI 不等你说话，自己主动来一条。三个定时问候 + 空闲提醒，各自开关，由外部定时器/打开页面时触发。</p>
       <div class="settings-group">
-        <label>Bark 通知地址（推送到你手机）</label>
-        <input type="text" id="barkUrlInput" placeholder="https://api.day.app/你的Key">
-      </div>
-      <div class="settings-group">
         <label>早安问候</label>
         <select id="proactiveMorningEnabledSelect">
           <option value="1">开启</option>
@@ -2036,7 +2032,6 @@
         document.getElementById('proactiveNightTimeInput').value = s.proactive_night_time || '22:00';
         document.getElementById('proactiveIdleEnabledSelect').value = s.proactive_idle_enabled ? '1' : '0';
         document.getElementById('proactiveIdleHoursInput').value = (s.proactive_idle_hours == null ? '' : s.proactive_idle_hours);
-        document.getElementById('barkUrlInput').value = s.bark_url || '';
         document.getElementById('replyNotifyEnabledSelect').value = s.reply_notify_enabled ? '1' : '0';
       }
     } catch (e) {}
@@ -2055,7 +2050,6 @@
       proactive_night_time: document.getElementById('proactiveNightTimeInput').value,
       proactive_idle_enabled: document.getElementById('proactiveIdleEnabledSelect').value === '1',
       proactive_idle_hours: idleRaw === '' ? null : Number(idleRaw),
-      bark_url: document.getElementById('barkUrlInput').value.trim(),
       reply_notify_enabled: document.getElementById('replyNotifyEnabledSelect').value === '1',
     };
     try {
