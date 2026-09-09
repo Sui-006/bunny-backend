@@ -34,3 +34,6 @@ services:
         sync: false
       - key: AMAP_KEY
         sync: false
+      # 网易云 song_url 地域校验：Render 在美国，需伪装 X-Real-IP 为国内 IP 才能拿到播放地址
+      - key: NETEASE_REAL_IP
+        value: 223.5.5.5
