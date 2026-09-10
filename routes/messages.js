@@ -247,4 +247,16 @@ router.post('/:sessionId/regenerate', async (req, res, next) => {
   }
 });
 
+// DELETE /api/sessions/:sessionId/messages/:messageId —— 删除单条消息（需求 13）
+router.delete('/:sessionId/messages/:messageId', async (req, res, next) => {
+  try {
+    const { sessionId, messageId } = req.params;
+    const allMsgs = await listMessages(sessionId, { limit: 500, visibleOnly: false });
+    const target = allMsgs.find((m) => m.id === messageId);
+    if (!target) return res.status(404).json({ error: '消息不存在' });
+    await deleteMessage(messageId);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
 export default router;

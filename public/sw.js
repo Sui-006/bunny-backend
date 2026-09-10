@@ -5,7 +5,7 @@
    - 静态资源（图片 / 字体 / 样式 / 图标）：缓存优先 + 后台更新（stale-while-revalidate）。
    部署新版本：改 VERSION 并同步 index.html 即可让旧 SW 自更新（skipWaiting + clients.claim + 版本化缓存名）。
 */
-const VERSION = 'bunny-home-v2';
+const VERSION = 'bunny-home-v3';
 const CACHE = VERSION;
 const PRECACHE = [
   './',
