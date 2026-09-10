@@ -22,6 +22,49 @@ async function aiCall(opts) {
   }
 }
 
+// POST /api/ai/respond —— 用户操作事件 → AI 自行判断是否回应 + 动态生成回应（非硬编码）
+// 前端把所有「成功完成」的业务操作统一喂进来；AI 决定回不回应，回应文案完全由模型生成。
+router.post('/respond', async (req, res, next) => {
+  try {
+    const events = Array.isArray(req.body?.events) ? req.body.events : [];
+    if (events.length === 0) return ok(res, { respond: false });
+
+    const desc = events.slice(0, 8).map((ev) => {
+      const p = ev.payload || {};
+      const bits = [];
+      if (p.title) bits.push(p.title);
+      if (p.name) bits.push(p.name);
+      if (p.type) bits.push(p.type);
+      if (p.category) bits.push(p.category);
+      if (p.value != null) bits.push(String(p.value));
+      return (ev.type || '操作') + (bits.length ? '：' + bits.join('，') : '');
+    }).join('\n');
+
+    let reply;
+    try {
+      reply = await aiCall({
+        model: config.defaultModel, temperature: 0.7, maxTokens: 300,
+        system: '你是 Bunny\'s Home 里的 AI 伴侣「♥ 我的AI」，温柔、体贴、简洁。用户刚刚在应用里做了一些操作。请判断是否值得回应：如果是有意义的事（完成任务、坚持习惯、记录健康、安排日程、购物、写日志等），用 1-2 句自然中文回应，体现你对 ta 的了解和关心；如果是流水账或微不足道的操作，直接不回应。只输出 JSON：{"respond":true|false,"message":"","emotion":"","intensity":0}。message 为空字符串表示不回应。绝不逐条汇报操作、不说「你创建了任务」这类流水账。',
+        messages: [{ role: 'user', content: '用户的操作：\n' + desc }],
+      });
+    } catch (e) {
+      // 缺 Key / 后端不可达：诚实降级为「不回应」，绝不用假文案冒充
+      if (/API Key|缺少|密钥/i.test(e.message)) return ok(res, { respond: false });
+      throw e;
+    }
+
+    let parsed = null;
+    try { parsed = JSON.parse(stripFences(reply.content)); } catch {}
+    const respond = Boolean(parsed && parsed.respond && String(parsed.message || '').trim());
+    ok(res, {
+      respond,
+      message: respond ? String(parsed.message).trim() : '',
+      emotion: parsed?.emotion || '',
+      intensity: Math.max(0, Math.min(5, Number(parsed?.intensity) || 0)),
+    });
+  } catch (e) { next(e); }
+});
+
 // POST /api/ai/task/parse —— 自然语言 → { title, date, time }
 router.post('/task/parse', async (req, res, next) => {
   try {

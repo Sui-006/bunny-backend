@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getSettings, getAppSettings, DEFAULT_SETTINGS,
   createMessage, listMessages, deleteMessage, getLastAssistantMessage, touchSession,
+  updateMessage, markMessagesAfterInvisible,
 } from '../lib/db.js';
 import { prepareContext } from '../lib/context.js';
 import { chat, chatStream } from '../lib/ai.js';
@@ -159,6 +160,52 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 
     await mcp?.close();
     res.status(201).json({ userMessage, assistantMessage, compressed });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /api/sessions/:sessionId/messages/:messageId/edit —— 编辑用户消息 + 从这里重新生成
+// 编辑用户消息内容，软删除其后的消息，重新生成 AI 回复（不破坏整个 conversation 历史）。
+router.post('/:sessionId/messages/:messageId/edit', async (req, res, next) => {
+  try {
+    const { sessionId, messageId } = req.params;
+    const content = (req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ error: 'content 不能为空' });
+
+    // 校验目标消息存在且是 user 角色
+    const allMsgs = await listMessages(sessionId, { limit: 500, visibleOnly: false });
+    const target = allMsgs.find((m) => m.id === messageId);
+    if (!target) return res.status(404).json({ error: '消息不存在' });
+    if (target.role !== 'user') return res.status(400).json({ error: '只能编辑用户消息' });
+
+    await updateMessage(messageId, { content });
+
+    // 软删除该用户消息之后的所有消息（含旧 AI 回复），让 AI 从这里重新作答
+    await markMessagesAfterInvisible(sessionId, messageId);
+
+    const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
+    const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
+    const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
+    const systemWithCtx = [system, contextSnippet].filter(Boolean).join('\n\n');
+
+    const reply = await chat({
+      model, system: systemWithCtx, messages,
+      temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
+      tools,
+      callTool: tools.length ? callTool : null,
+    });
+
+    const assistantMessage = await createMessage(sessionId, {
+      role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
+      metadata: { usage: reply.usage, model },
+    });
+    await touchSession(sessionId);
+    await mcp?.close();
+
+    // 重新拉取可见消息列表（编辑后的一致视图），供前端刷新
+    const visible = (await listMessages(sessionId, { limit: 500, visibleOnly: true })).filter((m) => m.visible !== false);
+    res.status(201).json({ assistantMessage, messages: visible, compressed });
   } catch (e) {
     next(e);
   }
