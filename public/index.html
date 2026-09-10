@@ -281,6 +281,7 @@
     .sheet-item:hover { background: var(--accent-tint); }
     .sheet-item .ico { width: 26px; text-align: center; font-size: 19px; }
     .sheet-grab { width: 40px; height: 4px; border-radius: 4px; background: var(--border-strong); margin: 4px auto 10px; }
+    .sheet-head { margin-bottom: 12px; }
     #toastRoot { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
     .toast { background: var(--card-solid); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 14px; font-size: 13.5px; box-shadow: var(--shadow-md); animation: toastIn 0.25s ease; display: flex; align-items: center; gap: 8px; }
     @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
@@ -350,7 +351,7 @@
       .bubble.out { background: color-mix(in srgb, var(--accent) calc(var(--bubble-alpha, 1) * 100%), transparent); }
     }
     .chat-input-bar { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
-    .chat-input { flex: 1; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; outline: none; max-height: 110px; min-height: 42px; background: var(--card-solid); }
+    .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; outline: none; max-height: 110px; min-height: 42px; background: var(--card-solid); }
     .chat-input:focus { border-color: var(--accent-border); }
 
     /* 聊天气泡操作：小图标、淡色、默认隐藏，hover / 长按 / 点击出现 */
@@ -1062,6 +1063,7 @@ function afterRender(r) {
   if (r === '/health') { drawHealthCharts(); }
   if (r === '/statistics') { drawStatCharts(); }
   if (r === '/calendar') { bindCalendar(); }
+  if (r === '/finance') { loadFinanceComment(); }
   if (r === '/settings/mcp') { loadMcp(); }
   if (r === '/settings/api') { openApiFill(); }
   if (r === '/settings/notifications') { loadBarkStatus(); }
@@ -1198,27 +1200,17 @@ function viewToday() {
   const todays = tasksOn(todayStr());
   const done = todays.filter((t) => t.completed).length;
   const pct = todays.length ? Math.round(done / todays.length * 100) : 0;
-  const upcoming = DB.tasks.filter((t) => !t.completed && t.date > todayStr()).sort((a, b) => (a.date < b.date ? -1 : 1)).slice(0, 6);
   let html = aiCompanionHeader() + weatherSectionHtml() +
     '<div class="row" style="margin-bottom:18px;gap:14px">' +
     '<div class="avatar" style="width:48px;height:48px;font-size:22px;display:flex;align-items:center;justify-content:center;' + (DB.profile.avatar ? 'background-image:url(' + DB.profile.avatar + ')' : '') + '">' + (DB.profile.avatar ? '' : '🐰') + '</div>' +
     '<div><div class="h1">' + esc(greeting()) + ', ' + esc(name) + '</div><div class="muted">' + esc(todayLong()) + '</div></div></div>';
 
-  // 今日任务：仅概要入口，点击进入独立 Task 页（需求 1）
+  // 需求 17：首页 = Today（问候/天气）+ Task（今日任务概要）而已；其余 Task/Habit/Plan/Note 都有独立页面，不再在首页重复堆叠
   html += '<div class="card card-pad" style="margin-bottom:14px;cursor:pointer" onclick="OS.go(\'/tasks\')">' +
     '<div class="spread" style="margin-bottom:10px"><div class="row" style="gap:8px"><span style="font-size:20px">✅</span><div style="font-size:16px;font-weight:700">今日任务</div></div><div class="muted">' + done + ' / ' + todays.length + ' 完成 ›</div></div>' +
     '<div class="progress"><span style="width:' + pct + '%"></span></div>' +
     (todays.length ? '<div class="muted" style="font-size:12px;margin-top:10px">' + todays.slice(0, 3).map((t) => (t.completed ? '✓ ' : '○ ') + esc(t.title)).join(' · ') + (todays.length > 3 ? ' …' : '') + '</div>' : '<div class="muted" style="font-size:12px;margin-top:10px">今天没有任务，点此安排</div>') +
     '</div>';
-
-  // Upcoming
-  html += '<div class="section-head"><h2>Upcoming</h2><button class="more" onclick="OS.go(\'/calendar\')">日历 ›</button></div>';
-  if (upcoming.length === 0) html += '<div class="card card-pad empty" style="padding:20px"><div class="esub">没有即将到来的任务</div></div>';
-  else html += '<div class="card card-pad" style="padding:8px 10px">' + upcoming.map((t) => '<div class="task-row" onclick="openTaskModal(null,\'' + t.id + '\')"><span class="chk" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></span><span class="prio ' + (t.priority || 'none') + '" style="background:' + (PRIO[t.priority] || PRIO.none).color + '"></span><div class="grow"><div class="t-title">' + esc(t.title) + '</div></div><span class="chip">' + esc(fmtDateHuman(t.date)) + '</span></div>').join('') + '</div>';
-
-  // Habits snapshot
-  html += '<div class="section-head"><h2>今日习惯</h2><button class="more" onclick="OS.go(\'/habit\')">全部 ›</button></div>';
-  html += '<div class="card card-pad" style="padding:8px 10px">' + DB.habits.slice(0, 5).map((h) => habitRowHtml(h, todayStr())).join('') + '</div>';
   return html;
 }
 // 独立任务页（需求 1/8）：今日 / 未来 / 已完成 三种视图，创建/编辑/删除/完成，独立于首页
@@ -1938,11 +1930,10 @@ function viewStatistics() {
   const planPct = plans.length ? Math.round(plans.reduce((s, p) => s + planProgress(p), 0) / plans.length) : 0;
   let html = '<div class="h1" style="margin-bottom:16px">Statistics</div>';
   html += '<div class="spread" style="margin-bottom:16px"><div class="seg">' + rangeBtn(7, '7 天', r) + rangeBtn(30, '30 天', r) + rangeBtn(90, '90 天', r) + '</div></div>';
-  html += '<div class="grid cols-4" style="margin-bottom:16px">' +
-    '<div class="card stat-card"><div class="l">Weekly Progress</div><div class="v">' + taskPct + '%</div><div class="progress" style="margin-top:8px"><span style="width:' + taskPct + '%"></span></div></div>' +
-    '<div class="card stat-card"><div class="l">Completed Tasks</div><div class="v">' + done + ' / ' + tasks.length + '</div><div class="u">完成率 ' + taskPct + '%</div></div>' +
-    '<div class="card stat-card"><div class="l">Habit Completion</div><div class="v">' + habitPct + '%</div><div class="u">今日 ' + habitDone + '/' + habitTotal + '</div></div>' +
-    '<div class="card stat-card"><div class="l">Plan Completion</div><div class="v">' + planPct + '%</div><div class="u">' + plans.length + ' 个计划</div></div></div>';
+  html += '<div class="grid cols-3" style="margin-bottom:16px">' +
+    '<div class="card stat-card"><div class="l">任务完成率</div><div class="v">' + taskPct + '%</div><div class="u">' + done + ' / ' + tasks.length + ' 已完成</div><div class="progress" style="margin-top:10px"><span style="width:' + taskPct + '%"></span></div></div>' +
+    '<div class="card stat-card"><div class="l">习惯完成率</div><div class="v">' + habitPct + '%</div><div class="u">今日 ' + habitDone + '/' + habitTotal + '</div><div class="progress" style="margin-top:10px"><span style="width:' + habitPct + '%"></span></div></div>' +
+    '<div class="card stat-card"><div class="l">计划完成率</div><div class="v">' + planPct + '%</div><div class="u">' + plans.length + ' 个计划</div><div class="progress" style="margin-top:10px"><span style="width:' + planPct + '%"></span></div></div></div>';
   html += '<div class="grid cols-2"><div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">任务完成趋势</div><div id="stLine"></div></div><div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">各类完成度</div><div id="stDonut" style="display:flex;align-items:center;justify-content:center;gap:16px"></div></div></div>';
   return html;
 }
@@ -2912,6 +2903,7 @@ function viewChat() {
     '<div class="chat-sidebar" id="chatSidebar">' +
     '<button class="btn btn-sm btn-primary" style="width:100%;margin-bottom:10px" onclick="OS.chat.newChat()">＋ 新对话</button>' +
     '<div class="session-list" id="chatSessions"></div>' +
+    '<div id="chatMultiBar"></div>' +
     '</div>' +
     '<div class="chat-stage" style="height:100dvh;overflow:hidden">' +
     (bgStyle ? '<div class="chat-bg" style="' + bgStyle + '"></div>' : '') +
@@ -2930,8 +2922,9 @@ function viewChat() {
     '<div id="chatAttach" style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--border)"></div>' +
     '<div id="chatMsgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px"><div class="muted" style="text-align:center;margin:auto">正在连接 AI…</div></div>' +
     '</div>' +
-    // 引用动态卡片 + 输入栏
+    // 引用动态卡片 + 编辑提示条 + 输入栏
     '<div>' +
+    '<div id="chatEditBar" style="padding:0 14px"></div>' +
     OS.chat.quoteCardHtml() +
     '<div class="chat-input-bar">' +
     '<button class="icon-btn" onclick="document.getElementById(\'chatFile\').click()">📎</button>' +
@@ -2941,7 +2934,7 @@ function viewChat() {
     '</div>' +
     '</div></div>';
 }
-function chatMapMessage(m) { const usage = (m.metadata && m.metadata.usage) || {}; return { id: m.id, role: m.role, content: m.content || '', time: m.created_at ? new Date(m.created_at).toLocaleString() : '', tokens: usage.total_tokens, quotedDynamic: (m.metadata && m.metadata.quotedDynamic) || null }; }
+function chatMapMessage(m) { const usage = (m.metadata && m.metadata.usage) || {}; return { id: m.id, role: m.role, content: m.content || '', time: m.created_at ? new Date(m.created_at).toLocaleString() : '', tokens: usage.total_tokens, quotedDynamic: (m.metadata && m.metadata.quotedDynamic) || null, attachments: (m.metadata && m.metadata.attachments) || [] }; }
 function chatBubbleHtml(msg, isLast) {
   const s = aiSet();
   const isUser = msg.role === 'user';
@@ -2954,16 +2947,31 @@ function chatBubbleHtml(msg, isLast) {
   // 引用 AI 动态（需求 33）：消息 metadata.quotedDynamic
   const qd = msg.quotedDynamic;
   const quote = qd ? '<div class="quote-card" style="margin:0 0 6px"><span style="flex-shrink:0">↳</span><div class="q-body">引用动态 · ' + esc(String(qd.content || '')) + '</div></div>' : '';
+  // 附件（图片缩略图 / 文件 chip），图片点击放大、文件点击下载/预览
+  let attachHtml = '';
+  if (msg.attachments && msg.attachments.length) {
+    attachHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">' + msg.attachments.map((a) => {
+      const u = a.dataUrl || (a.fileUrl ? (String(a.fileUrl).startsWith('http') ? a.fileUrl : API_BASE + a.fileUrl) : (a.publicUrl || ''));
+      const isImg = (a.mimeType || '').startsWith('image/') || !!a.dataUrl || /\.(png|jpe?g|webp|gif)$/i.test(a.fileName || '');
+      if (isImg && u) return '<img src="' + u + '" onclick="OS.chat.previewImage(\'' + String(u).replace(/'/g, '\\\'') + '\')" style="width:72px;height:72px;border-radius:8px;object-fit:cover;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">';
+      return '<div onclick="OS.chat.previewFile(\'' + (u ? String(u).replace(/'/g, '\\\'') : '') + '\',\'' + esc(a.fileName || a.name || '文件') + '\')" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.5);font-size:12px;cursor:pointer;max-width:220px"><span>📄</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.fileName || a.name || '文件') + '</span></div>';
+    }).join('') + '</div>';
+  }
   // 需求 5：点击气泡才出现轻量操作菜单（不再常驻 hover，也不改变气泡本身）
-  const clickable = msg.id && msg.content && !msg.thinking && !msg.error && !msg.pendingUser;
+  const clickable = msg.id && (msg.content || (msg.attachments && msg.attachments.length)) && !msg.thinking && !msg.error && !msg.pendingUser;
   return '<div class="chat-msg-row" style="display:flex;' + (isUser ? 'flex-direction:row-reverse' : '') + ';gap:8px;align-items:flex-start">' +
     '<div class="avatar" style="width:30px;height:30px;flex-shrink:0;' + (avatar ? 'background-image:url(' + avatar + ')' : '') + '">' + (avatar ? '' : (isUser ? '🙂' : '♥')) + '</div>' +
     '<div style="max-width:86%;min-width:0"><div class="muted" style="font-size:10px;margin-bottom:2px">' + esc(name) + (msg.time ? ' · ' + esc(msg.time) : '') + '</div>' +
     quote +
+    attachHtml +
     '<div class="bubble ' + (isUser ? 'out' : 'in') + '" style="--bubble-alpha:' + (s.bubbleOpacity || 0.9) + ';cursor:' + (clickable ? 'pointer' : 'default') + '"' + (clickable ? ' onclick="OS.chat.bubbleMenu(event,\'' + msg.id + '\')" ontouchstart="OS.chat.bubblePressStart(event,\'' + msg.id + '\')" ontouchmove="OS.chat.bubblePressMove()" ontouchend="OS.chat.bubblePressEnd()" ontouchcancel="OS.chat.bubblePressEnd()"' : '') + '>' + bubble + '</div></div></div>';
 }
 OS.chat.loaded = false;
+OS.chat.attachments = []; // 待发送附件（上传状态：uploading / done / error）
 OS.chat.quotedDynamic = null; // 引用 AI 动态（需求 33）：{ id, type:'ai_dynamic', content, createdAt }
+OS.chat.editingId = null; // 正在编辑的用户消息 id（内容已回填到输入框，发送时走编辑接口，需求 3）
+OS.chat.multiSelect = false; // 会话多选模式（需求 1）
+OS.chat.multiSelected = {};
 OS.chat.sidebarOpen = false;
 let _chatLongPress = 0;
 OS.chat.toggleSidebar = function(force) {
@@ -2993,11 +3001,20 @@ OS.chat.quoteDynamic = function(id) {
 OS.chat.renderSessions = function() {
   const el = document.getElementById('chatSessions'); if (!el) return;
   const sorted = (OS.chat.sessions || []).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-  el.innerHTML = sorted.map((s) => '<div class="session-item' + (s.id === OS.chat.currentId ? ' active' : '') + '" onclick="OS.chat.switch(\'' + s.id + '\')">' +
+  if (OS.chat.multiSelect) {
+    el.innerHTML = sorted.map((s) => '<div class="session-item' + (s.id === OS.chat.currentId ? ' active' : '') + '" onclick="OS.chat.toggleSessionSelect(\'' + s.id + '\')">' +
+      '<span style="flex-shrink:0;font-size:16px">' + (OS.chat.multiSelected[s.id] ? '☑' : '☐') + '</span>' +
+      '<span class="s-name">' + esc(s.name || '未命名') + '</span>' +
+      '</div>').join('');
+    OS.chat.renderMultiBar();
+    return;
+  }
+  el.innerHTML = sorted.map((s) => '<div class="session-item' + (s.id === OS.chat.currentId ? ' active' : '') + '" onclick="OS.chat.switch(\'' + s.id + '\')" ontouchstart="OS.chat.sessionPressStart(event,\'' + s.id + '\')" ontouchmove="OS.chat.sessionPressMove()" ontouchend="OS.chat.sessionPressEnd()" ontouchcancel="OS.chat.sessionPressEnd()">' +
     (s.pinned ? '<span style="flex-shrink:0">📌</span>' : '') +
     '<span class="s-name">' + esc(s.name || '未命名') + '</span>' +
     '<button class="s-menu" onclick="event.stopPropagation();OS.chat.sessionMenu(event,\'' + s.id + '\')">⋯</button>' +
     '</div>').join('');
+  OS.chat.renderMultiBar();
 };
 OS.chat.renderHeader = function() {
   const el = document.getElementById('chatTitle'); if (!el) return;
@@ -3030,7 +3047,7 @@ OS.chat.loadMessages = async function() { const r = await fetch(API_BASE + '/api
 OS.chat.loadSessionSettings = async function() { try { const r = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings'); OS.chat.sessionSettings = r.ok ? ((await r.json()).settings || {}) : {}; } catch (e) { OS.chat.sessionSettings = {}; } };
 OS.chat.saveSessionSettings = async function() { if (!OS.chat.currentId) return; const s = aiSet(); try { await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system_prompt: s.systemPrompt, stream: s.streaming, use_memory: s.memory, auto_compress: s.autoCompress }) }); } catch (e) {} };
 OS.chat.newChat = async function() { try { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions.unshift(c); OS.chat.currentId = c.id; OS.chat.messages = []; OS.chat.attachments = []; OS.chat.sidebarOpen = false; OS.chat.renderAll(); } catch (e) { toast('新建会话失败：' + e.message, true); } };
-OS.chat.switch = async function(id) { if (Date.now() - _chatLongPress < 600) return; OS.chat.currentId = id; OS.chat.attachments = []; OS.chat.sidebarOpen = false; OS.chat.renderSessions(); const el = document.getElementById('chatMsgs'); if (el) el.innerHTML = '<div class="muted" style="margin:auto">加载中…</div>'; try { await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); } catch (e) { OS.chat.messages = [{ role: 'assistant', content: '加载失败：' + e.message, error: true }]; } OS.chat.renderAll(); };
+OS.chat.switch = async function(id) { if (Date.now() - _chatLongPress < 600) return; if (_sessionPress.suppressClick) { _sessionPress.suppressClick = false; return; } OS.chat.currentId = id; OS.chat.attachments = []; OS.chat.sidebarOpen = false; OS.chat.renderSessions(); const el = document.getElementById('chatMsgs'); if (el) el.innerHTML = '<div class="muted" style="margin:auto">加载中…</div>'; try { await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); } catch (e) { OS.chat.messages = [{ role: 'assistant', content: '加载失败：' + e.message, error: true }]; } OS.chat.renderAll(); };
 OS.chat.setModel = function(v) { aiSet().model = v; syncActiveAssistantBack(); saveDB(); toast('已切换模型'); };
 OS.chat.switchAssistant = function(id) {
   const a = ensureAssistants().find((x) => x.id === id);
@@ -3050,6 +3067,83 @@ OS.chat.sessionMenu = function(e, id) {
   const sid = id || OS.chat.currentId;
   const items = [ { label: '重命名', ico: '✎', fn: 'OS.closeMenu();OS.chat.renameSession(\'' + sid + '\')' }, { label: '置顶 / 取消置顶', ico: '📌', fn: 'OS.closeMenu();OS.chat.togglePinSession(\'' + sid + '\')' }, { label: '删除', ico: '🗑', danger: true, fn: 'OS.closeMenu();OS.chat.deleteSession(\'' + sid + '\')' } ];
   menu(items, e.clientX, e.clientY);
+};
+// 需求 1：长按会话列表项（非气泡）→ 底部 Action Sheet；~500ms，pointerdown/up/cancel，滑动取消，长按后吞掉紧随的 click
+let _sessionPress = { id: null, timer: null, moved: false, suppressClick: false };
+OS.chat.sessionPressStart = function(e, id) {
+  _sessionPress.id = id; _sessionPress.moved = false; _sessionPress.suppressClick = false;
+  clearTimeout(_sessionPress.timer);
+  _sessionPress.timer = setTimeout(() => {
+    if (!_sessionPress.moved && _sessionPress.id === id) {
+      _sessionPress.suppressClick = true;
+      if (navigator.vibrate) { try { navigator.vibrate(15); } catch (err) {} }
+      OS.chat.sessionSheet(id); _sessionPress.id = null;
+    }
+  }, 500);
+};
+OS.chat.sessionPressMove = function() { _sessionPress.moved = true; };
+OS.chat.sessionPressEnd = function() { clearTimeout(_sessionPress.timer); };
+OS.chat.sessionSheet = function(id) {
+  const s = OS.chat.sessions.find((x) => x.id === id);
+  if (!s) return;
+  const c = 'OS.closeModal();';
+  drawer('<div class="sheet"><div class="sheet-grab"></div>' +
+    '<button class="sheet-item" onclick="' + c + 'OS.chat.multiSelectStart()"><span class="ico">☑</span>多选</button>' +
+    '<button class="sheet-item" onclick="' + c + 'OS.chat.renameSession(\'' + id + '\')"><span class="ico">✎</span>重命名</button>' +
+    '<button class="sheet-item" onclick="' + c + 'OS.chat.togglePinSession(\'' + id + '\')"><span class="ico">📌</span>' + (s.pinned ? '取消置顶' : '置顶') + '</button>' +
+    '<button class="sheet-item" onclick="' + c + 'OS.chat.retitleSession(\'' + id + '\')"><span class="ico">✨</span>重新生成标题</button>' +
+    '<button class="sheet-item" onclick="' + c + 'OS.chat.duplicateSession(\'' + id + '\')"><span class="ico">⧉</span>复制</button>' +
+    '<button class="sheet-item" style="color:#c0392b" onclick="' + c + 'OS.chat.deleteSession(\'' + id + '\')"><span class="ico">🗑</span>删除</button>' +
+    '</div>', 'bottom');
+};
+OS.chat.multiSelectStart = function() { OS.chat.multiSelect = true; OS.chat.multiSelected = {}; OS.chat.sidebarOpen = true; OS.chat.renderSessions(); };
+OS.chat.toggleSessionSelect = function(id) { if (OS.chat.multiSelected[id]) delete OS.chat.multiSelected[id]; else OS.chat.multiSelected[id] = true; OS.chat.renderSessions(); };
+OS.chat.cancelMultiSelect = function() { OS.chat.multiSelect = false; OS.chat.multiSelected = {}; OS.chat.renderSessions(); };
+OS.chat.renderMultiBar = function() {
+  const el = document.getElementById('chatMultiBar'); if (!el) return;
+  if (!OS.chat.multiSelect) { el.innerHTML = ''; return; }
+  const n = Object.keys(OS.chat.multiSelected).length;
+  el.innerHTML = '<div style="padding:10px 6px;border-top:1px solid var(--border)"><div style="display:flex;gap:8px">' +
+    (n > 0 ? '<button class="btn btn-sm btn-danger" style="flex:1" onclick="OS.chat.deleteSelectedSessions()">删除所选 (' + n + ')</button>' : '') +
+    '<button class="btn btn-sm" style="flex:1" onclick="OS.chat.cancelMultiSelect()">取消</button></div></div>';
+};
+OS.chat.deleteSelectedSessions = function() {
+  const ids = Object.keys(OS.chat.multiSelected);
+  if (ids.length === 0) return;
+  confirmDialog('删除所选会话', '删除选中的 ' + ids.length + ' 个会话？消息将一并删除。', async () => {
+    try {
+      for (const id of ids) await fetch(API_BASE + '/api/sessions/' + id, { method: 'DELETE' });
+      OS.chat.sessions = OS.chat.sessions.filter((x) => !ids.includes(x.id));
+      if (OS.chat.sessions.length === 0) { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions = [c]; }
+      if (ids.includes(OS.chat.currentId)) { OS.chat.currentId = OS.chat.sessions[0].id; await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); }
+      OS.chat.multiSelect = false; OS.chat.multiSelected = {};
+      OS.chat.renderAll();
+      toast('已删除 ✓');
+    } catch (e) { toast('删除失败：' + e.message, true); }
+  }, '删除');
+};
+OS.chat.retitleSession = async function(id) {
+  toast('正在生成标题…');
+  try {
+    const r = await fetch(API_BASE + '/api/sessions/' + id + '/retitle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: aiSet().model }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    const s2 = OS.chat.sessions.find((x) => x.id === id);
+    if (s2 && d.session) s2.name = d.session.name;
+    OS.chat.renderSessions(); OS.chat.renderHeader();
+    toast('标题已更新 ✓');
+  } catch (e) { toast('生成标题失败：' + e.message, true); }
+};
+OS.chat.duplicateSession = async function(id) {
+  toast('正在复制会话…');
+  try {
+    const r = await fetch(API_BASE + '/api/sessions/' + id + '/duplicate', { method: 'POST' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (d.session) OS.chat.sessions.unshift(d.session);
+    OS.chat.renderSessions();
+    toast('已复制会话 ✓');
+  } catch (e) { toast('复制失败：' + e.message, true); }
 };
 // 顶栏 ⋯：模型选择 + 当前会话操作（需求 6：模型选择从顶栏移入菜单）
 OS.chat.topMenu = function(e) {
@@ -3074,32 +3168,69 @@ OS.chat.deleteSession = function(id) {
     try { await fetch(API_BASE + '/api/sessions/' + id, { method: 'DELETE' }); OS.chat.sessions = OS.chat.sessions.filter((x) => x.id !== id); if (OS.chat.sessions.length === 0) { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions = [c]; } if (OS.chat.currentId === id) { OS.chat.currentId = OS.chat.sessions[0].id; await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); } OS.chat.renderAll(); } catch (e) { toast('删除失败：' + e.message, true); }
   }, '删除');
 };
-OS.chat.onFiles = function(input) {
-  Array.from(input.files).forEach((file) => {
-    if (file.size > 10 * 1024 * 1024) { toast('文件过大（>10MB）', true); return; }
-    if (file.type.startsWith('image/')) { const r = new FileReader(); r.onload = (ev) => { OS.chat.attachments.push({ file, dataUrl: ev.target.result, name: file.name, type: file.type }); OS.chat.renderAttach(); }; r.readAsDataURL(file); }
-    else OS.chat.attachments.push({ file, dataUrl: null, name: file.name, type: file.type }); OS.chat.renderAttach();
-  });
+OS.chat.onFiles = async function(input) {
+  const files = Array.from(input.files || []);
   input.value = '';
+  for (const file of files) {
+    const isImg = (file.type || '').startsWith('image/');
+    const max = isImg ? 20 * 1024 * 1024 : 50 * 1024 * 1024;
+    if (file.size > max) { toast('文件过大（' + (isImg ? '图片≤20MB' : '文件≤50MB') + '）：' + file.name, true); continue; }
+    const att = { id: null, name: file.name, type: file.type || 'application/octet-stream', size: file.size, fileUrl: '', dataUrl: null, status: 'uploading' };
+    OS.chat.attachments.push(att);
+    OS.chat.renderAttach();
+    try {
+      const dataUrl = await readAsDataURL(file);
+      if (isImg) att.dataUrl = dataUrl;
+      const r = await fetch(API_BASE + '/api/files/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileName: file.name, mimeType: att.type, dataBase64: dataUrl }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+      const up = (j.data && j.data.attachment) || {};
+      att.id = up.id || null;
+      att.fileUrl = up.fileUrl || (j.data && j.data.publicUrl) || '';
+      att.status = 'done';
+    } catch (e) {
+      att.status = 'error'; att.error = e.message;
+    }
+    OS.chat.renderAttach();
+  }
 };
 OS.chat.renderAttach = function() {
   const el = document.getElementById('chatAttach'); if (!el) return;
-  el.innerHTML = OS.chat.attachments.map((a, i) => '<span class="chip" style="gap:6px">' + (a.dataUrl ? '<img src="' + a.dataUrl + '" style="width:22px;height:22px;border-radius:6px;object-fit:cover">' : '📄') + '<span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.name) + '</span><button onclick="OS.chat.removeAttach(' + i + ')" style="border:none;background:none;color:inherit;cursor:pointer">×</button></span>').join('');
+  if (!OS.chat.attachments.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = OS.chat.attachments.map((a, i) => {
+    const st = a.status === 'uploading' ? '<span class="muted">⏳ 上传中</span>' : (a.status === 'error' ? '<span style="color:#c0392b">✕ 失败</span>' : '<span style="color:#2e7d32">✓</span>');
+    return '<span class="chip" style="gap:6px">' + (a.dataUrl ? '<img src="' + a.dataUrl + '" style="width:22px;height:22px;border-radius:6px;object-fit:cover">' : '📄') + '<span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.name) + '</span>' + st + '<button onclick="OS.chat.removeAttach(' + i + ')" style="border:none;background:none;color:inherit;cursor:pointer">×</button></span>';
+  }).join('');
 };
 OS.chat.removeAttach = function(i) { OS.chat.attachments.splice(i, 1); OS.chat.renderAttach(); };
-function readTextFile(file) { return new Promise((resolve) => { if (file.type.startsWith('text/') || file.name.endsWith('.txt')) { const r = new FileReader(); r.onload = (e) => resolve(e.target.result); r.readAsText(file); } else resolve(null); }); }
+OS.chat.previewImage = function(url) {
+  modal('<div class="modal-body" style="padding:0;position:relative;background:rgba(0,0,0,.85)"><img src="' + url + '" style="width:100%;max-height:80vh;object-fit:contain;border-radius:12px"><button class="x" style="position:absolute;top:8px;right:8px;color:#fff;background:rgba(0,0,0,.5);border-radius:50%;width:32px;height:32px" onclick="OS.closeModal()">✕</button></div>');
+};
+OS.chat.previewFile = function(url, name) {
+  if (url) window.open(url, '_blank', 'noopener');
+  else toast('文件不可用（' + (name || '') + '）', true);
+};
 OS.chat.send = async function() {
   const input = document.getElementById('chatInput'); const text = input.value.trim();
   if (!text && OS.chat.attachments.length === 0) return;
   if (!OS.chat.currentId) { toast('还没有会话', true); return; }
+  // 附件上传状态：有上传中/失败则阻止发送（需求：禁用发送，避免丢附件）
+  if (OS.chat.attachments.some((a) => a.status === 'uploading')) { toast('附件正在上传，请稍候', true); return; }
+  if (OS.chat.attachments.some((a) => a.status === 'error')) { toast('有附件上传失败，请移除后重试', true); return; }
+  // 编辑模式：改的是已存在的用户消息，走编辑接口（需求 3），不产生重复消息、不丢历史
+  const editingId = OS.chat.editingId;
+  OS.chat.editingId = null; OS.chat.renderEditBar();
   // 取出引用动态并清空（需求 33）：用户自己发送时才携带，绝不自动发送
   const quoted = OS.chat.quotedDynamic || null;
   OS.chat.quotedDynamic = null;
   const qc = document.querySelector('.quote-card'); if (qc) qc.remove();
+  if (editingId) { input.value = ''; OS.chat.attachments = []; OS.chat.renderAttach(); OS.chat.resend(editingId, text); return; }
   const now = new Date().toLocaleString();
-  let content = text;
-  for (const a of OS.chat.attachments) { const fc = await readTextFile(a.file); content = content ? content + '\n\n' + (a.dataUrl ? '[图片: ' + a.name + ']' : (fc !== null ? '[文件: ' + a.name + ']\n' + fc : '[文件: ' + a.name + '] (非文本)')) : (a.dataUrl ? '[图片: ' + a.name + ']' : '[文件: ' + a.name + ']'); }
-  const userMsg = { role: 'user', content, time: now, pendingUser: true, quotedDynamic: quoted };
+  const content = text; // 附件走独立 attachmentIds，绝不拼进正文（不污染消息原文）
+  const attachmentIds = OS.chat.attachments.filter((a) => a.id).map((a) => a.id);
+  const attachMeta = OS.chat.attachments.map((a) => ({ id: a.id, fileName: a.name, mimeType: a.type, size: a.size, fileUrl: a.fileUrl, dataUrl: a.dataUrl || null }));
+  const userMsg = { role: 'user', content, time: now, pendingUser: true, quotedDynamic: quoted, attachments: attachMeta };
   const thinking = { role: 'assistant', content: '', time: now, thinking: true };
   OS.chat.messages.push(userMsg, thinking);
   input.value = ''; OS.chat.attachments = []; OS.chat.renderAttach();
@@ -3107,11 +3238,14 @@ OS.chat.send = async function() {
   OS.chat.renderMessages();
   const s = aiSet();
   try {
-    if (s.streaming) await OS.chat.sendStreaming(content, thinking, now, quoted);
+    if (s.streaming) await OS.chat.sendStreaming(content, attachmentIds, thinking, now, quoted);
     else {
-      const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted }) });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+      const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted, attachmentIds }) });
+      const ct = (resp.headers.get('content-type') || '').toLowerCase();
+      let data = {};
+      if (ct.includes('json')) data = await resp.json().catch(() => ({}));
+      else { try { const txt = await resp.text(); console.error('[chat] AI 返回非 JSON（content-type: ' + ct + '）：', String(txt).slice(0, 500)); } catch (e) {} }
+      if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status + (ct.includes('json') ? '' : ' · 服务器返回了非 JSON 响应，请检查中转地址')));
       OS.chat.messages = OS.chat.messages.filter((m) => m !== thinking && !m.pendingUser);
       if (data.compressed) { await OS.chat.loadMessages(); OS.chat.messages.push({ role: 'assistant', content: '（已自动整理历史记忆）', time: now, note: true }); }
       else { OS.chat.messages.push(chatMapMessage(data.userMessage)); OS.chat.messages.push(chatMapMessage(data.assistantMessage)); }
@@ -3123,13 +3257,18 @@ OS.chat.send = async function() {
   if (btn) btn.disabled = false;
   OS.chat.renderAll();
 };
-OS.chat.sendStreaming = async function(content, thinking, now, quoted) {
+OS.chat.sendStreaming = async function(content, attachmentIds, thinking, now, quoted) {
   const s = aiSet();
-  const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted }) });
+  const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted, attachmentIds }) });
   if (!resp.ok) { let msg = 'HTTP ' + resp.status; try { msg = (await resp.json()).error || msg; } catch (e) {} throw new Error(msg); }
+  const sct = (resp.headers.get('content-type') || '').toLowerCase();
+  if (!sct.includes('text/event-stream')) {
+    let preview = ''; try { preview = String(await resp.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200); } catch (e) {}
+    throw new Error('AI 流式响应异常（content-type: ' + (sct || '无') + '）' + (preview ? '：' + preview : '') + '。请检查「API 设置」里的中转地址');
+  }
   const reader = resp.body.getReader(); const decoder = new TextDecoder(); let buf = '', full = '', lastRender = 0;
   const apply = (text) => { thinking.content = text; thinking.thinking = false; const bubbles = document.querySelectorAll('#chatMsgs .bubble'); const el = bubbles[bubbles.length - 1]; if (el) el.innerHTML = '<div class="md">' + renderMarkdown(text) + '</div>'; };
-  while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); let idx; while ((idx = buf.indexOf('\n\n')) >= 0) { const block = buf.slice(0, idx).trim(); buf = buf.slice(idx + 2); if (!block.startsWith('data:')) continue; const payload = block.slice(5).trim(); if (payload === '[DONE]') continue; let obj; try { obj = JSON.parse(payload); } catch (e) { continue; } if (obj.error) throw new Error(obj.error); if (obj.delta) { full += obj.delta; const t = Date.now(); if (t - lastRender >= 40) { lastRender = t; apply(full); } } if (obj.done) { if (obj.compressed) await OS.chat.loadMessages(); else if (obj.assistantMessage) { const i = OS.chat.messages.indexOf(thinking); if (i >= 0) OS.chat.messages[i] = chatMapMessage(obj.assistantMessage); } apply(full); return; } } }
+  while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); let idx; while ((idx = buf.indexOf('\n\n')) >= 0) { const block = buf.slice(0, idx).trim(); buf = buf.slice(idx + 2); if (!block.startsWith('data:')) continue; const payload = block.slice(5).trim(); if (payload === '[DONE]') continue; let obj; try { obj = JSON.parse(payload); } catch (e) { continue; } if (obj.error) throw new Error(obj.error); if (obj.delta) { full += obj.delta; const t = Date.now(); if (t - lastRender >= 40) { lastRender = t; apply(full); } } if (obj.done) { if (obj.compressed) await OS.chat.loadMessages(); else { if (obj.userMessage) { const ui = OS.chat.messages.findIndex((m) => m.pendingUser); if (ui >= 0) OS.chat.messages[ui] = chatMapMessage(obj.userMessage); } if (obj.assistantMessage) { const i = OS.chat.messages.indexOf(thinking); if (i >= 0) OS.chat.messages[i] = chatMapMessage(obj.assistantMessage); } } apply(full); return; } } }
   apply(full);
 };
 OS.chat.copyMsg = async function(btn, id) { const m = OS.chat.messages.find((x) => x.id === id); if (!m) return; try { await navigator.clipboard.writeText(m.content); } catch (e) { const ta = document.createElement('textarea'); ta.value = m.content; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) {} ta.remove(); } btn.textContent = '已复制'; setTimeout(() => { btn.textContent = '复制'; }, 1500); };
@@ -3207,17 +3346,26 @@ OS.chat.bubblePressStart = function(e, id) {
 };
 OS.chat.bubblePressMove = function() { _chatMsgPress.moved = true; };
 OS.chat.bubblePressEnd = function() { clearTimeout(_chatMsgPress.timer); };
-// 需求 4B：编辑单条用户消息，改后重新发送，不产生重复消息
+// 需求 3：编辑单条用户消息 —— 内容回填到输入框（而非弹窗），用户改完直接点发送即走编辑接口，不产生重复消息
 OS.chat.editMessage = function(id) {
   const m = OS.chat.messages.find((x) => x.id === id);
   if (!m || m.role !== 'user') return;
-  modal('<div class="modal-head"><h3>编辑消息</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><textarea class="textarea" id="emContent" style="min-height:120px">' + esc(m.content) + '</textarea></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="OS.chat.doEdit(\'' + id + '\')">重新发送</button></div>');
+  OS.chat.editingId = id;
+  const input = document.getElementById('chatInput');
+  if (input) { input.value = m.content; input.focus(); }
+  OS.chat.renderEditBar();
 };
-OS.chat.doEdit = function(id) {
-  const el = document.getElementById('emContent'); const v = el ? el.value.trim() : '';
-  closeModal();
-  if (!v) return;
-  OS.chat.resend(id, v);
+OS.chat.cancelEdit = function() {
+  OS.chat.editingId = null;
+  const input = document.getElementById('chatInput');
+  if (input) { input.value = ''; input.focus(); }
+  OS.chat.renderEditBar();
+};
+OS.chat.renderEditBar = function() {
+  const el = document.getElementById('chatEditBar');
+  if (el) el.innerHTML = OS.chat.editingId
+    ? '<div class="chip" style="gap:8px;margin:6px 0 0"><span>✎ 编辑中，改完点发送</span><button style="border:none;background:none;color:inherit;cursor:pointer;font-weight:700" onclick="OS.chat.cancelEdit()">✕ 取消</button></div>'
+    : '';
 };
 OS.chat.regenerateFrom = function(id) { const m = OS.chat.messages.find((x) => x.id === id); if (m) OS.chat.resend(id, m.content); };
 OS.chat.resend = async function(id, content) {
@@ -3559,42 +3707,50 @@ const WeatherProvider = {
 function setMockWeather(text, temp, code) { DB.weather = { text, temp, code, source: 'mock', updatedAt: Date.now() }; saveDB(); render(); toast('已更新天气（Mock）'); WeatherProvider.evaluate(DB.weather); }
 
 const LocationProvider = {
-  // 优先走高德定位：先 IP 定位（国内稳定、即时、城市级，无需浏览器定位权限）；
-  // 浏览器 GPS 仅在高德不可用时兜底（国内 Chrome/Edge 依赖 Google 定位服务常超时）。
+  _lastError: null,
+  // 最后一次定位失败原因（供 UI 清晰展示 denied / unsupported / timeout，不伪造位置）
+  lastError() { return this._lastError; },
+  // 需求 10：真实定位优先 navigator.geolocation（含精度/时间戳/反向地理编码），
+  // 失败才降级到城市级 IP 大致定位（明确 source='ip'，绝不冒充 GPS）。
   async getCurrentLocation() {
-    const ipLoc = await this.ipLocation();
-    if (ipLoc) return ipLoc;
     const gps = await this.gpsLocation();
     if (gps && gps.lat) { DB.location = gps; saveDB(); return gps; }
-    // 高德 IP 与浏览器 GPS 都不可用时返回 null，绝不伪造定位（需求 11）
+    const ipLoc = await this.ipLocation();
+    if (ipLoc) return ipLoc;
+    // GPS 与 IP 都不可用时返回 null，绝不伪造定位
     return null;
   },
-  // 高德 IP 定位（城市级）
+  // 高德 IP 定位（城市级大致位置，兜底；仅在 GPS 失败后调用）
   async ipLocation() {
     try {
       const r = await fetch(API_BASE + '/api/ip-location');
       if (r.ok) {
         const d = (await r.json()).data;
         if (d && (d.city || d.province)) {
-          const loc = { city: d.city || d.province, lat: d.lat || null, lng: d.lng || null, source: 'ip', updatedAt: Date.now() };
+          const loc = { city: d.city || d.province, lat: d.lat || null, lng: d.lng || null, source: 'ip', precision: 'city', updatedAt: Date.now() };
           DB.location = loc; saveDB(); return loc;
         }
       }
     } catch (e) {}
     return null;
   },
-  // 浏览器 GPS（精确坐标，兜底）
+  // 浏览器 GPS（精确坐标 + 精度 + 时间戳）；权限被拒/不可用/超时均记录到 _lastError
   gpsLocation() {
     return new Promise((resolve) => {
-      if (!('geolocation' in navigator)) return resolve(null);
+      if (!('geolocation' in navigator)) { this._lastError = { code: 'unsupported', message: '当前浏览器/环境不支持定位' }; return resolve(null); }
       navigator.geolocation.getCurrentPosition(async (pos) => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy || null;
+        const ts = pos.timestamp || Date.now();
         const city = await this.reverseGeocode(lat, lng);
-        resolve({ city, lat, lng, source: 'geolocation', updatedAt: Date.now() });
+        this._lastError = null;
+        resolve({ city, lat, lng, accuracy: acc, timestamp: ts, source: 'geolocation', updatedAt: Date.now() });
       }, (err) => {
+        const msg = { 1: '用户拒绝了定位权限', 2: '定位信息当前不可用', 3: '定位请求超时' }[err && err.code] || ('定位失败' + (err && err.message ? '：' + err.message : ''));
+        this._lastError = { code: String((err && err.code) || 'error'), message: msg };
         try { console.warn('[location] 浏览器 GPS 不可用:', err && err.code, err && err.message); } catch (e) {}
         resolve(null);
-      }, { timeout: 8000, maximumAge: 5 * 60 * 1000 });
+      }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 });
     });
   },
   async reverseGeocode(lat, lng) {
@@ -3686,6 +3842,8 @@ function viewFinance() {
     '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">📈</div><div class="v">' + fmtMoney(s.monthIncomeCents) + '</div><div class="l">本月收入</div></div>' +
     '<div class="card stat-card" style="cursor:pointer" onclick="budgetModal()"><div style="font-size:20px;margin-bottom:6px">🎯</div><div class="v">' + (s.budget ? fmtMoney(s.budget) : '—') + '</div><div class="l">本月预算</div><div class="u">点击设置</div></div>' +
     '</div>';
+  // AI 点评（模型生成，非硬编码）：懒加载占位，afterRender 里异步填充
+  html += '<div class="card card-pad" id="financeAiComment" style="padding:12px 14px;margin-bottom:16px;display:none"><div style="font-weight:700;font-size:13px;margin-bottom:4px">♥ AI 点评</div><div id="financeAiCommentText" class="muted" style="font-size:13px;line-height:1.5">正在生成…</div></div>';
   const cats = Object.entries(s.cat).sort((a, b) => b[1] - a[1]);
   if (cats.length) {
     const max = cats[0][1];
@@ -3696,6 +3854,26 @@ function viewFinance() {
   html += '<div class="section-head"><h2>最近记录</h2></div>';
   html += '<div class="card card-pad" style="padding:4px 8px">' + (list.length ? list.map(financeRowHtml).join('') : '<div class="empty"><div class="eico">💰</div><div class="etitle">还没有记账</div><div class="esub">点「记一笔」开始记录收支</div></div>') + '</div>';
   return html;
+}
+let _financeComment = null; // 本次会话内缓存 AI 点评，避免每次进页面重复请求
+function setFinanceComment(c) {
+  const el = document.getElementById('financeAiComment');
+  const text = document.getElementById('financeAiCommentText');
+  if (!el) return;
+  if (!c) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  if (text) text.textContent = c;
+}
+async function loadFinanceComment() {
+  const el = document.getElementById('financeAiComment');
+  if (!el) return;
+  if (_financeComment != null) { setFinanceComment(_financeComment); return; }
+  el.style.display = 'block';
+  const r = await apiJson('/api/ai/finance/comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  if (!r.ok) { setFinanceComment(''); return; }
+  const c = (r.data && r.data.comment) || '';
+  _financeComment = c;
+  setFinanceComment(c);
 }
 function financeRowHtml(e) {
   const income = financeIsIncome(e);
@@ -3947,15 +4125,40 @@ function aiCompanionHeader() {
 function dismissReminder(id) { const n = (DB.ai.notifications || []).find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
 function weatherSectionHtml() {
   const w = DB.weather; const loc = DB.location;
-  if (!w && !loc) return '';
   let html = '<div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">';
   if (w) { const ico = { sunny: '☀️', cloudy: '⛅', rain: '🌧', overcast: '☁️' }[w.code] || '🌤'; html += '<span class="chip">' + ico + ' ' + esc(w.text) + ' ' + esc(String(w.temp)) + '°C' + (w.source === 'mock' ? ' <span style="opacity:.6">Mock</span>' : '') + '</span>'; }
-  if (loc) html += '<span class="chip">📍 ' + esc(loc.city) + '</span>';
-  html += '<button class="btn btn-sm" onclick="refreshWeather()" title="刷新天气">↻ 刷新</button>';
+  if (loc) html += '<span class="chip">📍 ' + esc(loc.city) + (loc.source === 'ip' ? ' <span style="opacity:.6">（大致）</span>' : '') + '</span>';
+  // 需求 9：右上角保留简单地图入口 → 半屏 Mini Map（真实定位）
+  html += '<button class="btn btn-sm" onclick="openMiniMap()" title="地图">🗺 地图</button>';
+  if (w) html += '<button class="btn btn-sm" onclick="refreshWeather()" title="刷新天气">↻ 刷新</button>';
   if (loc) html += '<button class="btn btn-sm" onclick="aiLocationAllow()" title="重新定位">📍 重新定位</button>';
   if (!w) html += '<button class="btn btn-sm" onclick="aiLocationModal()">开启定位/天气</button>';
   html += '</div>';
   return html;
+}
+// 需求 9：半屏 Mini Map（OpenStreetMap 内嵌，无需 Key，展示真实定位；GPS 优先，IP 兜底并明确标注）
+async function openMiniMap() {
+  let loc = DB.location;
+  if (!loc || !loc.lat || !loc.lng) {
+    toast('正在获取定位…');
+    loc = await LocationProvider.getCurrentLocation();
+    if (loc && loc.lat && loc.lng) { DB.location = loc; saveDB(); }
+  }
+  if (!loc || !loc.lat || !loc.lng) {
+    const err = LocationProvider.lastError();
+    toast('无法获取定位，无法显示地图' + (err ? '：' + err.message : ''), true);
+    return;
+  }
+  const lat = Number(loc.lat), lng = Number(loc.lng);
+  const d = 0.02;
+  const bbox = (lng - d).toFixed(5) + '%2C' + (lat - d).toFixed(5) + '%2C' + (lng + d).toFixed(5) + '%2C' + (lat + d).toFixed(5);
+  const src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox + '&layer=mapnik&marker=' + lat.toFixed(5) + '%2C' + lng.toFixed(5);
+  drawer('<div class="sheet"><div class="sheet-grab"></div>' +
+    '<div class="sheet-head"><div style="font-weight:700;font-size:16px">Mini Map</div>' +
+    '<div class="muted" style="font-size:12px">' + esc(loc.city || '当前位置') + (loc.source === 'ip' ? ' · 城市级大致定位' : ' · GPS 定位') + '</div></div>' +
+    '<iframe src="' + src + '" style="width:100%;height:62vh;border:0;border-radius:14px;background:var(--border)" loading="lazy" title="Mini Map"></iframe>' +
+    '<div class="muted" style="font-size:11px;padding:10px 2px 4px">地图来自 OpenStreetMap · ' + lat.toFixed(4) + ', ' + lng.toFixed(4) + (loc.accuracy ? ' · 精度 ±' + Math.round(loc.accuracy) + 'm' : '') + '</div>' +
+    '</div>', 'bottom');
 }
 async function refreshWeather() {
   if (!aiCan('weather')) { toast('天气权限已关闭，请先在「我的AI 设置」中打开', true); return; }
@@ -3979,9 +4182,13 @@ function aiLocationModal() {
 function aiLocationAllow() {
   aiPerm().location = true; saveDB();
   LocationProvider.getCurrentLocation().then(async (loc) => {
-    // 未拿到真实定位（权限被拒 / 网络异常 / 未配置 AMAP_KEY）：诚实提示，不伪造位置
-    if (!loc) { toast('定位权限未开启', true); render(); return; }
-    toast('定位成功：' + esc(loc.city || '') + (loc.source === 'ip' ? '（高德 IP 大致定位）' : '')); render();
+    // 未拿到真实定位：展示具体原因（权限被拒/不可用/超时/未配置 AMAP_KEY），不伪造位置
+    if (!loc) {
+      const err = LocationProvider.lastError();
+      toast('定位失败' + (err ? '：' + err.message : '（权限被拒或服务不可用）'), true);
+      render(); return;
+    }
+    toast('定位成功：' + esc(loc.city || '') + (loc.source === 'ip' ? '（城市级 IP 大致定位）' : '')); render();
     AIBus.emit({ type: 'LOCATION_CHANGED', entityType: 'location', payload: loc });
     // 拿到位置后顺手拉一次真实天气
     const w = await WeatherProvider.fetchReal();

@@ -14,6 +14,8 @@ import { ensureOwner } from '../lib/auth.js';
 import { getState } from '../lib/domain.js';
 import { buildContextSnippet, detectDomains } from '../lib/aiContext.js';
 import { buildDomainTools } from '../lib/tools.js';
+import { attachments as attachmentsTable } from '../lib/store.js';
+import { prepareAttachmentsForAI, attachmentRow } from '../lib/attachments.js';
 
 const router = Router();
 
@@ -52,6 +54,34 @@ async function buildAssistEnv(sessionId, content) {
   return { settings, app, mcp, tools, callTool, contextSnippet };
 }
 
+// 解析附件：按 id 读取 + 所有权校验（用户 A 不能引用用户 B 的附件），最多 10 个。
+async function resolveAttachments(userId, ids) {
+  const list = Array.isArray(ids) ? ids.slice(0, 10).map((x) => String(x)) : [];
+  const rows = [];
+  for (const id of list) {
+    if (!id) continue;
+    const rec = await attachmentsTable.one(id);
+    if (rec && rec.user_id === userId) rows.push(rec);
+  }
+  return rows;
+}
+
+// 把附件注入到最后一条用户消息：文本文件正文拼进 content，图片走 images（多模态）。
+// 已存在的 metadata.attachments 只做持久化；AI 看到的内容在这里即时生成，不污染消息原文。
+async function augmentLastUserMessage(messages, rows) {
+  if (!rows.length || !messages.length) return messages;
+  const { textBlocks, imageDataUrls, notes } = await prepareAttachmentsForAI(rows);
+  const last = messages[messages.length - 1];
+  if (last && last.role === 'user') {
+    let c = last.content || '';
+    if (textBlocks.length) c += '\n\n' + textBlocks.join('\n\n');
+    if (notes.length) c += '\n\n' + notes.join('\n');
+    last.content = c;
+    if (imageDataUrls.length) last.images = imageDataUrls;
+  }
+  return messages;
+}
+
 // 回复通知：标题/正文由 AI 生成（普通通知，绝不 critical/call）
 async function notifyReply(barkUrl, model, content) {
   try {
@@ -88,7 +118,8 @@ router.post('/:sessionId/messages', async (req, res, next) => {
   try {
     const { sessionId } = req.params;
     const content = (req.body?.content || '').trim();
-    if (!content) return res.status(400).json({ error: 'content 不能为空' });
+    const attachmentIds = Array.isArray(req.body?.attachmentIds) ? req.body.attachmentIds.slice(0, 10).map((x) => String(x)) : [];
+    if (!content && attachmentIds.length === 0) return res.status(400).json({ error: 'content 不能为空' });
 
     // 引用 AI 动态（需求 33）：{ id, type:'ai_dynamic', content, createdAt }，仅作为上下文注入，不写入长期记忆
     const qd = req.body?.quotedDynamic;
@@ -96,9 +127,18 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 
     const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
+    const userId = (await ensureOwner()).id;
 
-    const userMessage = await createMessage(sessionId, { role: 'user', content, ...(quotedDynamic ? { metadata: { quotedDynamic } } : {}) });
+    // 附件：解析 + 所有权校验 + 持久化到消息 metadata.attachments（独立字段，不进 content）
+    const attachmentRows = await resolveAttachments(userId, attachmentIds);
+    const attachmentMeta = attachmentRows.map((r) => attachmentRow(r, ''));
+    const metadata = {};
+    if (quotedDynamic) metadata.quotedDynamic = quotedDynamic;
+    if (attachmentMeta.length) metadata.attachments = attachmentMeta;
+
+    const userMessage = await createMessage(sessionId, { role: 'user', content, ...(Object.keys(metadata).length ? { metadata } : {}) });
     const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
+    await augmentLastUserMessage(messages, attachmentRows);
     const quoteNote = quotedDynamic ? '\n\n[用户引用了以下 AI 动态来发起对话，请结合这条动态内容理解用户意图]\n引用动态内容：' + quotedDynamic.content : '';
     const systemWithCtx = [system, contextSnippet, quoteNote].filter(Boolean).join('\n\n');
 
@@ -137,7 +177,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       await touchSession(sessionId);
       if (notify) await notifyReply(barkUrl, model, full);
 
-      send({ done: true, assistantMessage, compressed });
+      send({ done: true, userMessage, assistantMessage, compressed });
       res.end();
       await mcp?.close();
       return;

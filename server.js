@@ -43,7 +43,8 @@ const app = express();
 // CORS：配置了 FRONTEND_URL 则只允许该来源，否则保持开放（本地/同源部署）
 const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map((s) => s.trim()).filter(Boolean);
 app.use(cors(allowedOrigins.length ? { origin: allowedOrigins, credentials: true } : {}));
-app.use(express.json({ limit: '10mb' }));
+// 附件走 JSON base64 上传（图片 ≤20MB、文件 ≤50MB → base64 会膨胀约 1.33 倍，故上限放宽到 70mb）
+app.use(express.json({ limit: '70mb' }));
 
 // 健康检查（Render 用）
 app.get('/health', (req, res) => {
@@ -79,6 +80,8 @@ app.use('/api/mcp', requireAuth, mcpRouter);
 app.use('/api/memory', requireAuth, memoryRouter);
 app.use('/api/ai', requireAuth, aiRouter);
 app.use('/api/files', requireAuth, filesRouter);
+// 聊天附件上传入口：POST /api/chat/attachments（与 /api/files/upload 同一存储、同一服务端校验）
+app.use('/api/chat', requireAuth, filesRouter);
 
 // 天气 / 定位（高德服务端封装；公开数据代理，不挂 requireAuth）
 app.use('/api', geoRouter);

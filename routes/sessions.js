@@ -6,9 +6,12 @@ import {
   updateSession,
   deleteSession,
   listMessages,
+  createMessage,
   getSettings,
   DEFAULT_SETTINGS,
 } from '../lib/db.js';
+import { chat } from '../lib/ai.js';
+import { config } from '../lib/config.js';
 
 const router = Router();
 
@@ -79,6 +82,52 @@ router.delete('/:sessionId', async (req, res, next) => {
   try {
     await deleteSession(req.params.sessionId);
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /api/sessions/:sessionId/retitle —— 由 AI 根据最近对话重新生成标题（需求 1）
+router.post('/:sessionId/retitle', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const messages = await listMessages(sessionId, { limit: 20, visibleOnly: true });
+    const text = messages.slice(0, 12).map((m) => (m.role === 'user' ? '我：' : 'AI：') + (m.content || '')).join('\n').trim();
+    if (!text) return res.status(400).json({ error: '会话没有消息，无法生成标题' });
+    const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
+    const reply = await chat({
+      model,
+      system: '你是会话标题生成器。根据对话内容生成一个简洁、准确的中文标题。',
+      temperature: 0.3,
+      maxTokens: 40,
+      messages: [{ role: 'user', content: '为下面这段对话生成一个不超过 12 个字的标题，只输出标题本身，不要引号、不要解释、不要换行：\n' + text.slice(0, 3000) }],
+    });
+    const name = (reply.content || '').replace(/[\r\n"「」『』]/g, '').trim().slice(0, 20) || '新的对话';
+    const session = await updateSession(sessionId, { name });
+    res.json({ session });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /api/sessions/:sessionId/duplicate —— 复制会话及其消息（需求 1）
+router.post('/:sessionId/duplicate', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const src = await getSession(sessionId);
+    if (!src) return res.status(404).json({ error: '会话不存在' });
+    const copy = await createSession((src.name || '新的对话') + ' 副本');
+    const msgs = await listMessages(sessionId, { limit: 500, visibleOnly: false });
+    for (const m of msgs) {
+      await createMessage(copy.id, {
+        role: m.role,
+        content: m.content,
+        reasoningContent: m.reasoning_content,
+        visible: m.visible !== false,
+        metadata: m.metadata,
+      });
+    }
+    res.status(201).json({ session: copy });
   } catch (e) {
     next(e);
   }
