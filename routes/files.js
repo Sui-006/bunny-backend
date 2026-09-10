@@ -25,6 +25,15 @@ const router = Router();
 
 const toRow = (r) => ({ id: r.id, fileName: r.file_name, fileUrl: r.file_url, mimeType: r.mime_type, size: r.size, createdAt: r.created_at });
 
+// 计算本服务对外可访问的公网 base URL（协议/主机取自反向代理头，本地回退 http）。
+// 用于把 /uploads/… 相对路径补全成真实公网 URL（如 Bark icon 需要 iPhone 可访问的 HTTPS 地址）。
+function publicBase(req) {
+  const proto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim() || req.protocol || 'http';
+  const host = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+  if (!host) return '';
+  return `${proto}://${host}`;
+}
+
 // POST /api/files/upload —— JSON base64（前端把文件读成 data URL 再传）
 router.post('/upload', async (req, res, next) => {
   try {
@@ -40,7 +49,7 @@ router.post('/upload', async (req, res, next) => {
     const stored = `${randomUUID()}.${ext}`;
     fs.writeFileSync(path.join(UPLOAD_DIR, stored), buf);
     const row = await attachments.insert({ user_id: req.user.id, file_name: fileName, file_url: `/uploads/${stored}`, mime_type: mimeType, size: buf.length });
-    ok(res, { attachment: toRow(row) }, 201);
+    ok(res, { attachment: toRow(row), publicUrl: `${publicBase(req)}/uploads/${stored}` }, 201);
   } catch (e) { next(e); }
 });
 

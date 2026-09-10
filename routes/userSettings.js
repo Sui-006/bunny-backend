@@ -4,7 +4,7 @@ import { ok, pick } from '../lib/rest.js';
 
 const router = Router();
 const APPER = ['theme', 'accent', 'font', 'wallpaper'];
-const AI = ['aiName', 'assistantAvatar', 'bubbleOpacity', 'model', 'systemPrompt', 'streaming', 'memory', 'autoCompress'];
+const AI = ['aiName', 'assistantAvatar', 'assistantAvatarUrl', 'bubbleOpacity', 'model', 'systemPrompt', 'streaming', 'memory', 'autoCompress'];
 const NOTIF = ['morning', 'morningTime', 'noon', 'noonTime', 'night', 'nightTime', 'idle', 'idleHours', 'replyNotify'];
 
 // GET /api/user-settings —— 外观 / AI / 通知 / 应用名

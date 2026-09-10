@@ -38,7 +38,7 @@ async function buildAssistEnv(sessionId, content) {
   const { settings, app, mcp, tools: mcpTools } = await buildChatEnv(sessionId);
   const userId = (await ensureOwner()).id;
   const doc = await getState(userId);
-  const contextSnippet = buildContextSnippet(doc, content);
+  const contextSnippet = await buildContextSnippet(doc, content);
   const domains = detectDomains(content);
   const domain = buildDomainTools(userId);
   const useDomain = domains.length > 0;
@@ -89,12 +89,17 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     const content = (req.body?.content || '').trim();
     if (!content) return res.status(400).json({ error: 'content 不能为空' });
 
+    // 引用 AI 动态（需求 33）：{ id, type:'ai_dynamic', content, createdAt }，仅作为上下文注入，不写入长期记忆
+    const qd = req.body?.quotedDynamic;
+    const quotedDynamic = (qd && qd.content) ? { id: qd.id, type: 'ai_dynamic', content: String(qd.content), createdAt: qd.createdAt } : null;
+
     const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
 
-    const userMessage = await createMessage(sessionId, { role: 'user', content });
+    const userMessage = await createMessage(sessionId, { role: 'user', content, ...(quotedDynamic ? { metadata: { quotedDynamic } } : {}) });
     const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
-    const systemWithCtx = [system, contextSnippet].filter(Boolean).join('\n\n');
+    const quoteNote = quotedDynamic ? '\n\n[用户引用了以下 AI 动态来发起对话，请结合这条动态内容理解用户意图]\n引用动态内容：' + quotedDynamic.content : '';
+    const systemWithCtx = [system, contextSnippet, quoteNote].filter(Boolean).join('\n\n');
 
     const stream = settings.stream && tools.length === 0;
     const barkUrl = config.barkUrl || app?.bark_url;

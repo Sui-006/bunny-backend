@@ -2,8 +2,19 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Bunny's Home</title>
+  <meta name="description" content="Bunny's Home — 属于 Bunny & Elliott 的个人 AI 生活操作系统（任务 / 习惯 / 计划 / 记账 / 健康 / AI 陪伴）">
+  <meta name="theme-color" content="#6b8cae">
+  <!-- PWA：可安装到 iPhone / Android 主屏幕 -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+  <!-- iOS 独立窗口（添加到主屏幕后以 App 形态打开，不显示 Safari 地址栏） -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bunny's Home">
   <link rel="stylesheet" href="fonts/fonts.css">
   <style>
     @font-face {
@@ -86,7 +97,7 @@
     .sidebar {
       width: var(--sidebar-w); height: 100vh; flex-shrink: 0;
       background: var(--accent-bg); border-right: 1px solid var(--accent-line);
-      display: flex; flex-direction: column; padding: 18px 12px 12px;
+      display: flex; flex-direction: column; padding: calc(18px + env(safe-area-inset-top)) 12px 12px;
       position: relative; z-index: 90;
     }
     .logo {
@@ -122,8 +133,8 @@
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; position: relative; }
     .main .bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 1; pointer-events: none; z-index: 0; transition: opacity 0.3s; }
     .topbar {
-      height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; gap: 12px;
-      padding: 0 18px; position: relative; z-index: 2;
+      height: calc(var(--topbar-h) + env(safe-area-inset-top)); flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+      padding: env(safe-area-inset-top) 18px 0; position: relative; z-index: 2;
       background: rgba(255,255,255,0.55); backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
     }
@@ -144,22 +155,13 @@
       width: 34px; height: 34px; border-radius: 50%; background: var(--accent-tint); border: 2px solid var(--accent-soft);
       background-size: cover; background-position: center; cursor: pointer; flex-shrink: 0;
     }
-    .view { flex: 1; overflow-y: auto; position: relative; z-index: 1; padding: 22px 24px 100px; }
+    .view { flex: 1; overflow-y: auto; position: relative; z-index: 1; padding: 22px 24px calc(100px + env(safe-area-inset-bottom)); }
     .view-inner { max-width: 1080px; margin: 0 auto; animation: viewIn 0.22s ease; }
     @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    /* ============ Bottom nav / FAB ============ */
-    .bottomnav {
-      display: none; position: fixed; bottom: 0; left: 0; right: 0; height: var(--bottomnav-h);
-      background: var(--card); backdrop-filter: blur(14px); border-top: 1px solid var(--border);
-      z-index: 70; padding-bottom: env(safe-area-inset-bottom);
-    }
-    .bottomnav-inner { display: flex; height: 100%; }
-    .bn-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: var(--text-faint); cursor: pointer; background: none; border: none; }
-    .bn-item .ico { font-size: 20px; }
-    .bn-item.active { color: var(--accent); }
+    /* ============ FAB ============ */
     .fab {
-      position: fixed; right: 22px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%;
+      position: fixed; right: 22px; bottom: calc(24px + env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 50%;
       background: var(--accent); color: #fff; font-size: 28px; border: none; cursor: pointer;
       box-shadow: 0 8px 24px rgba(60,90,130,0.4); z-index: 60; display: flex; align-items: center; justify-content: center;
       transition: transform 0.15s, background 0.2s; line-height: 1;
@@ -332,12 +334,46 @@
     .conv-item .c-last { font-size: 12.5px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .conv-item .c-time { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
     .unread { min-width: 18px; height: 18px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
-    .bubble { max-width: 78%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.55; word-break: break-word; }
+    .bubble { max-width: 85%; padding: 11px 15px; border-radius: 18px; font-size: 14px; line-height: 1.6; word-break: break-word; }
     .bubble.in { background: var(--card-solid); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
     .bubble.out { background: var(--accent); color: #fff; border-bottom-right-radius: 6px; align-self: flex-end; }
-    .chat-input-bar { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
+    .chat-input-bar { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
     .chat-input { flex: 1; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; outline: none; max-height: 110px; min-height: 42px; background: var(--card-solid); }
     .chat-input:focus { border-color: var(--accent-border); }
+
+    /* 聊天气泡操作：小图标、淡色、默认隐藏，hover / 长按 / 点击出现 */
+    .chat-msg-row { position: relative; }
+    .chat-actions { display: flex; gap: 2px; margin-top: 4px; opacity: 0; transition: opacity 0.15s; }
+    .chat-msg-row:hover .chat-actions, .chat-msg-row:active .chat-actions { opacity: 1; }
+    .chat-actions .mini-act { border: none; background: none; color: var(--text-faint); font-size: 11px; padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+    .chat-actions .mini-act:hover { color: var(--accent-strong); background: var(--accent-tint); }
+    .mini-act { border: none; background: none; color: var(--text-faint); font-size: 11px; padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .mini-act:hover { color: var(--accent-strong); background: var(--accent-tint); }
+
+    /* 引用 AI 动态（进入对话时显示在输入框上方） */
+    .quote-card { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; margin: 0 14px 8px; border: 1px solid var(--accent-line); border-left: 3px solid #f472b6; border-radius: 12px; background: var(--accent-tint); font-size: 12.5px; color: var(--text-soft); }
+    .quote-card .q-body { flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
+    .quote-card .q-x { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 15px; line-height: 1; padding: 2px; }
+
+    /* 聊天背景（用户可设默认 / 纯色 / 图片） */
+    .chat-stage { position: relative; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .chat-stage .chat-bg { position: absolute; inset: 0; background-size: cover; background-position: center; z-index: 0; }
+    .chat-stage .chat-bg-overlay { position: absolute; inset: 0; background: var(--card-solid); opacity: 0.72; z-index: 1; }
+    html[data-theme="dark"] .chat-stage .chat-bg-overlay { opacity: 0.82; }
+    .chat-stage > * { position: relative; z-index: 2; }
+
+    /* 会话列表（侧栏式，⋮ 菜单） */
+    .session-list { display: flex; flex-direction: column; gap: 2px; }
+    .session-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; cursor: pointer; color: var(--text-soft); font-size: 13.5px; border: none; background: none; width: 100%; text-align: left; }
+    .session-item:hover { background: var(--accent-tint); color: var(--text); }
+    .session-item.active { background: var(--accent-tint); color: var(--accent-strong); font-weight: 600; }
+    .session-item .s-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .session-item .s-menu { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 15px; padding: 2px 5px; border-radius: 8px; flex-shrink: 0; }
+    .session-item .s-menu:hover { color: var(--accent-strong); background: var(--accent-tint); }
+
+    /* 播放器底部抽屉 */
+    .player-sheet-cover { width: 120px; height: 120px; border-radius: 16px; background-size: cover; background-position: center; box-shadow: 0 12px 30px rgba(0,0,0,0.25); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 44px; color: rgba(255,255,255,0.9); }
+    .player-sheet-list { max-height: 220px; overflow-y: auto; }
 
     /* ============ Player ============ */
     .player-stage { display: flex; flex-direction: column; align-items: center; padding: 30px 20px; gap: 22px; }
@@ -439,10 +475,9 @@
       .sidebar { position: fixed; left: -280px; top: 0; bottom: 0; transition: left 0.28s ease; box-shadow: 2px 0 20px rgba(0,0,0,0.12); }
       .sidebar.open { left: 0; }
       .menu-btn { display: block; }
-      .bottomnav { display: block; }
-      .fab { bottom: 76px; }
+      .fab { bottom: calc(24px + env(safe-area-inset-bottom)); }
       .grid.cols-3, .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
-      .view { padding: 16px 14px 110px; }
+      .view { padding: 16px 14px calc(90px + env(safe-area-inset-bottom)); }
       .week-grid { overflow-x: auto; grid-template-columns: repeat(7, minmax(150px, 1fr)); }
       .cal-cell { min-height: 60px; }
       .cal-dot { display: none; }
@@ -472,7 +507,6 @@
       <header class="topbar" id="topbar"></header>
       <div class="view" id="view"></div>
     </main>
-    <nav class="bottomnav" id="bottomnav"></nav>
     <button class="fab" id="fab" onclick="OS.openQuickCreate()">+</button>
   </div>
   <div id="modalRoot"></div>
@@ -485,7 +519,13 @@
    Bunny's Home — Personal AI Life OS  (single-file, vanilla JS)
    Hash router + localStorage persistence + optional backend for AI chat.
    ========================================================================= */
-const API_BASE = '';
+// 后端地址自适应：同源部署（Render / 本地调试）走相对路径；否则（如 Vercel 托管前端）走绝对地址。
+// 修复：曾固定为绝对地址，后改成 '' 导致 Vercel 上请求同源 /api/* 返回 HTML，登录/同步全部失效。
+const API_BASE = (() => {
+  const h = location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1' || h.endsWith('.onrender.com')) return '';
+  return 'https://bunny-backend-bv89.onrender.com';
+})();
 const LS_KEY = 'bunny_os_v1';
 
 /* ---------------- utils ---------------- */
@@ -566,6 +606,8 @@ const TYPE_META = {
   'weekly':    { label: '周计划', sub: '周计划', def: null, color: '#f97316', ico: '🗓' },
 };
 const PLANS_META = { 'long-term': '长期计划', 'stage': '阶段计划', 'monthly': '月度计划', 'weekly': '周计划' };
+// 需求 19：计划展示顺序固定为 周 → 月 → 阶段 → 长期
+const PLAN_ORDER = ['weekly', 'monthly', 'stage', 'long-term'];
 
 function defaultDB() {
   const now = new Date();
@@ -588,11 +630,8 @@ function defaultDB() {
     { name: 'Meditation', icon: '🧘', color: '#f59e0b', frequency: 'daily', goal: 1, reminderTime: '08:00', completions: [] },
     { name: 'Sleep Early', icon: '🌙', color: '#6366f1', frequency: 'daily', goal: 1, reminderTime: '22:30', completions: [] },
   ].map((h) => ({ id: uid(), streak: 0, completions: [], createdAt: Date.now(), ...h }));
+  // 健康记录按天真实录入，不再播种随机假数据（需求 29：无 mock/随机数据）
   const health = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = addDays(todayStr(), -i);
-    health.push({ id: uid(), date: d, sleep: +(6.5 + Math.random() * 2).toFixed(1), steps: 5000 + Math.floor(Math.random() * 7000), heartRate: 62 + Math.floor(Math.random() * 14), calories: 300 + Math.floor(Math.random() * 300), water: +(1 + Math.random() * 1.5).toFixed(1) });
-  }
   return {
     version: 1,
     ai: {
@@ -615,6 +654,14 @@ function defaultDB() {
     plans: [ longTerm, stage ],
     habits,
     health,
+    healthProfile: { height: null },
+    // 财务：金额一律整数分（amountCents），货币 CNY
+    expenses: [],
+    purchases: [],
+    budget: { monthlyCents: null, currency: 'CNY' },
+    // 健康隐私
+    menstrualCycles: [],
+    medicalRecords: [],
     notes: [ { id: uid(), title: '欢迎使用 Bunny\'s Home', content: '这是一个属于你的个人数字空间。\n\n· 点击右下角 + 快速创建任务 / 计划 / 习惯\n· 我的AI 可以帮你安排今天\n· 所有数据都保存在本地', tags: ['欢迎'], pinned: true, createdAt: Date.now(), updatedAt: Date.now() } ],
     player: { playlist: [ { title: 'Turning Page', artist: 'Sleeping At Last', cover: '', duration: 255 } ], current: 0, playing: false, currentTime: 0, volume: 0.8, togetherListening: false },
     notifications: [
@@ -655,6 +702,24 @@ function loadDB() {
   if (!Array.isArray(db.shoppingLists)) db.shoppingLists = def.shoppingLists;
   if (!Array.isArray(db.shoppingItems)) db.shoppingItems = [];
   if (!Array.isArray(db.journal)) db.journal = [];
+  if (!Array.isArray(db.expenses)) db.expenses = [];
+  if (!Array.isArray(db.purchases)) db.purchases = [];
+  if (!db.budget) db.budget = def.budget;
+  if (!Array.isArray(db.menstrualCycles)) db.menstrualCycles = [];
+  if (!Array.isArray(db.medicalRecords)) db.medicalRecords = [];
+  if (!db.healthProfile) db.healthProfile = def.healthProfile;
+  // 老数据清洗：健康记录里的 steps/heartRate/calories 字段（旧模型）一并剔除
+  for (const rec of db.health) {
+    delete rec.steps; delete rec.heartRate; delete rec.calories;
+    if (rec.caloriesIn == null) rec.caloriesIn = 0;
+    if (rec.caloriesOut == null) rec.caloriesOut = 0;
+    if (rec.weight == null) rec.weight = null;
+  }
+  // 习惯打卡去重（需求 9）：completions 去掉重复日期，保证 unique(userId+habitId+localDate)
+  for (const h of db.habits) {
+    if (!Array.isArray(h.completions)) h.completions = [];
+    else h.completions = Array.from(new Set(h.completions.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))));
+  }
   // ensure each plan type has >= 1 plan
   for (const t of Object.keys(TYPE_META)) {
     const arr = db.plans.filter((p) => p.type === t);
@@ -768,9 +833,9 @@ function closeMenu() { document.getElementById('menuRoot').innerHTML = ''; }
 
 /* ---------------- router ---------------- */
 const ROUTES = {
-  '/today': 'Home', '/calendar': '日历', '/alarm': '闹钟', '/plans': '计划',
+  '/today': 'Home', '/tasks': '任务', '/calendar': '日历', '/alarm': '闹钟', '/plans': '计划',
   '/plans/long-term': '长期计划', '/plans/stage': '阶段计划', '/plans/monthly': '月度计划', '/plans/weekly': '周计划',
-  '/habit': '习惯', '/health': '健康', '/statistics': '统计',
+  '/habit': '习惯', '/health': '健康', '/medical': '个人病历', '/statistics': '统计', '/finance': '记账', '/period': '经期',
   '/chat': '我的AI · 对话', '/player': '音乐',
   '/shopping': '购物清单', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/journal': '我的日志',
   '/notes': '笔记', '/notifications': '通知', '/profile': '我的主页', '/search': '搜索',
@@ -787,7 +852,7 @@ function parseHash() {
 
 const OS = {
   route: parseHash(),
-  ui: { search: '', calView: 'month', viewDate: todayStr(), statRange: 7, healthRange: 7, healthDate: todayStr(), notesQuery: '', convId: null },
+  ui: { search: '', calView: 'month', viewDate: todayStr(), statRange: 7, healthRange: 7, healthDate: todayStr(), notesQuery: '', convId: null, taskView: 'today' },
   chat: { sessions: [], currentId: null, messages: [], attachments: [], sessionSettings: {}, loading: false },
 
   go(route) { location.hash = route; },
@@ -807,10 +872,10 @@ const OS = {
 function navGroups() {
   const n = (route, ico, label, badge) => ({ route, ico, label, badge });
   return [
-    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/calendar', '📅', 'Calendar'), n('/alarm', '⏰', '闹钟') ] },
+    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/tasks', '✅', 'Task'), n('/calendar', '📅', 'Calendar'), n('/alarm', '⏰', '闹钟') ] },
     { title: '♥ 我的AI', ai: true, items: [ n('/chat', '💬', 'AI Chat'), n('/ai/memory', '🧠', 'AI Memory'), n('/ai/activity', '💗', 'AI Activity') ] },
-    { title: 'PLANS', items: [ n('/plans/long-term', '🎯', 'Long-term'), n('/plans/stage', '🧭', 'Stage'), n('/plans/monthly', '📆', 'Monthly'), n('/plans/weekly', '🗓', 'Weekly') ] },
-    { title: 'LIFE', items: [ n('/habit', '🌱', 'Habit'), n('/health', '❤️', 'Health'), n('/statistics', '📊', 'Statistics'), n('/shopping', '🛒', 'Shopping'), n('/player', '🎵', 'Music') ] },
+    { title: 'PLANS', items: PLAN_ORDER.map((t) => n('/plans/' + t, TYPE_META[t].ico, TYPE_META[t].label)) },
+    { title: 'LIFE', items: [ n('/habit', '🌱', 'Habit'), n('/health', '❤️', 'Health'), n('/medical', '🩺', '病历'), n('/statistics', '📊', 'Statistics'), n('/shopping', '🛒', 'Shopping'), n('/finance', '💰', '记账'), n('/player', '🎵', 'Music') ] },
   ];
 }
 function renderSidebar() {
@@ -838,7 +903,6 @@ function renderSidebar() {
   html += '</div>';
   html += '<div class="nav-foot">';
   html += '<button class="nav-item' + (OS.route === '/profile' ? ' active' : '') + '" onclick="OS.toggleSidebar(false);OS.go(\'/profile\')"><span class="ico">👤</span><span class="lbl">Profile</span></button>';
-  html += '<button class="nav-item' + (OS.route === '/journal' ? ' active' : '') + '" style="padding-left:36px" onclick="OS.toggleSidebar(false);OS.go(\'/journal\')"><span class="ico">📖</span><span class="lbl">我的日志</span></button>';
   html += '<button class="nav-item' + (OS.route.startsWith('/settings') ? ' active' : '') + '" onclick="OS.toggleSidebar(false);OS.go(\'/settings\')"><span class="ico">⚙️</span><span class="lbl">Settings</span></button>';
   html += '<button class="nav-item" onclick="OS.toggleSidebar(false);OS.go(\'/notifications\')"><span class="ico">🔔</span><span class="lbl">Notifications</span>' + (unread ? '<span class="badge">' + unread + '</span>' : '') + '</button>';
   html += '</div>';
@@ -862,12 +926,6 @@ function renderTopbar() {
     '<div class="avatar" style="' + (av ? 'background-image:url(' + av + ')' : '') + '" onclick="OS.go(\'/profile\')"></div>' +
     '</div>';
 }
-function renderBottomnav() {
-  const el = document.getElementById('bottomnav');
-  const mk = (route, ico, label) => '<button class="bn-item' + (OS.route === route || (route === '/plans' && OS.route.startsWith('/plans/')) ? ' active' : '') + '" onclick="OS.go(\'' + route + '\')"><span class="ico">' + ico + '</span>' + label + '</button>';
-  el.innerHTML = '<div class="bottomnav-inner">' + mk('/today', '🏠', 'Home') + mk('/plans/monthly', '📆', 'Plans') + mk('/habit', '🌱', 'Habit') + mk('/health', '❤️', 'Health') + '<button class="bn-item" onclick="openMoreNav()"><span class="ico">⋯</span>More</button>' + '</div>';
-}
-
 /* ---------------- quick create ---------------- */
 function openQuickCreate() {
   drawer('<div class="sheet"><div class="sheet-grab"></div>' +
@@ -894,7 +952,7 @@ function openMoreNav() {
 const viewScrollPos = {};
 let _lastRoute = OS.route;
 function render() {
-  renderSidebar(); renderTopbar(); renderBottomnav();
+  renderSidebar(); renderTopbar();
   const view = document.getElementById('view');
   const r = OS.route;
   const routeChanged = _lastRoute !== r;
@@ -905,12 +963,16 @@ function render() {
   } else {
     html = '<div class="view-inner">';
     if (r === '/today') html += viewToday();
+    else if (r === '/tasks') html += viewTasks();
     else if (r === '/calendar') html += viewCalendar();
     else if (r === '/alarm') html += viewAlarm();
     else if (r === '/plans') html += viewPlansOverview();
     else if (r.startsWith('/plans/')) html += viewPlanType(r.split('/')[2]);
     else if (r === '/habit') html += viewHabit();
     else if (r === '/health') html += viewHealth();
+    else if (r === '/medical') html += viewMedical();
+    else if (r === '/finance') html += viewFinance();
+    else if (r === '/period') html += viewPeriod();
     else if (r === '/statistics') html += viewStatistics();
     else if (r === '/shopping') html += viewShopping();
     else if (r === '/ai/memory') html += viewAIMemory();
@@ -965,7 +1027,8 @@ function taskRowHtml(t, opts) {
   const time = t.time ? '<span class="chip">🕒 ' + esc(t.time) + '</span>' : '';
   const chain = taskPlanChain(t).map((c) => '<span class="chip" title="' + esc(c.label + '：' + c.title) + '">' + c.label + '</span>').join('');
   const note = t.note ? ' <span title="' + esc(t.note) + '">📝</span>' : '';
-  return '<div class="task-row' + (t.completed ? ' done' : '') + '" draggable="true" ondragstart="taskDragStart(event,\'' + t.id + '\')" ondragover="event.preventDefault()" ondrop="taskDropOn(event,\'' + t.id + '\')" onclick="openTaskModal(null,\'' + t.id + '\')">' +
+  // 整行：点击/长按/右键均进入编辑（复用 openTaskModal，不新建）；复选框=完成切换，⋯=菜单
+  return '<div class="task-row' + (t.completed ? ' done' : '') + '" draggable="true" ondragstart="taskDragStart(event,\'' + t.id + '\')" ondragover="event.preventDefault()" ondrop="taskDropOn(event,\'' + t.id + '\')" onclick="taskRowClick(event,\'' + t.id + '\')" oncontextmenu="event.preventDefault();openTaskModal(null,\'' + t.id + '\')" ontouchstart="taskPressStart(event,\'' + t.id + '\')" ontouchmove="taskPressMove()" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()">' +
     '<span class="chk' + (t.completed ? ' on' : '') + '" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></span>' +
     '<span class="prio ' + (t.priority || 'none') + '" style="background:' + p.color + '"></span>' +
     '<div class="grow"><div class="t-title">' + esc(t.title) + note + '</div><div class="t-meta">' + time + tags + chain + '</div></div>' +
@@ -1007,6 +1070,23 @@ function taskDropToDate(e, date) {
   const id = e.dataTransfer.getData('text/plain');
   const t = taskById(id); if (!t) return;
   t.date = date; saveDB(); render(); toast('已移动到 ' + fmtDateHuman(date));
+}
+
+/* 移动端长按整行进入编辑（600ms；滑动/拖拽则取消） */
+let _taskPress = { id: null, timer: null, moved: false, suppressClick: false };
+function taskPressStart(e, id) {
+  _taskPress.id = id; _taskPress.moved = false; _taskPress.suppressClick = false;
+  clearTimeout(_taskPress.timer);
+  _taskPress.timer = setTimeout(() => {
+    if (!_taskPress.moved && _taskPress.id === id) { _taskPress.suppressClick = true; openTaskModal(null, id); _taskPress.id = null; }
+  }, 600);
+}
+function taskPressMove() { _taskPress.moved = true; }
+function taskPressEnd() { clearTimeout(_taskPress.timer); }
+// 长按后释放会伴随一次 click，这里吞掉，避免重复打开编辑框
+function taskRowClick(e, id) {
+  if (_taskPress.suppressClick) { _taskPress.suppressClick = false; return; }
+  openTaskModal(null, id);
 }
 
 /* task modal */
@@ -1058,27 +1138,17 @@ function viewToday() {
   const done = todays.filter((t) => t.completed).length;
   const pct = todays.length ? Math.round(done / todays.length * 100) : 0;
   const upcoming = DB.tasks.filter((t) => !t.completed && t.date > todayStr()).sort((a, b) => (a.date < b.date ? -1 : 1)).slice(0, 6);
-  const habitsToday = DB.habits.filter((h) => !isHabitDone(h, todayStr())).length;
   let html = aiCompanionHeader() + weatherSectionHtml() +
     '<div class="row" style="margin-bottom:18px;gap:14px">' +
     '<div class="avatar" style="width:48px;height:48px;font-size:22px;display:flex;align-items:center;justify-content:center;' + (DB.profile.avatar ? 'background-image:url(' + DB.profile.avatar + ')' : '') + '">' + (DB.profile.avatar ? '' : '🐰') + '</div>' +
     '<div><div class="h1">' + esc(greeting()) + ', ' + esc(name) + '</div><div class="muted">' + esc(todayLong()) + '</div></div></div>';
 
-  // Today card
-  html += '<div class="card card-pad" style="margin-bottom:14px">' +
-    '<div class="spread" style="margin-bottom:10px"><div style="font-size:17px;font-weight:700">Today</div><div class="muted">' + done + ' / ' + todays.length + ' completed</div></div>' +
-    '<div class="progress"><span style="width:' + pct + '%"></span></div></div>';
-
-  // Quick actions
-  html += '<div class="grid cols-4" style="margin-bottom:6px">' +
-    qa('✅', 'Task', 'newTaskModal()') + qa('🌱', 'Habit', 'newHabitModal()') + qa('🎯', 'Plan', 'newPlanSheet()') + qa('📝', 'Note', 'newNoteModal()') + '</div>';
-
-  // Today tasks
-  html += '<div class="section-head"><h2>今日任务</h2><button class="more" onclick="newTaskModal()">＋ 添加</button></div>';
-  html += '<div class="card card-pad" style="padding:8px 10px">';
-  if (todays.length === 0) html += '<div class="empty" style="padding:26px"><div class="eico">🌤</div><div class="etitle">今天没有任务</div><div class="esub">点击「＋ 添加」或右下角 + 新建</div></div>';
-  else html += todays.map((t) => taskRowHtml(t)).join('');
-  html += '</div>';
+  // 今日任务：仅概要入口，点击进入独立 Task 页（需求 1）
+  html += '<div class="card card-pad" style="margin-bottom:14px;cursor:pointer" onclick="OS.go(\'/tasks\')">' +
+    '<div class="spread" style="margin-bottom:10px"><div class="row" style="gap:8px"><span style="font-size:20px">✅</span><div style="font-size:16px;font-weight:700">今日任务</div></div><div class="muted">' + done + ' / ' + todays.length + ' 完成 ›</div></div>' +
+    '<div class="progress"><span style="width:' + pct + '%"></span></div>' +
+    (todays.length ? '<div class="muted" style="font-size:12px;margin-top:10px">' + todays.slice(0, 3).map((t) => (t.completed ? '✓ ' : '○ ') + esc(t.title)).join(' · ') + (todays.length > 3 ? ' …' : '') + '</div>' : '<div class="muted" style="font-size:12px;margin-top:10px">今天没有任务，点此安排</div>') +
+    '</div>';
 
   // Upcoming
   html += '<div class="section-head"><h2>Upcoming</h2><button class="more" onclick="OS.go(\'/calendar\')">日历 ›</button></div>';
@@ -1090,6 +1160,35 @@ function viewToday() {
   html += '<div class="card card-pad" style="padding:8px 10px">' + DB.habits.slice(0, 5).map((h) => habitRowHtml(h, todayStr())).join('') + '</div>';
   return html;
 }
+// 独立任务页（需求 1/8）：今日 / 未来 / 已完成 三种视图，创建/编辑/删除/完成，独立于首页
+function viewTasks() {
+  const view = OS.ui.taskView || 'today';
+  let list, title;
+  if (view === 'today') { list = tasksOn(todayStr()); title = '今日'; }
+  else if (view === 'future') { list = DB.tasks.filter((t) => !t.completed && t.date > todayStr()).sort((a, b) => a.date < b.date ? -1 : 1); title = '未来'; }
+  else { list = DB.tasks.filter((t) => t.completed).sort((a, b) => (b.date || '') < (a.date || '') ? -1 : 1); title = '已完成'; }
+  const doneToday = DB.tasks.filter((t) => t.date === todayStr() && t.completed).length;
+  const allToday = tasksOn(todayStr()).length;
+  let html = '<div class="spread" style="margin-bottom:14px"><div><div class="h1">Task</div><div class="muted">任务 · 独立管理</div></div><button class="btn btn-primary" onclick="newTaskModal()">＋ 新建任务</button></div>';
+  html += '<div class="seg" style="margin-bottom:16px">' +
+    '<button class="' + (view === 'today' ? 'on' : '') + '" onclick="setTaskView(\'today\')">今日' + (allToday ? ' (' + doneToday + '/' + allToday + ')' : '') + '</button>' +
+    '<button class="' + (view === 'future' ? 'on' : '') + '" onclick="setTaskView(\'future\')">未来</button>' +
+    '<button class="' + (view === 'completed' ? 'on' : '') + '" onclick="setTaskView(\'completed\')">已完成</button></div>';
+  if (list.length === 0) html += '<div class="empty"><div class="eico">✅</div><div class="etitle">' + (view === 'completed' ? '还没有已完成的任务' : '暂无任务') + '</div><div class="esub">' + (view === 'today' ? '点右上角「＋ 新建任务」开始安排' : '') + '</div></div>';
+  else {
+    if (view === 'future') {
+      const byDate = {};
+      list.forEach((t) => { (byDate[t.date] = byDate[t.date] || []).push(t); });
+      for (const d of Object.keys(byDate).sort()) {
+        html += '<div class="section-head"><h2>' + esc(fmtDateHuman(d) + '（' + ymd(d) + '）') + '</h2></div><div class="card card-pad" style="padding:8px 10px;margin-bottom:12px">' + byDate[d].map((t) => taskRowHtml(t)).join('') + '</div>';
+      }
+    } else {
+      html += '<div class="card card-pad" style="padding:8px 10px">' + list.map((t) => taskRowHtml(t)).join('') + '</div>';
+    }
+  }
+  return html;
+}
+function setTaskView(v) { OS.ui.taskView = v; render(); }
 function qa(ico, label, fn) {
   return '<div class="card card-pad" style="text-align:center;cursor:pointer" onclick="' + fn + '"><div style="font-size:24px">' + ico + '</div><div style="font-size:12.5px;color:var(--text-soft);margin-top:4px">' + label + '</div></div>';
 }
@@ -1219,8 +1318,8 @@ function planProgress(plan) {
 }
 
 function viewPlansOverview() {
-  let html = '<div class="h1" style="margin-bottom:4px">Plans</div><div class="muted" style="margin-bottom:20px">四种计划体系：长期 · 阶段 · 月度 · 周</div><div class="grid cols-2">';
-  for (const t of Object.keys(TYPE_META)) {
+  let html = '<div class="h1" style="margin-bottom:4px">Plans</div><div class="muted" style="margin-bottom:20px">四种计划体系：周 · 月度 · 阶段 · 长期</div><div class="grid cols-2">';
+  for (const t of PLAN_ORDER) {
     const meta = TYPE_META[t]; const plans = activePlans(t);
     const last = plans[0] ? relTime(plans.reduce((m, p) => Math.max(m, p.updatedAt || 0), 0)) : '—';
     const avg = plans.length ? Math.round(plans.reduce((s, p) => s + planProgress(p), 0) / plans.length) : 0;
@@ -1257,6 +1356,7 @@ function planMenu(e, type, id) {
     { label: p.archived ? '恢复' : '归档', ico: '📦', fn: 'OS.closeMenu();archivePlan(\'' + id + '\')' },
     { label: '删除', ico: '🗑', danger: true, fn: 'OS.closeMenu();removePlan(\'' + id + '\')' },
   ];
+  if (type === 'monthly') items.splice(1, 0, { label: '经期记录', ico: '🌸', fn: 'OS.closeMenu();OS.go(\'/period\')' });
   menu(items, e.clientX, e.clientY);
 }
 function editPlanName(id) {
@@ -1500,21 +1600,29 @@ function habitStreak(h) {
   while (set.has(d)) { streak++; d = addDays(d, -1); }
   return streak;
 }
+// 累计完成次数：只统计「已跨 0 点」的日期（严格早于今天），今天的打卡由今日状态/连续天数体现。
+function habitTotalCompletions(h) {
+  const today = todayStr();
+  return new Set((h.completions || []).filter((d) => d && d < today)).size;
+}
 function toggleHabit(id, date) {
   const h = habitById(id); if (!h) return;
-  if (!h.completions) h.completions = [];
-  const i = h.completions.indexOf(date);
-  if (i >= 0) h.completions.splice(i, 1); else h.completions.push(date);
-  h.streak = habitStreak(h); saveDB(); render();
-  if (i < 0) toast('已打卡 🔥 ' + h.streak + ' 天');
-  AIBus.emit({ type: i < 0 ? 'HABIT_COMPLETED' : 'HABIT_UPDATED', entityType: 'habit', entityId: id, payload: h });
+  if (!Array.isArray(h.completions)) h.completions = [];
+  // 幂等：同一天重复点击/刷新/重进都不再累加，也不删除已有记录
+  if (h.completions.includes(date)) { toast('今日已打卡 ✓'); return; }
+  h.completions.push(date);
+  h.streak = habitStreak(h);
+  saveDB(); render();
+  toast('已打卡 🔥 ' + habitStreak(h) + ' 天');
+  AIBus.emit({ type: 'HABIT_COMPLETED', entityType: 'habit', entityId: id, payload: h });
 }
 function habitRowHtml(h, date) {
   const done = isHabitDone(h, date);
+  const total = habitTotalCompletions(h);
   return '<div class="task-row" onclick="toggleHabit(\'' + h.id + '\',\'' + date + '\')">' +
     '<span class="habit-ico" style="width:36px;height:36px;font-size:18px;background:' + hexToRgba(h.color, 0.15) + '">' + esc(h.icon) + '</span>' +
-    '<div class="grow"><div class="t-title' + (done ? ' done' : '') + '">' + esc(h.name) + '</div><div class="t-meta"><span class="chip" style="font-size:10.5px">' + (FREQ[h.frequency] || h.frequency) + (h.goal ? ' · ' + h.goal : '') + '</span>' + (h.reminderTime ? '<span class="chip" style="font-size:10.5px">⏰ ' + esc(h.reminderTime) + '</span>' : '') + '</div></div>' +
-    '<span class="habit-streak">🔥 ' + habitStreak(h) + ' 天</span>' +
+    '<div class="grow"><div class="t-title' + (done ? ' done' : '') + '">' + esc(h.name) + '</div><div class="t-meta"><span class="chip" style="font-size:10.5px">' + (FREQ[h.frequency] || h.frequency) + (h.goal ? ' · ' + h.goal : '') + '</span>' + (h.reminderTime ? '<span class="chip" style="font-size:10.5px">⏰ ' + esc(h.reminderTime) + '</span>' : '') + (h.description ? '<span class="muted" style="font-size:11px"> · ' + esc(h.description) + '</span>' : '') + '</div></div>' +
+    '<span class="habit-streak">' + total + ' 次 · 🔥 ' + habitStreak(h) + ' 天</span>' +
     '<span class="chk' + (done ? ' on' : '') + '" onclick="event.stopPropagation();toggleHabit(\'' + h.id + '\',\'' + date + '\')"></span>' +
     '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();habitMenu(event,\'' + h.id + '\')">⋯</button></div>';
 }
@@ -1540,6 +1648,7 @@ function habitModal(id) {
   const freqOpts = Object.keys(FREQ).map((f) => '<option value="' + f + '"' + (h && h.frequency === f ? ' selected' : '') + '>' + FREQ[f] + '</option>').join('');
   modal('<div class="modal-head"><h3>' + (h ? '编辑习惯' : '新建习惯') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
     '<div class="field"><label>名称</label><input class="input" id="hbName" value="' + esc(h ? h.name : '') + '" placeholder="如：喝水"></div>' +
+    '<div class="field"><label>描述</label><input class="input" id="hbDesc" value="' + esc(h ? (h.description || '') : '') + '" placeholder="选填，如：每天 8 杯水"></div>' +
     '<div class="field"><div class="row gap2" style="gap:8px"><div class="grow"><label>图标</label><input class="input" id="hbIcon" value="' + esc(h ? h.icon : '') + '" placeholder="💧"></div><div class="grow"><label>目标次数</label><input class="input" type="number" id="hbGoal" value="' + (h ? (h.goal || '') : '') + '" placeholder="8"></div></div></div>' +
     '<div class="field"><label>颜色</label>' + swatchHtml(h ? h.color : '#6b8cae') + '<input type="hidden" id="swVal" value="' + (h ? h.color : '#6b8cae') + '"></div>' +
     '<div class="field"><div class="row gap2" style="gap:8px"><div class="grow"><label>频率</label><select class="select" id="hbFreq">' + freqOpts + '</select></div><div class="grow"><label>提醒时间</label><input class="input" type="time" id="hbTime" value="' + esc(h ? (h.reminderTime || '') : '') + '"></div></div></div>' +
@@ -1547,7 +1656,7 @@ function habitModal(id) {
 }
 function saveHabit(id) {
   const name = document.getElementById('hbName').value.trim(); if (!name) { toast('请输入名称', true); return; }
-  const data = { name, icon: document.getElementById('hbIcon').value.trim() || '⭐', color: document.getElementById('swVal').value, frequency: document.getElementById('hbFreq').value, goal: +document.getElementById('hbGoal').value || null, reminderTime: document.getElementById('hbTime').value };
+  const data = { name, description: document.getElementById('hbDesc').value.trim(), icon: document.getElementById('hbIcon').value.trim() || '⭐', color: document.getElementById('swVal').value, frequency: document.getElementById('hbFreq').value, goal: +document.getElementById('hbGoal').value || null, reminderTime: document.getElementById('hbTime').value };
   if (id) Object.assign(habitById(id), data);
   else DB.habits.push({ id: uid(), streak: 0, completions: [], createdAt: Date.now(), ...data });
   saveDB(); closeModal(); render(); toast('已保存 ✓');
@@ -1556,52 +1665,188 @@ function saveHabit(id) {
 
 /* ================= HEALTH ================= */
 function healthToday() { return DB.health.find((x) => x.date === todayStr()); }
-function healthRange(n) { const out = []; for (let i = n - 1; i >= 0; i--) { const ds = addDays(todayStr(), -i); out.push(DB.health.find((x) => x.date === ds) || { date: ds, sleep: 0, steps: 0, heartRate: 0, calories: 0, water: 0 }); } return out; }
+function healthRecord(date) {
+  let rec = DB.health.find((x) => x.date === date);
+  if (!rec) { rec = { id: uid(), date, sleep: 0, water: 0, caloriesIn: 0, caloriesOut: 0, weight: null }; DB.health.push(rec); }
+  return rec;
+}
+function healthRange(n) { const out = []; for (let i = n - 1; i >= 0; i--) { const ds = addDays(todayStr(), -i); out.push(DB.health.find((x) => x.date === ds) || { date: ds, sleep: 0, water: 0, caloriesIn: 0, caloriesOut: 0, weight: null }); } return out; }
+function parseSleep(s) {
+  const t = String(s || '').trim(); if (!t) return null;
+  let hours = 0, hit = false;
+  const hm = t.match(/(\d+(?:\.\d+)?)\s*h/i); if (hm) { hours += +hm[1]; hit = true; }
+  const mm = t.match(/(\d+)\s*m/i); if (mm) { hours += +mm[1] / 60; hit = true; }
+  if (hit) return Math.round(hours * 100) / 100;
+  const n = Number(t); return Number.isFinite(n) ? n : null;
+}
+function fmtSleep(h) { const v = Number(h) || 0; if (!v) return '—'; const hh = Math.floor(v); const mm = Math.round((v - hh) * 60); return hh + 'h' + (mm ? ' ' + mm + 'm' : ''); }
+function fmtVal(v, unit) { const n = Number(v); return n ? n.toLocaleString() + unit : '—'; }
 function viewHealth() {
-  const t = healthToday() || { sleep: 0, steps: 0, heartRate: 0, calories: 0, water: 0 };
+  const t = healthToday() || { sleep: 0, water: 0, caloriesIn: 0, caloriesOut: 0, weight: null };
+  const hp = DB.healthProfile || {};
   const r = OS.ui.healthRange;
-  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Health</div><div class="muted">今日健康数据</div></div><button class="btn btn-soft" onclick="editHealthToday()">✎ 记录</button></div>';
-  html += '<div class="grid cols-2" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">' +
-    statCard('😴', 'Sleep', t.sleep + 'h', '睡眠时长') + statCard('👟', 'Steps', t.steps.toLocaleString(), '步数') + statCard('❤️', 'Heart', t.heartRate + ' BPM', '心率') + statCard('🔥', 'Calories', t.calories.toLocaleString(), '千卡') + statCard('💧', 'Water', t.water + ' L', '饮水') + '</div>';
+  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Health</div><div class="muted">今日健康数据</div></div></div>';
+  // 身高 + 体重：两个小输入框并排（50% each），紧凑（需求 12）
+  html += '<div class="card card-pad" style="margin-bottom:16px"><div class="grid cols-2" style="gap:10px">' +
+    '<div class="field" style="margin:0"><label>身高（cm）</label><input class="input" type="number" id="hpHeight" value="' + (hp.height || '') + '" step="0.5" min="0" placeholder="如 165" onchange="setHeightInline(this.value)"></div>' +
+    '<div class="field" style="margin:0"><label>体重（kg）</label><input class="input" type="number" id="hpWeight" value="' + (t.weight || '') + '" step="0.1" min="0" placeholder="如 50" onchange="setWeightInline(this.value)"></div>' +
+    '</div></div>';
+  // 个人病历：入口卡片，置于折线图上方（需求 13）
+  html += medicalRecordsSection();
+  // 折线图
   html += '<div class="spread" style="margin-bottom:12px"><div class="seg">' + rangeBtn(7, '7 天', r) + rangeBtn(30, '30 天', r) + '</div></div>';
   html += '<div class="grid cols-2" style="margin-bottom:16px">' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">⚖️ 体重（kg）</div><div id="chWeight"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">🍚 摄入（千卡）</div><div id="chIn"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">🏃 消耗（千卡）</div><div id="chOut"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">💧 饮水（升）</div><div id="chWater"></div></div>' +
     '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">😴 睡眠（小时）</div><div id="chSleep"></div></div>' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">👟 步数</div><div id="chSteps"></div></div>' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">❤️ 心率（BPM）</div><div id="chHr"></div></div>' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">🔥 卡路里</div><div id="chCal"></div></div>' +
     '</div>';
-  html += '<div class="section-head"><h2>最近 7 天</h2></div><div class="card card-pad"><div class="row" style="gap:8px;overflow-x:auto">';
-  for (let i = 6; i >= 0; i--) { const ds = addDays(todayStr(), -i); const rec = DB.health.find((x) => x.date === ds); const d = parseDate(ds);
-    html += '<div style="min-width:64px;text-align:center;padding:10px;border-radius:12px;cursor:pointer;' + (ds === todayStr() ? 'background:var(--accent-tint)' : '') + '" onclick="openHealthDay(\'' + ds + '\')"><div class="muted" style="font-size:11px">' + (d.getMonth() + 1) + '/' + d.getDate() + '</div><div style="font-size:15px;font-weight:700;margin:4px 0">' + (rec ? rec.sleep + 'h' : '—') + '</div><div class="muted" style="font-size:10px">👟 ' + (rec ? (rec.steps / 1000).toFixed(1) + 'k' : '—') + '</div></div>'; }
-  html += '</div></div>';
+  // 健康记录：各模块独立可点记录（需求 14）
+  html += '<div class="section-head"><h2>健康记录</h2><div class="hint">点击各模块独立记录</div></div>';
+  html += '<div class="grid cols-2" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">' +
+    healthModuleCard('😴', '睡眠', fmtSleep(t.sleep), 'sleep') +
+    healthModuleCard('💧', '饮水', fmtVal(t.water, ' L'), 'water') +
+    healthModuleCard('⚖️', '体重', t.weight ? t.weight + ' kg' : '—', 'weight') +
+    healthModuleCard('🍚', '摄入', fmtVal(t.caloriesIn, ' 千卡'), 'diet') +
+    '</div>';
+  html += '<div class="grid cols-2" style="grid-template-columns:repeat(4,1fr)">' +
+    healthModuleCard('🏃', '消耗', fmtVal(t.caloriesOut, ' 千卡'), 'exercise') +
+    '</div>';
   return html;
 }
+function healthModuleCard(ico, label, v, module) { return '<div class="card stat-card" style="cursor:pointer" onclick="openHealthModule(\'' + module + '\')"><div style="font-size:20px;margin-bottom:6px">' + ico + '</div><div class="v" style="font-size:19px">' + v + '</div><div class="l">' + label + '</div><div class="u">点击记录</div></div>'; }
 function statCard(ico, label, v, u) { return '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">' + ico + '</div><div class="v">' + v + '</div><div class="l">' + label + '</div><div class="u">' + u + '</div></div>'; }
 function rangeBtn(n, label, cur) { return '<button class="' + (cur === n ? 'on' : '') + '" onclick="setHealthRange(' + n + ')">' + label + '</button>'; }
 function setHealthRange(n) { OS.ui.healthRange = n; render(); }
-function editHealthToday() { openHealthDay(todayStr()); }
-function openHealthDay(date) {
-  let rec = DB.health.find((x) => x.date === date);
-  if (!rec) { rec = { id: uid(), date, sleep: 0, steps: 0, heartRate: 0, calories: 0, water: 0 }; DB.health.push(rec); }
-  const id = rec.id;
-  modal('<div class="modal-head"><h3>健康记录 · ' + esc(ymd(date)) + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
-    numField('睡眠（小时）', 'hlSleep', rec.sleep, 0, 24, 0.1) + numField('步数', 'hlSteps', rec.steps, 0, 100000, 100) + numField('心率（BPM）', 'hlHr', rec.heartRate, 0, 200, 1) + numField('卡路里（千卡）', 'hlCal', rec.calories, 0, 10000, 10) + numField('饮水（升）', 'hlWater', rec.water, 0, 10, 0.1) +
-    '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveHealthRecord(\'' + id + '\')">保存</button></div>');
+function setHeightInline(v) {
+  const h = parseFloat(v);
+  if (!DB.healthProfile) DB.healthProfile = { height: null };
+  DB.healthProfile.height = Number.isFinite(h) && h > 0 ? h : null;
+  saveDB(); toast('身高已保存 ✓');
 }
-function numField(label, id, val, min, max, step) { return '<div class="field"><label>' + label + '</label><input class="input" type="number" id="' + id + '" value="' + val + '" min="' + min + '" max="' + max + '" step="' + step + '"></div>'; }
-function saveHealthRecord(id) {
+function setWeightInline(v) {
+  const w = parseFloat(v);
+  const rec = healthRecord(todayStr());
+  rec.weight = Number.isFinite(w) && w > 0 ? w : null;
+  rec.updatedAt = Date.now();
+  saveDB(); render(); toast('体重已保存 ✓');
+}
+// 各健康模块独立记录弹窗（需求 14）：sleep / water / weight / diet / exercise
+function openHealthModule(module) {
+  const rec = healthRecord(todayStr());
+  const id = rec.id;
+  let body = '';
+  let saveFn = '';
+  if (module === 'sleep') {
+    body = '<div class="field"><label>睡眠（如 7h 35m 或 7.5）</label><input class="input" id="hlSleep" value="' + (rec.sleep ? fmtSleep(rec.sleep) : '') + '" placeholder="7h 35m"></div>';
+    saveFn = 'saveHealthModule(\'' + id + '\',\'sleep\')';
+  } else if (module === 'water') {
+    body = '<div class="field"><div class="row gap2" style="gap:8px;align-items:flex-end"><div class="grow"><label>饮水（升，今日累计）</label><input class="input" type="number" id="hlWater" value="' + (rec.water || '') + '" step="0.05" min="0"></div><button class="btn btn-sm btn-soft" onclick="waterQuick(0.25)">+一杯</button><button class="btn btn-sm btn-soft" onclick="waterQuick(-0.25)">-一杯</button><button class="btn btn-sm btn-soft" onclick="waterReset()">清零</button></div></div>';
+    saveFn = 'saveHealthModule(\'' + id + '\',\'water\')';
+  } else if (module === 'weight') {
+    body = '<div class="field"><label>体重（kg）</label><input class="input" type="number" id="hlWeight" value="' + (rec.weight || '') + '" step="0.1" min="0"></div>';
+    saveFn = 'saveHealthModule(\'' + id + '\',\'weight\')';
+  } else if (module === 'diet') {
+    body = '<div class="field"><label>摄入热量（千卡）</label><input class="input" type="number" id="hlCalIn" value="' + (rec.caloriesIn || '') + '" step="10" min="0"></div>' +
+      '<div class="field"><label>吃了什么（AI 估算，非医学精确值）</label><div class="row gap2" style="gap:8px"><input class="input" style="flex:1" id="hlFoodDesc" placeholder="如：两个鸡蛋 + 一杯牛奶"><button class="btn btn-sm btn-primary" id="hlFoodAiBtn" onclick="aiEstimateCalories(\'in\')">AI 估算</button></div></div>';
+    saveFn = 'saveHealthModule(\'' + id + '\',\'diet\')';
+  } else {
+    body = '<div class="field"><label>运动消耗（千卡）</label><input class="input" type="number" id="hlCalOut" value="' + (rec.caloriesOut || '') + '" step="10" min="0"></div>' +
+      '<div class="field"><label>做了什么运动（AI 估算，非医学精确值）</label><div class="row gap2" style="gap:8px"><input class="input" style="flex:1" id="hlExDesc" placeholder="如：跑步 3 公里"><button class="btn btn-sm btn-primary" id="hlExAiBtn" onclick="aiEstimateCalories(\'out\')">AI 估算</button></div></div>';
+    saveFn = 'saveHealthModule(\'' + id + '\',\'exercise\')';
+  }
+  const title = { sleep: '记录睡眠', water: '记录饮水', weight: '记录体重', diet: '记录摄入', exercise: '记录运动' }[module];
+  modal('<div class="modal-head"><h3>' + title + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' + body + '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="' + saveFn + '">保存</button></div>');
+}
+function waterQuick(d) { const el = document.getElementById('hlWater'); if (el) el.value = Math.max(0, Math.round(((+el.value || 0) + d) * 100) / 100); }
+function waterReset() { const el = document.getElementById('hlWater'); if (el) el.value = ''; }
+function saveHealthModule(id, module) {
   const rec = DB.health.find((x) => x.id === id); if (!rec) return;
-  rec.sleep = +document.getElementById('hlSleep').value || 0; rec.steps = +document.getElementById('hlSteps').value || 0; rec.heartRate = +document.getElementById('hlHr').value || 0; rec.calories = +document.getElementById('hlCal').value || 0; rec.water = +document.getElementById('hlWater').value || 0;
+  if (module === 'sleep') { const sl = parseSleep(document.getElementById('hlSleep').value); rec.sleep = sl == null ? 0 : sl; }
+  else if (module === 'water') rec.water = Math.max(0, +document.getElementById('hlWater').value || 0);
+  else if (module === 'weight') { const w = parseFloat(document.getElementById('hlWeight').value); rec.weight = Number.isFinite(w) && w > 0 ? w : null; }
+  else if (module === 'diet') rec.caloriesIn = Math.max(0, +document.getElementById('hlCalIn').value || 0);
+  else rec.caloriesOut = Math.max(0, +document.getElementById('hlCalOut').value || 0);
+  rec.updatedAt = Date.now();
   saveDB(); closeModal(); render(); toast('已保存 ✓');
 }
+async function aiEstimateCalories(kind) {
+  const isIn = kind === 'in';
+  const descEl = document.getElementById(isIn ? 'hlFoodDesc' : 'hlExDesc');
+  const numEl = document.getElementById(isIn ? 'hlCalIn' : 'hlCalOut');
+  const btn = document.getElementById(isIn ? 'hlFoodAiBtn' : 'hlExAiBtn');
+  const text = descEl ? descEl.value.trim() : '';
+  if (!text) { toast(isIn ? '先描述吃了什么' : '先描述做了什么运动', true); return; }
+  if (btn) btn.textContent = '估算中…';
+  const r = await apiJson('/api/ai/calories/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, kind }) });
+  if (btn) btn.textContent = 'AI 估算';
+  if (!r.ok) { toast('估算失败：' + (r.message || '服务不可用'), true); return; }
+  const cal = Math.max(0, Math.round(Number(r.data && r.data.calories) || 0));
+  const cur = +(numEl ? numEl.value : 0) || 0;
+  if (numEl) numEl.value = Math.round(cur + cal);
+  toast('已累计 ' + cal + ' 千卡' + (r.data && r.data.note ? '（' + r.data.note + '）' : ''));
+}
+/* ---- 个人病历（隐私区：仅用户手动维护；AI 只建议、不自动写入） ---- */
+const MEDICAL_TYPES = ['过敏史', '疾病', '就诊', '检查', '手术', '用药', '其他'];
+// 健康页上的「个人病历」入口卡片（需求 13）：置于折线图上方，点击进入独立病历页
+function medicalRecordsSection() {
+  const count = (DB.medicalRecords || []).length;
+  return '<div class="card card-pad" style="cursor:pointer;margin-bottom:16px;display:flex;align-items:center;gap:12px" onclick="OS.go(\'/medical\')">' +
+    '<span style="font-size:26px">🏥</span>' +
+    '<div class="grow"><div style="font-weight:700;font-size:15px">个人病历</div><div class="muted" style="font-size:12px">' + (count ? count + ' 条记录 · ' : '') + '点击查看和记录 →</div></div>' +
+    '<span class="muted" style="font-size:20px">›</span></div>';
+}
+// 独立「个人病历」页（需求 13）：病历 / 疾病 / 既往史 / 手术 / 过敏 / 药物 / 医疗备注 / 就诊记录
+function viewMedical() {
+  const recs = DB.medicalRecords.slice().sort((a, b) => (b.date || '') < (a.date || '') ? -1 : 1);
+  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">个人病历</div><div class="muted">隐私信息，仅自己可见</div></div><button class="btn btn-primary" onclick="medicalRecordModal()">＋ 添加</button></div>';
+  html += '<div class="muted" style="font-size:12px;margin:0 0 12px">记录病历 / 疾病 / 既往史 / 手术 / 过敏 / 药物 / 医疗备注 / 就诊记录；AI 只提供建议，不会自动写入。</div>';
+  if (recs.length === 0) {
+    html += '<div class="card card-pad empty" style="padding:30px"><div style="font-size:36px;margin-bottom:8px">🩺</div><div class="esub">暂无病历记录</div><div class="muted" style="font-size:12px;margin-top:6px">点击右上角「＋ 添加」记录第一条</div></div>';
+  } else {
+    html += '<div class="card card-pad" style="padding:6px 8px">' + recs.map((r) => {
+      const fields = [];
+      if (r.diagnosis) fields.push('诊断：' + r.diagnosis);
+      if (r.symptoms) fields.push('症状：' + r.symptoms);
+      if (r.medication) fields.push('用药：' + r.medication);
+      return '<div class="conv-item" style="cursor:pointer" onclick="medicalRecordModal(\'' + r.id + '\')"><span style="font-size:22px">🩺</span><div class="grow"><div style="font-weight:600">' + esc((r.type ? '[' + r.type + '] ' : '') + (r.title || '')) + '</div><div class="c-last">' + esc((r.date || '') + (fields.length ? ' · ' + fields.join(' · ') : '')) + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();deleteMedicalRecord(\'' + r.id + '\')">🗑</button></div>';
+    }).join('') + '</div>';
+  }
+  return html;
+}
+function medicalRecordModal(id) {
+  const r = id ? DB.medicalRecords.find((x) => x.id === id) : null;
+  const typeOpts = MEDICAL_TYPES.map((t) => '<option value="' + t + '"' + (r && r.type === t ? ' selected' : '') + '>' + t + '</option>').join('');
+  modal('<div class="modal-head"><h3>' + (r ? '编辑病历' : '添加病历') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
+    '<div class="field"><div class="row gap2" style="gap:8px"><div class="grow"><label>类型</label><select class="select" id="mrType">' + typeOpts + '</select></div><div class="grow"><label>日期</label><input class="input" type="date" id="mrDate" value="' + (r ? (r.date || '') : todayStr()) + '"></div></div></div>' +
+    '<div class="field"><label>标题</label><input class="input" id="mrTitle" value="' + esc(r ? r.title : '') + '" placeholder="如：感冒 / 青霉素过敏"></div>' +
+    '<div class="field"><label>诊断（医生确诊）</label><input class="input" id="mrDiag" value="' + esc(r ? (r.diagnosis || '') : '') + '"></div>' +
+    '<div class="field"><label>症状</label><input class="input" id="mrSym" value="' + esc(r ? (r.symptoms || '') : '') + '"></div>' +
+    '<div class="field"><label>用药</label><input class="input" id="mrMed" value="' + esc(r ? (r.medication || '') : '') + '"></div>' +
+    '<div class="field"><label>备注</label><textarea class="textarea" id="mrNotes">' + esc(r ? (r.notes || '') : '') + '</textarea></div>' +
+    '</div><div class="modal-foot">' + (r ? '<button class="btn btn-danger" onclick="deleteMedicalRecord(\'' + r.id + '\')">删除</button>' : '') + '<button class="btn" style="margin-left:auto" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveMedicalRecord(\'' + (r ? r.id : '') + '\')">保存</button></div>');
+}
+function saveMedicalRecord(id) {
+  const title = document.getElementById('mrTitle').value.trim();
+  if (!title) { toast('请输入标题', true); return; }
+  const data = { title, type: document.getElementById('mrType').value, date: document.getElementById('mrDate').value || todayStr(), diagnosis: document.getElementById('mrDiag').value.trim(), symptoms: document.getElementById('mrSym').value.trim(), medication: document.getElementById('mrMed').value.trim(), notes: document.getElementById('mrNotes').value.trim(), source: 'user' };
+  if (id) { const r = DB.medicalRecords.find((x) => x.id === id); Object.assign(r, data, { updatedAt: Date.now() }); }
+  else DB.medicalRecords.push({ id: uid(), createdAt: Date.now(), updatedAt: Date.now(), ...data });
+  saveDB(); closeModal(); render(); toast('已保存 ✓');
+}
+function deleteMedicalRecord(id) {
+  confirmDialog('删除病历', '删除这条病历记录？', () => { DB.medicalRecords = DB.medicalRecords.filter((x) => x.id !== id); saveDB(); render(); }, '删除');
+}
 function lineChartSVG(points, color, maxVal) {
-  if (!points.length) return '<div class="muted" style="text-align:center;padding:20px">暂无数据</div>';
+  const vals = (points || []).map((v) => Number(v)).filter((v) => Number.isFinite(v));
+  if (vals.length === 0) return '<div class="muted" style="text-align:center;padding:20px">暂无足够数据</div>';
   const w = 260, h = 80, padX = 6, padY = 8;
-  const max = maxVal || Math.max(...points, 1);
-  const min = Math.min(...points);
+  const max = maxVal || Math.max(...vals, 1);
+  const min = Math.min(...vals);
   const range = (max - min) || 1;
-  const step = (w - padX * 2) / (points.length - 1 || 1);
-  const coords = points.map((v, i) => [padX + i * step, h - padY - ((v - min) / range) * (h - padY * 2)]);
+  const step = (w - padX * 2) / (vals.length - 1 || 1);
+  const coords = vals.map((v, i) => [padX + i * step, h - padY - ((v - min) / range) * (h - padY * 2)]);
   let path = coords.map((c, i) => (i ? 'L' : 'M') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
   const area = path + ' L' + (w - padX) + ',' + (h - padY) + ' L' + padX + ',' + (h - padY) + ' Z';
   const dots = coords.map((c) => '<circle cx="' + c[0].toFixed(1) + '" cy="' + c[1].toFixed(1) + '" r="2.5" fill="' + color + '"/>').join('');
@@ -1610,7 +1855,7 @@ function lineChartSVG(points, color, maxVal) {
 function drawHealthCharts() {
   const recs = healthRange(OS.ui.healthRange);
   const g = (id, key, color, maxV) => { const el = document.getElementById(id); if (el) el.innerHTML = lineChartSVG(recs.map((r) => r[key]), color, maxV); };
-  g('chSleep', 'sleep', '#8b5cf6', 12); g('chSteps', 'steps', '#10b981'); g('chHr', 'heartRate', '#ef4444', 120); g('chCal', 'calories', '#f97316');
+  g('chWeight', 'weight', '#6b8cae'); g('chIn', 'caloriesIn', '#f97316'); g('chOut', 'caloriesOut', '#10b981'); g('chWater', 'water', '#38bdf8', 4); g('chSleep', 'sleep', '#8b5cf6', 12);
 }
 
 /* ================= STATISTICS ================= */
@@ -1676,21 +1921,44 @@ function viewPlayer() {
   const p = DB.player; const track = p.playlist[p.current] || { title: '—', artist: '—', duration: 0 };
   const cover = track.cover || '';
   const pct = track.duration ? (p.currentTime / track.duration * 100) : 0;
-  let html = '<div class="player-stage">';
+  let html = '<div class="player-stage" style="padding-top:8px">';
   html += '<div class="album' + (p.playing ? ' playing' : '') + '" style="' + (cover ? 'background-image:url(' + cover + ')' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6)') + '"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;color:rgba(255,255,255,0.9)">' + (cover ? '' : '🎵') + '</div></div>';
   html += '<div style="text-align:center"><div style="font-size:20px;font-weight:700">' + esc(track.title) + '</div><div class="muted" style="margin-top:4px">' + esc(track.artist) + '</div>' +
     (p.togetherListening ? '<div style="margin-top:8px"><span class="together-badge">♥ 正在和你一起听</span></div>' : '') + '</div>';
-  html += '<button class="btn btn-sm ' + (p.togetherListening ? 'btn-primary' : '') + '" onclick="toggleTogether()">' + (p.togetherListening ? '♥ 正在一起听' : '和我一起听') + '</button>';
   html += '<div style="width:100%;max-width:380px"><div class="seek" onclick="playerSeek(event)"><span style="width:' + pct + '%"></span><div class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:11px;margin-top:6px"><span id="ptCur">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>';
   html += '<div class="player-controls"><button class="pctrl" onclick="playerPrev()">⏮</button><button class="pctrl play" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" onclick="playerNext()">⏭</button></div>';
   html += '<div class="row" style="width:100%;max-width:300px;gap:10px"><span>🔈</span><input type="range" min="0" max="1" step="0.05" value="' + p.volume + '" style="flex:1" oninput="playerVolume(this.value)"></div>';
-  html += '<div class="row" style="gap:8px;margin-top:8px;width:100%;max-width:420px"><input id="musicSearch" class="input" style="flex:1" placeholder="搜索网易云歌曲…" onkeydown="if(event.key===\'Enter\')musicSearch()"><button class="btn btn-primary" onclick="musicSearch()">搜索</button><button class="btn btn-sm" onclick="musicLoginModal()">' + (_neteaseUser ? '🎧 ' + esc(_neteaseUser.nickname) : '登录网易云') + '</button></div>';
-  html += '<div id="musicResults" style="width:100%;max-width:420px"></div>';
-  if (_neteasePlaylists && _neteasePlaylists.length) html += '<div class="row" style="gap:6px;width:100%;max-width:420px;flex-wrap:wrap">' + _neteasePlaylists.slice(0, 8).map((pl) => '<button class="btn btn-sm" onclick="musicAddPlaylist(' + pl.id + ')">' + esc(pl.name) + ' · ' + pl.count + '</button>').join('') + '</div>';
-  html += '<div class="section-head" style="margin-top:8px"><h2>播放列表</h2></div>';
-  html += p.playlist.map((t, i) => '<div class="conv-item" style="' + (i === p.current ? 'background:var(--accent-tint)' : '') + '" onclick="playerSelect(' + i + ')"><div style="width:38px;height:38px;border-radius:10px;' + (t.cover ? 'background-image:url(' + t.cover + ');background-size:cover;background-position:center;' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6);') + 'display:flex;align-items:center;justify-content:center">' + (t.cover ? '' : '🎵') + '</div><div class="grow"><div style="font-weight:600">' + esc(t.title) + '</div><div class="c-last">' + esc(t.artist) + '</div></div><span class="muted">' + fmtTime(t.duration) + '</span></div>').join('');
+  // 主页面保持干净：不列出全部歌曲（需求 17），通过底部抽屉 / 弹窗访问
+  html += '<div class="row" style="gap:8px;margin-top:6px;width:100%;max-width:380px;flex-wrap:wrap;justify-content:center">' +
+    '<button class="btn btn-sm btn-primary" onclick="openPlayerSheet()">🎶 播放列表</button>' +
+    '<button class="btn btn-sm" onclick="openMusicSearchModal()">🔍 搜索</button>' +
+    '<button class="btn btn-sm" onclick="musicLoginModal()">' + (_neteaseUser ? '🎧 ' + esc(_neteaseUser.nickname) : '登录网易云') + '</button>' +
+    '<button class="btn btn-sm ' + (p.togetherListening ? 'btn-primary' : '') + '" onclick="toggleTogether()">' + (p.togetherListening ? '♥ 一起听' : '和我一起听') + '</button>' +
+    '</div>';
   html += '</div>';
   return html;
+}
+// 底部抽屉（45–60% 高度）：封面/标题/歌手/播放控制/进度/播放列表（需求 17）
+function openPlayerSheet() {
+  const p = DB.player; const track = p.playlist[p.current] || { title: '—', artist: '—', duration: 0 };
+  const cover = track.cover || '';
+  const pct = track.duration ? (p.currentTime / track.duration * 100) : 0;
+  const list = p.playlist.length ? p.playlist.map((t, i) => '<div class="conv-item" style="' + (i === p.current ? 'background:var(--accent-tint)' : '') + '" onclick="playerSelect(' + i + ');OS.closeModal()"><div style="width:36px;height:36px;border-radius:8px;flex-shrink:0;' + (t.cover ? 'background-image:url(' + t.cover + ');background-size:cover;background-position:center;' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6);') + 'display:flex;align-items:center;justify-content:center">' + (t.cover ? '' : '🎵') + '</div><div class="grow" style="min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.title) + '</div><div class="c-last">' + esc(t.artist) + '</div></div><span class="muted">' + fmtTime(t.duration) + '</span></div>').join('') : '<div class="muted" style="padding:16px">播放列表为空，去搜索添加吧</div>';
+  drawer('<div class="player-sheet" style="display:flex;flex-direction:column;height:56vh">' +
+    '<div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:10px auto 6px"></div>' +
+    '<div style="display:flex;gap:14px;align-items:center;padding:10px 20px">' +
+    '<div class="player-sheet-cover" style="' + (cover ? 'background-image:url(' + cover + ')' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6)') + '">' + (cover ? '' : '🎵') + '</div>' +
+    '<div class="grow" style="min-width:0"><div style="font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(track.title) + '</div><div class="muted" style="font-size:13px">' + esc(track.artist) + '</div>' +
+    '<div class="player-controls" style="gap:14px;margin-top:8px"><button class="pctrl" style="font-size:20px" onclick="playerPrev()">⏮</button><button class="pctrl play" id="sheetPlayBtn" style="width:44px;height:44px;font-size:20px" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" style="font-size:20px" onclick="playerNext()">⏭</button></div>' +
+    '</div></div>' +
+    '<div style="padding:0 20px 10px"><div class="seek" onclick="playerSeek(event)"><span id="sheetSeekFill" style="width:' + pct + '%"></span><div id="sheetSeekKnob" class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:11px;margin-top:4px"><span id="ptCur2">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>' +
+    '<div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column"><div class="section-head" style="padding:0 20px"><h2>播放列表</h2><span class="muted" style="font-size:12px">' + p.playlist.length + ' 首</span></div>' +
+    '<div class="player-sheet-list" style="padding:0 12px 20px">' + list + '</div></div>' +
+    '</div>', 'bottom');
+}
+function openMusicSearchModal() {
+  modal('<div class="modal-head"><h3>搜索歌曲</h3><button class="x" onclick="OS.closeModal()">✕</button></div>' +
+    '<div class="modal-body"><div class="row" style="gap:8px;margin-bottom:10px"><input id="musicSearch" class="input" style="flex:1" placeholder="搜索网易云歌曲…" onkeydown="if(event.key===\'Enter\')musicSearch()"><button class="btn btn-primary" onclick="musicSearch()">搜索</button></div><div id="musicResults"></div></div>');
 }
 function playerUpdateProgressUI() {
   const p = DB.player; const track = p.playlist[p.current]; if (!track) return;
@@ -1698,6 +1966,14 @@ function playerUpdateProgressUI() {
   const el = document.getElementById('ptCur'); if (el) el.textContent = fmtTime(p.currentTime);
   const knob = document.querySelector('.seek-knob'); const bar = document.querySelector('.seek > span');
   if (bar) bar.style.width = pct + '%'; if (knob) knob.style.left = pct + '%';
+  playerUpdateSheetUI(pct);
+}
+function playerUpdateSheetUI(pct) {
+  if (pct == null) { const p = DB.player; const track = p.playlist[p.current]; if (!track) return; pct = track.duration ? (p.currentTime / track.duration * 100) : 0; }
+  const b = document.getElementById('sheetPlayBtn'); if (b) b.textContent = DB.player.playing ? '⏸' : '▶';
+  const c = document.getElementById('ptCur2'); if (c) c.textContent = fmtTime(DB.player.currentTime);
+  const f = document.getElementById('sheetSeekFill'); if (f) f.style.width = pct + '%';
+  const k = document.getElementById('sheetSeekKnob'); if (k) k.style.left = pct + '%';
 }
 function playerTick() {
   const p = DB.player; const track = p.playlist[p.current]; if (!track) return;
@@ -1713,7 +1989,7 @@ function playerPlayPause() {
     if (DB.player.playing) { a.pause(); DB.player.playing = false; }
     else { DB.player.playing = true; a.play().catch(() => { DB.player.playing = false; }); }
   } else DB.player.playing = !DB.player.playing;
-  playerSyncTimer(); saveDB(); render();
+  playerSyncTimer(); saveDB(); render(); playerUpdateSheetUI();
   AIBus.emit({ type: DB.player.playing ? 'MUSIC_PLAY' : 'MUSIC_PAUSE', entityType: 'music' });
 }
 function toggleTogether() {
@@ -1734,11 +2010,13 @@ async function playTrack(i, autoplay) {
     } catch (e) {}
   }
   p.current = i; p.currentTime = 0; p.playing = autoplay;
+  t.playCount = (t.playCount || 0) + 1; // 长期收听模式计数（供 AI 判断价值，需求 19）
   applyAudio();
   if (autoplay && currentTrackIsReal()) ensureAudio().play().catch(() => { p.playing = false; });
-  playerSyncTimer(); saveDB(); render();
+  playerSyncTimer(); saveDB(); render(); refreshPlayerSheetIfOpen();
   AIBus.emit({ type: 'MUSIC_CHANGED', entityType: 'music', payload: currentTrack() });
 }
+function refreshPlayerSheetIfOpen() { if (document.getElementById('sheetPlayBtn')) openPlayerSheet(); }
 function playerSelect(i) { playTrack(i, true); }
 function moveTrack(delta) { const p = DB.player; const wasPlaying = p.playing; playTrack((p.current + delta + p.playlist.length) % p.playlist.length, wasPlaying); }
 function playerPrev() { moveTrack(-1); }
@@ -1766,7 +2044,7 @@ async function musicSearch() {
     box.innerHTML = songs.map((s, i) => '<div class="conv-item" onclick="musicAddFromResult(' + i + ')"><div style="width:38px;height:38px;border-radius:8px;' + (s.cover ? 'background-image:url(' + s.cover + ');background-size:cover;background-position:center;' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6);') + 'display:flex;align-items:center;justify-content:center">' + (s.cover ? '' : '🎵') + '</div><div class="grow"><div style="font-weight:600">' + esc(s.name) + '</div><div class="c-last">' + esc(s.artist) + (s.album ? ' · ' + esc(s.album) : '') + '</div></div><span class="muted">' + fmtTime(s.duration) + '</span></div>').join('');
   } catch (e) { box.innerHTML = '<div class="muted" style="padding:8px">搜索失败：' + esc(e.message) + '</div>'; }
 }
-function musicAddFromResult(i) { const s = _musicResults[i]; if (s) musicAddSong(s); }
+function musicAddFromResult(i) { const s = _musicResults[i]; if (s) { musicAddSong(s); closeModal(); } }
 function musicAddSong(s) {
   const track = { id: s.id, title: s.name, artist: s.artist, cover: s.cover, duration: s.duration, url: null };
   DB.player.playlist.push(track);
@@ -1787,45 +2065,70 @@ async function musicAddPlaylist(id) {
     saveDB(); render(); toast('已加入 ' + songs.length + ' 首');
   } catch (e) { toast('获取歌单失败：' + e.message, true); }
 }
+// 安全请求后端 JSON：区分「后端不可达 / 返回非 JSON（被 CDN 回退成 HTML）/ HTTP 错误 / 正常」。
+// 避免直接 r.json() 在返回 HTML 时抛「The string did not match the expected pattern」这类解析错误。
+async function apiJson(path, opts) {
+  let r;
+  try { r = await fetch(API_BASE + path, opts); }
+  catch (e) { return { ok: false, err: 'network', message: '无法连接服务' }; }
+  const ct = r.headers.get('content-type') || '';
+  if (!r.ok) {
+    let msg = 'HTTP ' + r.status;
+    try { const j = await r.json(); if (j && (j.error || j.message)) msg = j.error || j.message; } catch (e) {}
+    return { ok: false, err: 'http', status: r.status, message: msg };
+  }
+  if (ct.indexOf('application/json') === -1) return { ok: false, err: 'not-json', message: '服务响应异常' };
+  try { return { ok: true, data: (await r.json()).data }; }
+  catch (e) { return { ok: false, err: 'parse', message: '服务响应解析失败' }; }
+}
 async function musicLoginModal() {
   if (_neteaseUser) {
     const rows = (_neteasePlaylists || []).map((pl) => '<div class="conv-item" onclick="OS.closeModal();musicAddPlaylist(' + pl.id + ')"><div class="grow"><div style="font-weight:600">' + esc(pl.name) + '</div><div class="c-last">' + pl.count + ' 首</div></div></div>').join('');
     modal('<div class="modal-head"><h3>网易云 · ' + esc(_neteaseUser.nickname) + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' + (rows || '<div class="muted">暂无歌单</div>') + '</div><div class="modal-foot"><button class="btn" onclick="musicLogout()">退出登录</button></div>');
     return;
   }
-  try {
-    const r = await fetch(API_BASE + '/api/music/login/qr');
-    const d = (await r.json()).data;
-    if (!d || !d.qrimg) { toast('获取二维码失败', true); return; }
-    _qrKey = d.key;
-    modal('<div class="modal-head"><h3>登录网易云</h3><button class="x" onclick="OS.closeModal();if(_qrTimer){clearInterval(_qrTimer)}">✕</button></div><div class="modal-body" style="text-align:center"><img src="' + d.qrimg + '" style="width:220px;height:220px;border-radius:12px"><div class="muted" style="margin-top:8px">打开网易云 App 扫码登录</div><div id="qrHint" class="muted" style="margin-top:4px">等待扫码…</div></div>');
-    _qrTimer = setInterval(() => musicQrPoll(d.key), 2000);
-  } catch (e) { toast('登录失败：' + e.message, true); }
+  const r = await apiJson('/api/music/login/qr');
+  if (!r.ok) {
+    // LOGIN_UNAVAILABLE：后端不可达 / 响应非 JSON；LOGIN_FAILED：后端可达但取码失败
+    if (r.err === 'network' || r.err === 'not-json' || r.err === 'parse') toast('登录服务暂不可用，请稍后再试', true);
+    else toast('获取二维码失败：' + r.message, true);
+    return;
+  }
+  const d = r.data;
+  if (!d || !d.qrimg) { toast('获取二维码失败：未返回二维码', true); return; }
+  _qrKey = d.key;
+  modal('<div class="modal-head"><h3>登录网易云</h3><button class="x" onclick="OS.closeModal();if(_qrTimer){clearInterval(_qrTimer)}">✕</button></div><div class="modal-body" style="text-align:center"><img src="' + d.qrimg + '" style="width:220px;height:220px;border-radius:12px"><div class="muted" style="margin-top:8px">打开网易云 App 扫码登录</div><div id="qrHint" class="muted" style="margin-top:4px">等待扫码…</div></div>');
+  _qrTimer = setInterval(() => musicQrPoll(d.key), 2000);
 }
 async function musicQrPoll(key) {
-  try {
-    const r = await fetch(API_BASE + '/api/music/login/check?key=' + key);
-    const d = (await r.json()).data; if (!d) return;
-    const hint = document.getElementById('qrHint');
-    if (d.code === 803) { if (_qrTimer) clearInterval(_qrTimer); if (hint) hint.textContent = '登录成功 ♥'; toast('网易云登录成功：' + (d.nickname || '')); await musicRefreshStatus(); OS.closeModal(); }
-    else if (d.code === 800) { if (_qrTimer) clearInterval(_qrTimer); if (hint) hint.textContent = '二维码已过期，请重新打开'; }
-    else if (d.code === 802) { if (hint) hint.textContent = '已扫码，请在手机上确认'; }
-    else if (d.code === 801) { if (hint) hint.textContent = '等待扫码…'; }
-  } catch (e) {}
+  const r = await apiJson('/api/music/login/check?key=' + encodeURIComponent(key));
+  const hint = document.getElementById('qrHint');
+  if (!r.ok) {
+    // 后端不可达 / 响应异常：停止轮询并明确提示，而非静默失败
+    if (r.err === 'network' || r.err === 'not-json' || r.err === 'parse') {
+      if (_qrTimer) clearInterval(_qrTimer);
+      if (hint) hint.textContent = '登录服务不可用';
+      toast('登录服务暂不可用，请稍后再试', true);
+    }
+    return;
+  }
+  const d = r.data; if (!d) return;
+  if (d.code === 803) { if (_qrTimer) clearInterval(_qrTimer); if (hint) hint.textContent = '登录成功 ♥'; toast('网易云登录成功：' + (d.nickname || '')); await musicRefreshStatus(); OS.closeModal(); }
+  else if (d.code === 800) { if (_qrTimer) clearInterval(_qrTimer); if (hint) hint.textContent = '二维码已过期，请重新打开'; }
+  else if (d.code === 802) { if (hint) hint.textContent = '已扫码，请在手机上确认'; }
+  else if (d.code === 801) { if (hint) hint.textContent = '等待扫码…'; }
 }
 async function musicRefreshStatus() {
-  try {
-    const r = await fetch(API_BASE + '/api/music/status');
-    if (!r.ok) return;
-    const u = (await r.json()).data || null;
-    const changed = (!!u !== !!_neteaseUser) || (u && _neteaseUser && u.userId !== _neteaseUser.userId);
-    _neteaseUser = u;
-    if (u) {
-      const pr = await fetch(API_BASE + '/api/music/playlists');
-      _neteasePlaylists = pr.ok ? ((await pr.json()).data || []) : [];
-    } else _neteasePlaylists = [];
-    if (changed) render();
-  } catch (e) {}
+  const r = await apiJson('/api/music/status');
+  if (!r.ok) return;
+  const u = r.data || null;
+  const changed = (!!u !== !!_neteaseUser) || (u && _neteaseUser && u.userId !== _neteaseUser.userId);
+  _neteaseUser = u;
+  if (u) {
+    const pr = await apiJson('/api/music/playlists');
+    _neteasePlaylists = pr.ok ? (pr.data || []) : [];
+  } else _neteasePlaylists = [];
+  if (changed) render();
 }
 async function musicLogout() {
   try { await fetch(API_BASE + '/api/music/logout', { method: 'POST' }); } catch (e) {}
@@ -2039,9 +2342,21 @@ function viewSearch() {
 
 /* ---------------- file helpers ---------------- */
 function readAsDataURL(file) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.target.result); r.onerror = reject; r.readAsDataURL(file); }); }
-function cropSquareImage(file) {
-  return new Promise((resolve) => { const reader = new FileReader(); reader.onload = function(e) { const img = new Image(); img.onload = function() { const size = Math.min(img.width, img.height); const canvas = document.createElement('canvas'); canvas.width = 200; canvas.height = 200; const ctx = canvas.getContext('2d'); const sx = (img.width - size) / 2, sy = (img.height - size) / 2; ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200); resolve(canvas.toDataURL('image/png')); }; img.src = e.target.result; }; reader.readAsDataURL(file); });
+function cropSquareImage(file, type = 'image/png', quality) {
+  return new Promise((resolve) => { const reader = new FileReader(); reader.onload = function(e) { const img = new Image(); img.onload = function() { const size = Math.min(img.width, img.height); const canvas = document.createElement('canvas'); canvas.width = 200; canvas.height = 200; const ctx = canvas.getContext('2d'); const sx = (img.width - size) / 2, sy = (img.height - size) / 2; ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200); resolve(canvas.toDataURL(type, quality)); }; img.src = e.target.result; }; reader.readAsDataURL(file); });
 }
+// 把图片（JPEG data URL）上传到现有文件存储，返回公网 URL。
+// 上传失败（后端不可达 / 本地开发）时返回 ''，调用方自行回退默认，不阻断保存。
+async function uploadPublicImage(dataUrl, fileName) {
+  try {
+    const r = await fetch(API_BASE + '/api/files/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileName, mimeType: 'image/jpeg', dataBase64: dataUrl }) });
+    if (!r.ok) return '';
+    const j = await r.json().catch(() => ({}));
+    return (j.data && j.data.publicUrl) || '';
+  } catch (e) { return ''; }
+}
+// 助手头像 → 公网 JPG URL（供 Bark icon 使用）
+async function uploadAssistantAvatar(dataUrl) { return uploadPublicImage(dataUrl, 'assistant-avatar.jpg'); }
 
 /* ================= 我的日志 (Journal) ================= */
 let _journalFilter = 'all';
@@ -2133,23 +2448,27 @@ function deleteJournalEntry(id) {
 function viewProfile() {
   const p = DB.profile;
   const maxStreak = DB.habits.reduce((m, h) => Math.max(m, habitStreak(h)), 0);
-  const done = DB.tasks.filter((t) => t.completed).length;
   let html = '<div class="profile-head" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:22px">' +
     '<div class="avatar" style="width:96px;height:96px;font-size:44px;display:flex;align-items:center;justify-content:center;' + (p.avatar ? 'background-image:url(' + p.avatar + ')' : '') + '">' + (p.avatar ? '' : '🐰') + '</div>' +
     '<div style="text-align:center"><div class="h1" style="margin-bottom:4px">' + esc(p.name || '未命名') + '</div><div class="muted">' + esc(p.signature || '这个人很懒，还没有签名') + '</div></div>' +
     '<div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" onclick="editProfile()">✎ 编辑资料</button><button class="btn btn-sm" onclick="document.getElementById(\'pfAvatar\').click()">📷 换头像</button><input type="file" id="pfAvatar" accept="image/*" style="display:none" onchange="changeProfileAvatar(this)"></div></div>';
-  html += '<div class="grid cols-4" style="margin-bottom:22px">' +
-    pstat(DB.tasks.length, 'Tasks', '/today') + pstat(DB.plans.filter((x) => !x.archived).length, 'Plans', '/plans') + pstat(DB.habits.length, 'Habits', '/habit') + pstat(maxStreak, 'Streak 🔥', '/habit') + '</div>';
-  html += '<div class="section-head"><h2>我的空间</h2></div><div class="grid cols-2">';
-  const links = [ ['📖', '我的日志', (DB.journal || []).length + ' 条', '/journal'], ['📝', '笔记', DB.notes.length + ' 篇', '/notes'], ['💬', 'AI Chat', '与 Bunny 对话', '/chat'], ['🎵', '音乐', DB.player.playlist.length + ' 首', '/player'], ['📊', '统计', '数据总览', '/statistics'] ];
+
+  // 需求 25：日志在「我的空间」之上
+  const recent = recentJournalEntries(3);
+  html += '<div class="section-head" style="margin-top:4px"><h2>我的日志</h2><button class="more" onclick="OS.go(\'/journal\')">查看全部日志 ›</button></div>';
+  if (recent.length === 0) html += '<div class="card card-pad empty" style="padding:20px"><div class="esub">还没有日志，记下今天吧</div></div>';
+  else html += '<div>' + recent.map((j) => '<div class="journal-entry" style="margin-bottom:10px"><div class="j-top"><span class="j-symbol">' + (j.moodSymbol ? esc(j.moodSymbol) : '·') + '</span><span class="j-time">' + esc(journalDateLabel(j.date) + ' · ' + (j.time || '')) + '</span></div><div class="j-content">' + esc(j.content) + '</div></div>').join('') + '</div>';
+
+  html += '<div class="section-head" style="margin-top:22px"><h2>我的空间</h2></div><div class="grid cols-2">';
+  const links = [ ['📖', '我的日志', (DB.journal || []).length + ' 条', '/journal'], ['📝', '笔记', DB.notes.length + ' 篇', '/notes'], ['💬', 'AI Chat', '与 Bunny 对话', '/chat'], ['🎵', '音乐', DB.player.playlist.length + ' 首', '/player'] ];
   html += links.map((l) => '<div class="card card-pad" style="cursor:pointer;display:flex;align-items:center;gap:12px" onclick="OS.go(\'' + l[3] + '\')"><span style="font-size:26px">' + l[0] + '</span><div class="grow"><div style="font-weight:700">' + l[1] + '</div><div class="muted" style="font-size:12px">' + l[2] + '</div></div><span style="color:var(--text-faint)">›</span></div>').join('');
   html += '</div>';
 
-  // 我的日志（最近 3 条）
-  const recent = recentJournalEntries(3);
-  html += '<div class="section-head" style="margin-top:22px"><h2>我的日志</h2><button class="more" onclick="OS.go(\'/journal\')">查看全部日志 ›</button></div>';
-  if (recent.length === 0) html += '<div class="card card-pad empty" style="padding:20px"><div class="esub">还没有日志，记下今天吧</div></div>';
-  else html += '<div>' + recent.map((j) => '<div class="journal-entry" style="margin-bottom:10px"><div class="j-top"><span class="j-symbol">' + (j.moodSymbol ? esc(j.moodSymbol) : '·') + '</span><span class="j-time">' + esc(journalDateLabel(j.date) + ' · ' + (j.time || '')) + '</span></div><div class="j-content">' + esc(j.content) + '</div></div>').join('') + '</div>';
+  // 底部：Task/Plans/Habits/Streaks 两行紧凑统计卡片（移除原「统计」区）
+  html += '<div class="section-head" style="margin-top:22px"><h2>数据总览</h2></div>';
+  html += '<div class="grid cols-2" style="margin-bottom:8px">' +
+    pstat(DB.tasks.length, 'Tasks', '/today') + pstat(DB.plans.filter((x) => !x.archived).length, 'Plans', '/plans') +
+    pstat(DB.habits.filter((h) => isHabitDone(h, todayStr())).length + ' / ' + DB.habits.length, 'Habits', '/habit') + pstat(maxStreak, 'Streak 🔥', '/habit') + '</div>';
   return html;
 }
 function pstat(v, label, route) { return '<div class="card stat-card" style="cursor:pointer;text-align:center" onclick="OS.go(\'' + route + '\')"><div class="v">' + v + '</div><div class="l">' + label + '</div></div>'; }
@@ -2213,14 +2532,25 @@ async function changeWallpaper(input) { if (!input.files[0]) return; DB.appearan
 function removeWallpaper() { DB.appearance.wallpaper = ''; saveDB(); applyTheme(); render(); }
 
 /* ================= SETTINGS / AI ================= */
-function aiSet() { if (!DB.aiSettings) DB.aiSettings = { aiName: 'Bunny', assistantAvatar: '', bubbleOpacity: 0.9, model: 'deepseek-chat', systemPrompt: '', streaming: true, memory: true, autoCompress: true }; return DB.aiSettings; }
+function aiSet() { if (!DB.aiSettings) DB.aiSettings = { aiName: 'Bunny', assistantAvatar: '', assistantAvatarUrl: '', bubbleOpacity: 0.9, model: 'deepseek-chat', systemPrompt: '', streaming: true, memory: true, autoCompress: true, chatBackground: null }; return DB.aiSettings; }
 function viewSettingsAI() {
   const s = aiSet();
   let html = '<div class="h1" style="margin-bottom:16px">我的AI 设置</div><div class="card card-pad">' +
     '<div class="field"><label>AI 名字</label><input class="input" id="aiName" value="' + esc(s.aiName) + '"></div>' +
     '<div class="field"><label>系统提示词（AI 人格）</label><textarea class="textarea" id="aiPrompt">' + esc(s.systemPrompt) + '</textarea></div>' +
     '<div class="field"><label>默认模型</label><select class="select" id="aiModel"><optgroup label="DeepSeek"><option value="deepseek-chat"' + (s.model === 'deepseek-chat' ? ' selected' : '') + '>DeepSeek Chat</option><option value="deepseek-reasoner"' + (s.model === 'deepseek-reasoner' ? ' selected' : '') + '>DeepSeek Reasoner</option></optgroup><optgroup label="OpenAI"><option value="gpt-4o"' + (s.model === 'gpt-4o' ? ' selected' : '') + '>GPT-4o</option><option value="gpt-4o-mini"' + (s.model === 'gpt-4o-mini' ? ' selected' : '') + '>GPT-4o mini</option></optgroup><optgroup label="Claude"><option value="claude-sonnet-5"' + (s.model === 'claude-sonnet-5' ? ' selected' : '') + '>Claude Sonnet 5</option><option value="claude-opus-5"' + (s.model === 'claude-opus-5' ? ' selected' : '') + '>Claude Opus 5</option></optgroup></select></div>' +
-    '<div class="field"><label>助手头像</label><div class="row" style="gap:8px;align-items:center"><div class="grow"><input class="input" id="aiAvatarFile" type="file" accept="image/*"></div></div></div>' +
+    '<div class="field"><label>助手头像</label><div class="row" style="gap:8px;align-items:center"><div class="grow"><input class="input" id="aiAvatarFile" type="file" accept="image/*" onchange="previewAiAvatar(this)"></div></div><div id="aiAvatarPreview" style="margin-top:8px"></div><div class="muted" style="font-size:11px;margin-top:6px">助手头像也会作为 Bark 推送通知的图标，自动同步。</div></div>' +
+    '<div class="field"><label>聊天背景</label>' +
+    '<div class="row" style="gap:8px;flex-wrap:wrap">' +
+    '<button class="btn btn-sm ' + (!s.chatBackground ? 'btn-primary' : '') + '" onclick="setChatBackground(null)">默认</button>' +
+    '<button class="btn btn-sm ' + (s.chatBackground && s.chatBackground.type === 'solid' ? 'btn-primary' : '') + '" onclick="document.getElementById(\'chatBgColor\').click()">纯色</button>' +
+    '<input type="color" id="chatBgColor" style="display:none" value="' + (s.chatBackground && s.chatBackground.color ? s.chatBackground.color : '#f4f7fb') + '" onchange="setChatBackground({type:\'solid\',color:this.value})">' +
+    '<input type="file" id="chatBgFile" accept="image/*" style="display:none" onchange="uploadChatBackground(this)">' +
+    '<button class="btn btn-sm" onclick="document.getElementById(\'chatBgFile\').click()">上传</button>' +
+    '<button class="btn btn-sm" onclick="useAssistantAvatarAsBg()">用头像</button>' +
+    '<button class="btn btn-sm" onclick="useWallpaperAsBg()">用壁纸</button>' +
+    '</div>' +
+    '<div class="muted" style="font-size:11px;margin-top:6px">默认 / 纯色 / 上传 / 已有图片（头像或壁纸），永久保存。</div></div>' +
     '<div class="field"><label>气泡透明度：<span id="bubVal">' + s.bubbleOpacity + '</span></label><input type="range" min="0.1" max="1" step="0.05" value="' + s.bubbleOpacity + '" style="width:100%" oninput="document.getElementById(\'bubVal\').textContent=this.value"></div>' +
     toggles() +
     '</div><div class="card card-pad" style="margin-top:14px">' + aiPermTogglesHtml() + '</div><div style="padding:16px"><button class="btn btn-primary btn-block" onclick="saveAISettings()">保存 AI 设置</button></div>';
@@ -2238,10 +2568,32 @@ async function saveAISettings() {
   s.systemPrompt = document.getElementById('aiPrompt').value;
   s.model = document.getElementById('aiModel').value;
   s.bubbleOpacity = parseFloat(document.getElementById('bubVal').textContent) || 0.9;
-  const av = document.getElementById('aiAvatarFile'); if (av.files[0]) s.assistantAvatar = await cropSquareImage(av.files[0]);
+  const av = document.getElementById('aiAvatarFile');
+  if (av.files[0]) {
+    const jpeg = await cropSquareImage(av.files[0], 'image/jpeg', 0.9);
+    s.assistantAvatar = jpeg;                 // UI 显示用（data URL，离线也可见）
+    const pub = await uploadAssistantAvatar(jpeg);
+    if (pub) s.assistantAvatarUrl = pub;      // Bark 图标用（公网 JPG URL）
+  }
   saveDB(); render(); toast('已保存 ✓');
   if (OS.chat.currentId) OS.chat.saveSessionSettings();
 }
+function previewAiAvatar(input) {
+  const f = input.files[0]; const el = document.getElementById('aiAvatarPreview'); if (!el) return;
+  if (!f) { el.innerHTML = ''; return; }
+  const r = new FileReader(); r.onload = (e) => { el.innerHTML = '<img src="' + e.target.result + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover;border:1px solid var(--border)">'; }; r.readAsDataURL(f);
+}
+function setChatBackground(bg) { aiSet().chatBackground = bg; saveDB(); render(); }
+async function uploadChatBackground(input) {
+  if (!input.files[0]) return;
+  const jpeg = await cropSquareImage(input.files[0], 'image/jpeg', 0.85);
+  const url = await uploadPublicImage(jpeg, 'chat-background.jpg');
+  if (!url) { toast('上传失败（后端不可达，可先设纯色背景）', true); return; }
+  setChatBackground({ type: 'image', url });
+  toast('聊天背景已更新 ✓');
+}
+function useAssistantAvatarAsBg() { const s = aiSet(); if (!s.assistantAvatarUrl && !s.assistantAvatar) { toast('请先设置助手头像', true); return; } setChatBackground({ type: 'image', url: s.assistantAvatarUrl || s.assistantAvatar }); }
+function useWallpaperAsBg() { const w = DB.appearance.wallpaper; if (!w) { toast('请先设置壁纸', true); return; } setChatBackground({ type: 'image', url: w }); }
 
 /* ================= SETTINGS / API ================= */
 let _apiConnections = { deepseek: null, openai: null, anthropic: null };
@@ -2411,22 +2763,46 @@ const MODEL_OPTS = '<optgroup label="DeepSeek"><option value="deepseek-chat">Dee
 
 function viewChat() {
   const s = aiSet();
-  return '<div style="display:flex;flex-direction:column;height:calc(100vh - var(--topbar-h) - 40px)">' +
-    '<div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
-    '<button class="btn btn-sm btn-primary" onclick="OS.chat.newChat()">＋ 新对话</button>' +
-    '<div class="row" style="gap:6px;overflow-x:auto;flex:1;min-width:0" id="chatSessions"></div>' +
-    '<select id="chatModel" class="select" style="width:auto;padding:6px 10px;font-size:12.5px" onchange="OS.chat.changeModel()">' + MODEL_OPTS.replace('value="' + s.model + '"', 'value="' + s.model + '" selected') + '</select>' +
-    '<button class="icon-btn" onclick="OS.chat.sessionMenu(event)">⋯</button></div>' +
-    '<div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden">' +
+  const cur = OS.chat.sessions.find((x) => x.id === OS.chat.currentId);
+  const title = cur ? cur.name : '新的对话';
+  const bg = s.chatBackground;
+  let bgStyle = '';
+  if (bg && bg.type === 'solid' && bg.color) bgStyle = 'background:' + bg.color;
+  else if (bg && bg.type === 'image' && bg.url) bgStyle = 'background-image:url(' + bg.url + ')';
+  return '<div class="chat-stage" style="height:calc(100vh - var(--topbar-h) - 40px);border-radius:18px;border:1px solid var(--border);overflow:hidden">' +
+    (bgStyle ? '<div class="chat-bg" style="' + bgStyle + '"></div>' : '') +
+    '<div class="chat-bg-overlay"></div>' +
+    // 顶部：[☰] [头像] 标题 [右侧功能]（需求 3）
+    '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border)">' +
+    '<button class="icon-btn" onclick="OS.chat.toggleSidebar()" title="会话列表">☰</button>' +
+    '<div class="avatar" style="width:30px;height:30px;font-size:14px;flex-shrink:0;' + (s.assistantAvatar ? 'background-image:url(' + s.assistantAvatar + ')' : '') + '" onclick="OS.go(\'/settings/ai\')">' + (s.assistantAvatar ? '' : '♥') + '</div>' +
+    '<div class="grow" style="min-width:0"><div id="chatTitle" style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(title) + '</div><div class="muted" style="font-size:11px">' + esc(s.aiName || '♥ 我的AI') + '</div></div>' +
+    '<select id="chatModel" class="select" style="width:auto;padding:5px 8px;font-size:12px" onchange="OS.chat.changeModel()">' + MODEL_OPTS.replace('value="' + s.model + '"', 'value="' + s.model + '" selected') + '</select>' +
+    '<button class="icon-btn" onclick="OS.chat.sessionMenu(event, OS.chat.currentId)" title="会话操作">⋯</button>' +
+    '</div>' +
+    // 主体：侧栏会话列表 + 消息区
+    '<div style="flex:1;display:flex;min-height:0">' +
+    '<div id="chatSidebar" style="display:none;width:230px;border-right:1px solid var(--border);overflow-y:auto;padding:10px;flex-shrink:0">' +
+    '<button class="btn btn-sm btn-primary" style="width:100%;margin-bottom:10px" onclick="OS.chat.newChat()">＋ 新对话</button>' +
+    '<div class="session-list" id="chatSessions"></div>' +
+    '</div>' +
+    '<div style="flex:1;display:flex;flex-direction:column;min-width:0">' +
     '<div id="chatAttach" style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--border)"></div>' +
     '<div id="chatMsgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px"><div class="muted" style="text-align:center;margin:auto">正在连接 AI…</div></div>' +
-    '<div style="display:flex;gap:8px;align-items:flex-end;padding:10px 14px;border-top:1px solid var(--border)">' +
+    '</div>' +
+    '</div>' +
+    // 引用动态卡片 + 输入栏
+    '<div>' +
+    OS.chat.quoteCardHtml() +
+    '<div class="chat-input-bar">' +
     '<button class="icon-btn" onclick="document.getElementById(\'chatFile\').click()">📎</button>' +
     '<input type="file" id="chatFile" accept="image/*,.txt,.pdf,.doc,.docx,.xls,.xlsx,.pptx" multiple style="display:none" onchange="OS.chat.onFiles(this)">' +
     '<textarea id="chatInput" class="chat-input" rows="1" placeholder="输入消息与 AI 聊天…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();OS.chat.send()}"></textarea>' +
-    '<button class="btn btn-primary" id="chatSend" onclick="OS.chat.send()">发送</button></div></div></div>';
+    '<button class="btn btn-primary" id="chatSend" onclick="OS.chat.send()">发送</button>' +
+    '</div>' +
+    '</div></div>';
 }
-function chatMapMessage(m) { const usage = (m.metadata && m.metadata.usage) || {}; return { id: m.id, role: m.role, content: m.content || '', time: m.created_at ? new Date(m.created_at).toLocaleString() : '', tokens: usage.total_tokens }; }
+function chatMapMessage(m) { const usage = (m.metadata && m.metadata.usage) || {}; return { id: m.id, role: m.role, content: m.content || '', time: m.created_at ? new Date(m.created_at).toLocaleString() : '', tokens: usage.total_tokens, quotedDynamic: (m.metadata && m.metadata.quotedDynamic) || null }; }
 function chatBubbleHtml(msg, isLast) {
   const s = aiSet();
   const isUser = msg.role === 'user';
@@ -2436,26 +2812,55 @@ function chatBubbleHtml(msg, isLast) {
   if (msg.thinking) bubble = '<em>正在思考…</em>';
   else if (msg.error) bubble = esc(msg.content);
   else bubble = '<div class="md">' + renderMarkdown(msg.content) + '</div>';
-  const actions = (!isUser && !msg.thinking && !msg.error && msg.content) ? '<div style="display:flex;gap:4px;margin-top:5px"><button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="OS.chat.copyMsg(this,\'' + msg.id + '\')">复制</button>' + (isLast ? '<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="OS.chat.regenerate()">重新输出</button>' : '') + '<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="saveAsNote(this.closest(\'.bubble\').innerText)">存为笔记</button><button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="createTaskFromAi()">创建任务</button></div>' : '';
-  return '<div style="display:flex;' + (isUser ? 'flex-direction:row-reverse' : '') + ';gap:8px;align-items:flex-start">' +
-    '<div class="avatar" style="width:30px;height:30px;' + (avatar ? 'background-image:url(' + avatar + ')' : '') + '">' + (avatar ? '' : (isUser ? '🙂' : '♥')) + '</div>' +
-    '<div style="max-width:80%"><div class="muted" style="font-size:10px;margin-bottom:2px">' + esc(name) + ' · ' + esc(msg.time || '') + (msg.tokens ? ' · ' + msg.tokens + ' tokens' : '') + '</div>' +
+  // 引用 AI 动态（需求 33）：消息 metadata.quotedDynamic
+  const qd = msg.quotedDynamic;
+  const quote = qd ? '<div class="quote-card" style="margin:0 0 6px"><span style="flex-shrink:0">↳</span><div class="q-body">引用动态 · ' + esc(String(qd.content || '')) + '</div></div>' : '';
+  // 操作：小图标、淡色、默认隐藏，hover/点击出现（需求 6），不删除任何功能
+  const actions = (!isUser && !msg.thinking && !msg.error && msg.content)
+    ? '<div class="chat-actions">' +
+      '<button class="mini-act" onclick="OS.chat.copyMsg(this,\'' + msg.id + '\')">⧉ 复制</button>' +
+      (isLast ? '<button class="mini-act" onclick="OS.chat.regenerate()">↻ 重新输出</button>' : '') +
+      '<button class="mini-act" onclick="saveAsNote(this.closest(\'.bubble\').innerText)">✎ 笔记</button>' +
+      '<button class="mini-act" onclick="createTaskFromAi()">✓ 任务</button>' +
+      '</div>' : '';
+  return '<div class="chat-msg-row" style="display:flex;' + (isUser ? 'flex-direction:row-reverse' : '') + ';gap:8px;align-items:flex-start">' +
+    '<div class="avatar" style="width:30px;height:30px;flex-shrink:0;' + (avatar ? 'background-image:url(' + avatar + ')' : '') + '">' + (avatar ? '' : (isUser ? '🙂' : '♥')) + '</div>' +
+    '<div style="max-width:85%;min-width:0"><div class="muted" style="font-size:10px;margin-bottom:2px">' + esc(name) + (msg.time ? ' · ' + esc(msg.time) : '') + '</div>' +
+    quote +
     '<div class="bubble ' + (isUser ? 'out' : 'in') + '" style="opacity:' + (s.bubbleOpacity || 0.9) + '">' + bubble + '</div>' + actions + '</div></div>';
 }
 OS.chat.loaded = false;
+OS.chat.quotedDynamic = null; // 引用 AI 动态（需求 33）：{ id, type:'ai_dynamic', content, createdAt }
+OS.chat.sidebarOpen = false;
 let _chatLongPress = 0;
-function bindChatLongPress(el) {
-  const sid = el.getAttribute('data-sid'); if (!sid) return;
-  let timer = null, sx = 0, sy = 0;
-  el.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; timer = setTimeout(() => { timer = null; _chatLongPress = Date.now(); OS.chat.sessionMenu({ clientX: sx, clientY: sy }, sid); }, 500); }, { passive: true });
-  el.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (timer && (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10)) { clearTimeout(timer); timer = null; } }, { passive: true });
-  el.addEventListener('touchend', () => { if (timer) { clearTimeout(timer); timer = null; } });
-  el.addEventListener('touchcancel', () => { if (timer) { clearTimeout(timer); timer = null; } });
-}
+OS.chat.toggleSidebar = function() { OS.chat.sidebarOpen = !OS.chat.sidebarOpen; const el = document.getElementById('chatSidebar'); if (el) el.style.display = OS.chat.sidebarOpen ? '' : 'none'; };
+// 引用动态卡片（显示在输入框上方，× 取消）
+OS.chat.quoteCardHtml = function() {
+  const q = OS.chat.quotedDynamic;
+  if (!q) return '';
+  return '<div class="quote-card"><span style="flex-shrink:0">↳</span><div class="q-body">引用 AI 动态 · ' + esc(String(q.content || '')) + '</div><button class="q-x" onclick="OS.chat.clearQuote()">✕</button></div>';
+};
+OS.chat.clearQuote = function() { OS.chat.quotedDynamic = null; const el = document.getElementById('chatInput'); const qc = document.querySelector('.quote-card'); if (qc) qc.remove(); if (el) el.focus(); };
+// 需求 33：点击动态「回应」→ 引用该动态进入对话（不自动发送）
+OS.chat.quoteDynamic = function(id) {
+  const a = (DB.ai.activities || []).find((x) => x.id === id);
+  if (!a) { toast('这条动态已不存在', true); return; }
+  OS.chat.quotedDynamic = { id: a.id, type: 'ai_dynamic', content: a.text, createdAt: a.time };
+  OS.go('/chat');
+};
 OS.chat.renderSessions = function() {
   const el = document.getElementById('chatSessions'); if (!el) return;
-  el.innerHTML = OS.chat.sessions.map((s) => '<button class="chip" data-sid="' + s.id + '" style="cursor:pointer;flex-shrink:0;' + (s.id === OS.chat.currentId ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : '') + '" onclick="OS.chat.switch(\'' + s.id + '\')" oncontextmenu="event.preventDefault();OS.chat.sessionMenu(event,\'' + s.id + '\')">' + (s.pinned ? '📌 ' : '') + esc(s.name || '未命名') + '</button>').join('');
-  el.querySelectorAll('.chip[data-sid]').forEach(bindChatLongPress);
+  const sorted = (OS.chat.sessions || []).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  el.innerHTML = sorted.map((s) => '<div class="session-item' + (s.id === OS.chat.currentId ? ' active' : '') + '" onclick="OS.chat.switch(\'' + s.id + '\')">' +
+    (s.pinned ? '<span style="flex-shrink:0">📌</span>' : '') +
+    '<span class="s-name">' + esc(s.name || '未命名') + '</span>' +
+    '<button class="s-menu" onclick="event.stopPropagation();OS.chat.sessionMenu(event,\'' + s.id + '\')">⋯</button>' +
+    '</div>').join('');
+};
+OS.chat.renderHeader = function() {
+  const el = document.getElementById('chatTitle'); if (!el) return;
+  const cur = OS.chat.sessions.find((x) => x.id === OS.chat.currentId);
+  el.textContent = cur ? cur.name : '新的对话';
 };
 OS.chat.renderMessages = function() {
   const el = document.getElementById('chatMsgs'); if (!el) return;
@@ -2464,7 +2869,7 @@ OS.chat.renderMessages = function() {
   el.innerHTML = OS.chat.messages.map((m, i) => chatBubbleHtml(m, i === lastAi)).join('');
   el.scrollTop = el.scrollHeight;
 };
-OS.chat.renderAll = function() { OS.chat.renderSessions(); OS.chat.renderMessages(); };
+OS.chat.renderAll = function() { OS.chat.renderSessions(); OS.chat.renderMessages(); OS.chat.renderHeader(); };
 OS.chat.init = async function() {
   try {
     const resp = await fetch(API_BASE + '/api/sessions'); if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -2491,7 +2896,7 @@ OS.chat.sessionMenu = function(e, id) {
   menu(items, e.clientX, e.clientY);
 };
 OS.chat.renameSession = function(id) { const s = OS.chat.sessions.find((x) => x.id === id); if (!s) return; modal('<div class="modal-head"><h3>重命名会话</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><input class="input" id="csName" value="' + esc(s.name) + '"></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="OS.chat.doRename(\'' + id + '\')">保存</button></div>'); };
-OS.chat.doRename = async function(id) { const v = document.getElementById('csName').value.trim(); if (!v) return; try { await fetch(API_BASE + '/api/sessions/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: v }) }); const s = OS.chat.sessions.find((x) => x.id === id); if (s) s.name = v; closeModal(); OS.chat.renderSessions(); } catch (e) { toast('重命名失败：' + e.message, true); } };
+OS.chat.doRename = async function(id) { const v = document.getElementById('csName').value.trim(); if (!v) return; try { await fetch(API_BASE + '/api/sessions/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: v }) }); const s = OS.chat.sessions.find((x) => x.id === id); if (s) s.name = v; closeModal(); OS.chat.renderSessions(); OS.chat.renderHeader(); } catch (e) { toast('重命名失败：' + e.message, true); } };
 OS.chat.togglePinSession = async function(id) { const s = OS.chat.sessions.find((x) => x.id === id); if (!s) return; try { await fetch(API_BASE + '/api/sessions/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pinned: !s.pinned }) }); s.pinned = !s.pinned; OS.chat.renderSessions(); } catch (e) { toast('操作失败：' + e.message, true); } };
 OS.chat.deleteSession = function(id) {
   const s = OS.chat.sessions.find((x) => x.id === id);
@@ -2517,10 +2922,14 @@ OS.chat.send = async function() {
   const input = document.getElementById('chatInput'); const text = input.value.trim();
   if (!text && OS.chat.attachments.length === 0) return;
   if (!OS.chat.currentId) { toast('还没有会话', true); return; }
+  // 取出引用动态并清空（需求 33）：用户自己发送时才携带，绝不自动发送
+  const quoted = OS.chat.quotedDynamic || null;
+  OS.chat.quotedDynamic = null;
+  const qc = document.querySelector('.quote-card'); if (qc) qc.remove();
   const now = new Date().toLocaleString();
   let content = text;
   for (const a of OS.chat.attachments) { const fc = await readTextFile(a.file); content = content ? content + '\n\n' + (a.dataUrl ? '[图片: ' + a.name + ']' : (fc !== null ? '[文件: ' + a.name + ']\n' + fc : '[文件: ' + a.name + '] (非文本)')) : (a.dataUrl ? '[图片: ' + a.name + ']' : '[文件: ' + a.name + ']'); }
-  const userMsg = { role: 'user', content, time: now, pendingUser: true };
+  const userMsg = { role: 'user', content, time: now, pendingUser: true, quotedDynamic: quoted };
   const thinking = { role: 'assistant', content: '', time: now, thinking: true };
   OS.chat.messages.push(userMsg, thinking);
   input.value = ''; OS.chat.attachments = []; OS.chat.renderAttach();
@@ -2528,9 +2937,9 @@ OS.chat.send = async function() {
   OS.chat.renderMessages();
   const s = aiSet();
   try {
-    if (s.streaming) await OS.chat.sendStreaming(content, thinking, now);
+    if (s.streaming) await OS.chat.sendStreaming(content, thinking, now, quoted);
     else {
-      const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()) }) });
+      const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted }) });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
       OS.chat.messages = OS.chat.messages.filter((m) => m !== thinking && !m.pendingUser);
@@ -2544,9 +2953,9 @@ OS.chat.send = async function() {
   if (btn) btn.disabled = false;
   OS.chat.renderAll();
 };
-OS.chat.sendStreaming = async function(content, thinking, now) {
+OS.chat.sendStreaming = async function(content, thinking, now, quoted) {
   const s = aiSet();
-  const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()) }) });
+  const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted }) });
   if (!resp.ok) { let msg = 'HTTP ' + resp.status; try { msg = (await resp.json()).error || msg; } catch (e) {} throw new Error(msg); }
   const reader = resp.body.getReader(); const decoder = new TextDecoder(); let buf = '', full = '', lastRender = 0;
   const apply = (text) => { thinking.content = text; thinking.thinking = false; const bubbles = document.querySelectorAll('#chatMsgs .bubble'); const el = bubbles[bubbles.length - 1]; if (el) el.innerHTML = '<div class="md">' + renderMarkdown(text) + '</div>'; };
@@ -2713,11 +3122,32 @@ function aiStateTriggerLabel(s) { const map = { task: '任务', habit: '习惯',
 /* ---- AI 动态 ---- */
 function aiLogActivity(type, text) {
   (DB.ai.activities || (DB.ai.activities = [])).unshift({ id: uid(), type, text, time: Date.now() });
-  if (DB.ai.activities.length > 200) DB.ai.activities.length = 200;
+  aiTidyActivities();
   saveDB();
 }
+// 需求 20：约 50 条时自动整理 —— 去重、压缩流水账、保留重要记忆/状态（确定性压缩，不依赖异步 AI）
+function aiTidyActivities() {
+  const acts = DB.ai.activities || [];
+  if (acts.length < 50) return;
+  const keepTypes = { memory: 1, state: 1, chat: 1, journal: 1, plan: 1 };
+  const seen = new Set();
+  const deduped = [];
+  for (const a of acts) {
+    const key = a.type + '::' + a.text;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(a);
+  }
+  // 高价值动态全保留；低价值流水账（task/habit/shopping/music/weather）只留最近 12 条
+  const important = deduped.filter((a) => keepTypes[a.type]);
+  const flow = deduped.filter((a) => !keepTypes[a.type]).slice(0, 12);
+  let result = important.concat(flow).sort((a, b) => b.time - a.time);
+  const removed = acts.length - result.length;
+  if (removed > 0) result.push({ id: uid(), type: 'state', text: '♻ 自动整理了 ' + removed + ' 条流水动态（保留重要记忆与状态）', time: Date.now() });
+  DB.ai.activities = result;
+}
 function aiActivityIcon(type) { return { memory: '🧠', state: '💗', task: '✅', habit: '🌱', plan: '🎯', shopping: '🛒', music: '🎵', weather: '🌤', chat: '💬', journal: '📖' }[type] || '✨'; }
-function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:18px">' + aiActivityIcon(a.type) + '</span><div class="grow"><div style="font-size:13.5px">' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></div></div></div>'; }
+function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:18px">' + aiActivityIcon(a.type) + '</span><div class="grow"><div style="font-size:13.5px">' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></div><button class="mini-act" style="align-self:flex-start" onclick="OS.chat.quoteDynamic(\'' + a.id + '\')">↳ 回应</button></div></div>'; }
 
 /* ---- AI 通知引擎（非报错式） ---- */
 const AINotify = {
@@ -2843,7 +3273,8 @@ const LocationProvider = {
     if (ipLoc) return ipLoc;
     const gps = await this.gpsLocation();
     if (gps && gps.lat) { DB.location = gps; saveDB(); return gps; }
-    return this.mock();
+    // 高德 IP 与浏览器 GPS 都不可用时返回 null，绝不伪造定位（需求 11）
+    return null;
   },
   // 高德 IP 定位（城市级）
   async ipLocation() {
@@ -2880,7 +3311,6 @@ const LocationProvider = {
     } catch (e) {}
     return '（已获取定位）';
   },
-  mock() { return { city: '（Mock）未开启定位', lat: null, lng: null, source: 'mock', updatedAt: Date.now() }; },
 };
 
 const MusicProvider = {
@@ -2935,6 +3365,160 @@ function shopItemHtml(it) {
     '<div class="muted" style="font-size:11px;margin-top:2px">' + (it.category ? '<span class="shop-cat">' + esc(it.category) + '</span> ' : '') + (it.priority === 'high' ? '<span class="chip" style="font-size:10px;color:#db2777">重要</span> ' : '') + (it.note ? esc(it.note) : '') + '</div>' +
     '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="deleteShoppingItem(\'' + it.id + '\')">🗑</button></div>';
 }
+/* ================= FINANCE 记账 ================= */
+function fmtMoney(c) { const n = Number(c) || 0; return '￥' + (n / 100).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+const EXPENSE_CATEGORIES = ['吃饭', '娱乐', '生活用品', '看病', '零食', '学习', '交通', '住房', '通讯', '服饰', '旅行', '其他'];
+const INCOME_CATEGORIES = ['工资', '奖金', '兼职', '理财', '红包', '其他'];
+let _exKind = false; // false=支出 true=收入
+function financeIsIncome(e) { return e && e.kind === 'income'; }
+function financeSummaryLocal() {
+  const mk = todayStr().slice(0, 7);
+  const ex = DB.expenses || [];
+  const isExp = (e) => !financeIsIncome(e);
+  const monthExpenseCents = ex.filter((e) => isExp(e) && String(e.occurredAt || '').startsWith(mk)).reduce((s, e) => s + (Number(e.amountCents) || 0), 0);
+  const monthIncomeCents = ex.filter((e) => !isExp(e) && String(e.occurredAt || '').startsWith(mk)).reduce((s, e) => s + (Number(e.amountCents) || 0), 0);
+  const todayExpenseCents = ex.filter((e) => isExp(e) && e.occurredAt === todayStr()).reduce((s, e) => s + (Number(e.amountCents) || 0), 0);
+  const cat = {};
+  ex.filter((e) => isExp(e) && String(e.occurredAt || '').startsWith(mk)).forEach((e) => { const c = e.category || '其他'; cat[c] = (cat[c] || 0) + (Number(e.amountCents) || 0); });
+  const budget = DB.budget && DB.budget.monthlyCents;
+  return { monthExpenseCents, monthIncomeCents, todayExpenseCents, cat, budget };
+}
+function viewFinance() {
+  const s = financeSummaryLocal();
+  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">记账</div><div class="muted">收支 · 预算 · 分类统计</div></div><button class="btn btn-primary" onclick="expenseModal(null)">＋ 记一笔</button></div>';
+  html += '<div class="grid cols-2" style="margin-bottom:16px">' +
+    '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">📉</div><div class="v">' + fmtMoney(s.todayExpenseCents) + '</div><div class="l">今日支出</div></div>' +
+    '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">📉</div><div class="v">' + fmtMoney(s.monthExpenseCents) + '</div><div class="l">本月支出</div></div>' +
+    '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">📈</div><div class="v">' + fmtMoney(s.monthIncomeCents) + '</div><div class="l">本月收入</div></div>' +
+    '<div class="card stat-card" style="cursor:pointer" onclick="budgetModal()"><div style="font-size:20px;margin-bottom:6px">🎯</div><div class="v">' + (s.budget ? fmtMoney(s.budget) : '—') + '</div><div class="l">本月预算</div><div class="u">点击设置</div></div>' +
+    '</div>';
+  const cats = Object.entries(s.cat).sort((a, b) => b[1] - a[1]);
+  if (cats.length) {
+    const max = cats[0][1];
+    html += '<div class="section-head"><h2>本月分类统计</h2></div><div class="card card-pad" style="padding:14px">' +
+      cats.map(([c, v]) => '<div style="margin-bottom:10px"><div class="row" style="justify-content:space-between;font-size:13px;margin-bottom:4px"><span>' + esc(c) + '</span><span class="muted">' + fmtMoney(v) + '</span></div><div class="progress"><span style="width:' + Math.round((v / max) * 100) + '%"></span></div></div>').join('') + '</div>';
+  }
+  const list = (DB.expenses || []).slice().sort((a, b) => (b.occurredAt || '') < (a.occurredAt || '') ? -1 : 1).slice(0, 50);
+  html += '<div class="section-head"><h2>最近记录</h2></div>';
+  html += '<div class="card card-pad" style="padding:4px 8px">' + (list.length ? list.map(financeRowHtml).join('') : '<div class="empty"><div class="eico">💰</div><div class="etitle">还没有记账</div><div class="esub">点「记一笔」开始记录收支</div></div>') + '</div>';
+  return html;
+}
+function financeRowHtml(e) {
+  const income = financeIsIncome(e);
+  return '<div class="task-row" style="cursor:pointer" onclick="expenseModal(\'' + e.id + '\')">' +
+    '<span style="font-size:18px">' + (income ? '💵' : '💸') + '</span>' +
+    '<div class="grow"><div class="t-title">' + esc(e.title || '未命名') + '</div><div class="t-meta">' + esc((e.category ? e.category + ' · ' : '') + (e.occurredAt || '') + (e.note ? ' · ' + e.note : '')) + '</div></div>' +
+    '<div style="text-align:right;font-weight:700;' + (income ? 'color:#16a34a' : '') + '">' + (income ? '+' : '-') + fmtMoney(e.amountCents) + '</div>' +
+    '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();deleteExpense(\'' + e.id + '\')">🗑</button>' +
+    '</div>';
+}
+function expenseModal(id) {
+  const e = id ? (DB.expenses || []).find((x) => x.id === id) : null;
+  _exKind = financeIsIncome(e);
+  const catList = _exKind ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const catOpts = catList.map((c) => '<option value="' + c + '"' + (e && e.category === c ? ' selected' : '') + '>' + c + '</option>').join('');
+  modal('<div class="modal-head"><h3>' + (e ? '编辑记录' : '记一笔') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
+    '<div class="field"><div class="seg" style="width:100%"><button class="' + (!_exKind ? 'on' : '') + '" onclick="expenseKindToggle(false)" style="flex:1">💸 支出</button><button class="' + (_exKind ? 'on' : '') + '" onclick="expenseKindToggle(true)" style="flex:1">💵 收入</button></div></div>' +
+    '<div class="field"><label id="exTitleLabel">' + (_exKind ? '收入名' : '条目') + '</label><input class="input" id="exTitle" value="' + esc(e ? e.title : '') + '" placeholder="' + (_exKind ? '如：工资' : '如：麻辣烫') + '"></div>' +
+    '<div class="field"><label>金额（元）</label><input class="input" type="number" id="exAmount" value="' + (e ? ((Number(e.amountCents) || 0) / 100) : '') + '" step="0.01" min="0" placeholder="0.00"></div>' +
+    '<div class="field"><div class="row gap2" style="gap:8px"><div class="grow"><label>分类</label><select class="select" id="exCat">' + catOpts + '</select></div><div class="grow"><label>日期</label><input class="input" type="date" id="exDate" value="' + (e ? (e.occurredAt || todayStr()) : todayStr()) + '"></div></div></div>' +
+    '<div class="field"><label>备注</label><input class="input" id="exNote" value="' + esc(e ? (e.note || '') : '') + '"></div>' +
+    '</div><div class="modal-foot">' + (e ? '<button class="btn btn-danger" onclick="deleteExpense(\'' + e.id + '\')">删除</button>' : '') + '<button class="btn" style="margin-left:auto" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveExpense(\'' + (e ? e.id : '') + '\')">保存</button></div>');
+}
+function expenseKindToggle(income) {
+  _exKind = income;
+  const sel = document.getElementById('exCat'); if (!sel) return;
+  sel.innerHTML = (income ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => '<option value="' + c + '">' + c + '</option>').join('');
+  const ti = document.getElementById('exTitle'); if (ti) ti.placeholder = income ? '如：工资' : '如：麻辣烫';
+  const lab = document.getElementById('exTitleLabel'); if (lab) lab.textContent = income ? '收入名' : '条目';
+}
+function saveExpense(id) {
+  const title = document.getElementById('exTitle').value.trim();
+  const amount = parseFloat(document.getElementById('exAmount').value);
+  if (!title) { toast('请输入条目', true); return; }
+  if (!Number.isFinite(amount) || amount <= 0) { toast('请输入有效金额', true); return; }
+  const data = { title, amountCents: Math.round(amount * 100), category: document.getElementById('exCat').value, occurredAt: document.getElementById('exDate').value || todayStr(), note: document.getElementById('exNote').value.trim(), kind: _exKind ? 'income' : 'expense', currency: 'CNY' };
+  if (id) { const e = DB.expenses.find((x) => x.id === id); Object.assign(e, data, { updatedAt: Date.now() }); }
+  else DB.expenses.push({ id: uid(), createdAt: Date.now(), updatedAt: Date.now(), ...data });
+  saveDB(); closeModal(); render(); toast('已保存 ✓');
+}
+function deleteExpense(id) {
+  confirmDialog('删除记录', '删除这条收支记录？', () => { DB.expenses = DB.expenses.filter((x) => x.id !== id); saveDB(); render(); }, '删除');
+}
+function budgetModal() {
+  const b = DB.budget;
+  modal('<div class="modal-head"><h3>本月预算</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="field"><label>预算（元/月）</label><input class="input" type="number" id="bgAmount" value="' + (b && b.monthlyCents ? (b.monthlyCents / 100) : '') + '" step="100" min="0" placeholder="如：2000"></div><div class="muted" style="font-size:12px">用于「我的AI」帮你控制本月开销；留空可清除预算。</div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveBudget()">保存</button></div>');
+}
+function saveBudget() {
+  const v = parseFloat(document.getElementById('bgAmount').value);
+  const cents = Number.isFinite(v) && v > 0 ? Math.round(v * 100) : null;
+  DB.budget = { monthlyCents: cents, currency: 'CNY', updatedAt: Date.now() };
+  saveDB(); closeModal(); render(); toast(cents ? '已设置预算 ✓' : '已清除预算');
+}
+
+/* ================= PERIOD 经期 ================= */
+function periodSorted() { return (DB.menstrualCycles || []).slice().sort((a, b) => (a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0)); }
+function periodPrediction() {
+  const sorted = periodSorted();
+  const ongoing = sorted.find((c) => c.startDate && !c.endDate) || null;
+  const closed = sorted.filter((c) => c.startDate && c.endDate);
+  let avgCycle = null;
+  if (closed.length >= 2) {
+    let sum = 0, n = 0;
+    for (let i = 1; i < closed.length; i++) {
+      const d = Math.round((parseDate(closed[i].startDate) - parseDate(closed[i - 1].startDate)) / 86400000);
+      if (d >= 15 && d <= 60) { sum += d; n++; }
+    }
+    if (n) avgCycle = Math.round(sum / n);
+  }
+  const last = closed.length ? closed[closed.length - 1] : (sorted.length ? sorted[sorted.length - 1] : null);
+  const nextStart = (avgCycle && last) ? addDays(last.startDate, avgCycle) : null;
+  return { ongoing, closed, avgCycle, last, nextStart };
+}
+function viewPeriod() {
+  const p = periodPrediction();
+  const sorted = periodSorted().slice().reverse();
+  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">经期</div><div class="muted">经期记录与预测 · 隐私</div></div><div class="row" style="gap:8px"><button class="btn btn-sm ' + (p.ongoing ? '' : 'btn-primary') + '" onclick="periodStartModal()">' + (p.ongoing ? '进行中' : '＋ 记录开始') + '</button>' + (p.ongoing ? '<button class="btn btn-sm" onclick="periodEndModal()">记录结束</button>' : '') + '</div></div>';
+  let pred = '<div class="card card-pad" style="margin-bottom:16px">';
+  if (p.ongoing) pred += '<div style="font-weight:700;font-size:15px">🌸 经期中</div><div class="muted" style="font-size:13px;margin-top:4px">开始于 ' + esc(p.ongoing.startDate) + '，记得点「记录结束」</div>';
+  else if (p.nextStart) pred += '<div style="font-weight:700;font-size:15px">🔮 预计下次</div><div class="muted" style="font-size:13px;margin-top:4px">约 ' + esc(p.nextStart) + '（平均周期 ' + p.avgCycle + ' 天）</div>';
+  else pred += '<div style="font-weight:700;font-size:15px">📝 暂无预测</div><div class="muted" style="font-size:13px;margin-top:4px">记录几次经期后，会逐步估算你的周期</div>';
+  pred += '<div class="muted" style="font-size:11px;margin-top:8px">预测仅供参考，不构成医学诊断。</div></div>';
+  html += pred;
+  html += '<div class="section-head"><h2>历史记录</h2></div>';
+  html += '<div class="card card-pad" style="padding:4px 8px">' + (sorted.length ? sorted.map(periodRowHtml).join('') : '<div class="empty"><div class="eico">🌸</div><div class="etitle">还没有记录</div><div class="esub">点「记录开始」添加第一条经期</div></div>') + '</div>';
+  return html;
+}
+function periodRowHtml(c) {
+  const dur = c.durationDays ? '持续 ' + c.durationDays + ' 天' : (c.endDate ? '' : '进行中');
+  return '<div class="task-row"><span style="font-size:18px">🌸</span><div class="grow"><div class="t-title">' + esc(c.startDate) + (c.endDate ? ' → ' + esc(c.endDate) : '') + '</div><div class="t-meta">' + esc(dur || '') + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="deleteCycle(\'' + c.id + '\')">🗑</button></div>';
+}
+function periodStartModal() {
+  if (periodPrediction().ongoing) { toast('已有进行中的经期，请先记录结束', true); return; }
+  modal('<div class="modal-head"><h3>记录经期开始</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="field"><label>开始日期</label><input class="input" type="date" id="pdStart" value="' + todayStr() + '"></div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="savePeriodStart()">保存</button></div>');
+}
+function savePeriodStart() {
+  const date = document.getElementById('pdStart').value || todayStr();
+  if (periodPrediction().ongoing) { toast('已有进行中的经期', true); closeModal(); return; }
+  DB.menstrualCycles.push({ id: uid(), startDate: date, endDate: null, durationDays: null, cycleLengthDays: null, createdAt: Date.now(), updatedAt: Date.now() });
+  saveDB(); closeModal(); render(); toast('已记录 ✓');
+}
+function periodEndModal() {
+  if (!periodPrediction().ongoing) { toast('没有进行中的经期', true); return; }
+  modal('<div class="modal-head"><h3>记录经期结束</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="field"><label>结束日期</label><input class="input" type="date" id="pdEnd" value="' + todayStr() + '"></div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="savePeriodEnd()">保存</button></div>');
+}
+function savePeriodEnd() {
+  const date = document.getElementById('pdEnd').value || todayStr();
+  const open = periodSorted().filter((c) => !c.endDate).sort((a, b) => (a.startDate > b.startDate ? -1 : 1))[0];
+  if (!open) { toast('没有进行中的经期', true); closeModal(); return; }
+  const dur = Math.max(1, Math.round((parseDate(date) - parseDate(open.startDate)) / 86400000) + 1);
+  open.endDate = date; open.durationDays = dur; open.updatedAt = Date.now();
+  saveDB(); closeModal(); render(); toast('已记录 ✓');
+}
+function deleteCycle(id) {
+  confirmDialog('删除经期记录', '删除这条经期记录？', () => { DB.menstrualCycles = DB.menstrualCycles.filter((x) => x.id !== id); saveDB(); render(); }, '删除');
+}
+
 function viewShopping() {
   const mine = shoppingItemsOf('mine'), deity = shoppingItemsOf('deity');
   const mineLeft = mine.filter((i) => !i.completed).length, deityLeft = deity.filter((i) => !i.completed).length;
@@ -3007,7 +3591,7 @@ function aiNoticeHtml(n) {
   const icon = { INFO: '💡', REMINDER: '⏰', IMPORTANT: '❗', GENTLE_NUDGE: '🌿' }[n.kind] || '💡';
   let html = '<div class="ai-notice"><div style="font-size:16px">' + icon + '</div><div class="body"><div style="font-weight:700;font-size:13.5px">' + esc(n.title) + '</div><div class="muted" style="font-size:12.5px">' + esc(n.body) + '</div>';
   if (n.actions && n.actions.length) html += '<div class="actions">' + n.actions.map((a) => '<button class="btn btn-sm ' + (a.primary ? 'btn-primary' : '') + '" onclick="event.stopPropagation();aiNoticeAction(\'' + n.id + '\',\'' + a.key + '\')">' + esc(a.label) + '</button>').join('') + '</div>';
-  html += '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="event.stopPropagation();dismissReminder(\'' + n.id + '\')">✕</button></div>';
+  html += '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="event.preventDefault();event.stopPropagation();dismissReminder(\'' + n.id + '\')">✕</button></div>';
   return html;
 }
 function aiCompanionHeader() {
@@ -3023,8 +3607,7 @@ function aiCompanionHeader() {
   html += '</div>';
   return html;
 }
-function aiMarkNoticeRead(id) { const n = (DB.ai.notifications || []).find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
-// 仅关闭提醒，不跳转（“我知道了”）
+// 仅关闭提醒，不跳转（“我知道了”/✕ 共用）。只做 read=true + saveDB + render，绝不导航。
 function dismissReminder(id) { const n = (DB.ai.notifications || []).find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
 function weatherSectionHtml() {
   const w = DB.weather; const loc = DB.location;
@@ -3033,6 +3616,7 @@ function weatherSectionHtml() {
   if (w) { const ico = { sunny: '☀️', cloudy: '⛅', rain: '🌧', overcast: '☁️' }[w.code] || '🌤'; html += '<span class="chip">' + ico + ' ' + esc(w.text) + ' ' + esc(String(w.temp)) + '°C' + (w.source === 'mock' ? ' <span style="opacity:.6">Mock</span>' : '') + '</span>'; }
   if (loc) html += '<span class="chip">📍 ' + esc(loc.city) + '</span>';
   html += '<button class="btn btn-sm" onclick="refreshWeather()" title="刷新天气">↻ 刷新</button>';
+  if (loc) html += '<button class="btn btn-sm" onclick="aiLocationAllow()" title="重新定位">📍 重新定位</button>';
   if (!w) html += '<button class="btn btn-sm" onclick="aiLocationModal()">开启定位/天气</button>';
   html += '</div>';
   return html;
@@ -3059,7 +3643,9 @@ function aiLocationModal() {
 function aiLocationAllow() {
   aiPerm().location = true; saveDB();
   LocationProvider.getCurrentLocation().then(async (loc) => {
-    toast('定位成功：' + esc(loc.city) + (loc.source === 'ip' ? '（高德 IP 大致定位）' : '')); render();
+    // 未拿到真实定位（权限被拒 / 网络异常 / 未配置 AMAP_KEY）：诚实提示，不伪造位置
+    if (!loc) { toast('定位权限未开启', true); render(); return; }
+    toast('定位成功：' + esc(loc.city || '') + (loc.source === 'ip' ? '（高德 IP 大致定位）' : '')); render();
     AIBus.emit({ type: 'LOCATION_CHANGED', entityType: 'location', payload: loc });
     // 拿到位置后顺手拉一次真实天气
     const w = await WeatherProvider.fetchReal();
@@ -3124,9 +3710,13 @@ function aiOnEvent(ev) {
     if (ev.type === 'JOURNAL_DELETED') { return; }
 
     if (ev.type === 'MUSIC_PLAY' || ev.type === 'MUSIC_CHANGED') {
+      // 需求 19：绝不自动写“你正在听 XXX”这类流水动态。
+      // 只在「长期收听模式」有价值时写一条：同一首歌累积播放达阈值才记录一次，且只记一次。
       const t = currentTrack();
-      aiLogActivity('music', (ev.type === 'MUSIC_PLAY' ? '一起听：' : '切换到：') + (t ? t.title : ''));
-      if (ev.type === 'MUSIC_PLAY') { const r = AIResponseComposer.generate(ev, ctx); if (r && r.shouldRespond && r.state) aiSetState(r.state.emotion, r.state.intensity, r.state.reason, 'music', 'music', null, null); }
+      if (t && (t.playCount || 0) >= 5 && !t.patternLogged) {
+        t.patternLogged = true; saveDB();
+        aiLogActivity('music', '最近常听《' + (t.title || '') + '》' + (t.artist ? '（' + t.artist + '）' : ''));
+      }
       return;
     }
     if (ev.type === 'TASK_COMPLETED') { aiLogActivity('task', '完成：' + (ev.payload ? ev.payload.title : '')); const r = AIResponseComposer.generate(ev, ctx); if (r && r.shouldRespond && r.state) aiSetState(r.state.emotion, r.state.intensity, r.state.reason, 'task', 'task', ev.entityId, null); return; }
@@ -3160,6 +3750,15 @@ function aiProactiveTick() { /* 预留：定时主动感知入口 */ }
 init();
 aiBootstrap();
 musicRefreshStatus();
+
+/* ================= PWA ================= */
+// 注册 Service Worker（同源部署 + Vercel 前端均适用；scope 为站点根）。
+// 仅在 https 或 localhost 下注册（Service Worker 要求安全上下文）。
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((e) => console.warn('[PWA] SW 注册失败', e));
+  });
+}
 
 /*__APPEND__*/
   </script>

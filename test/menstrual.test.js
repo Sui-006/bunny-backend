@@ -75,11 +75,20 @@ test('predict：周期波动大 → 低可信度 + 宽范围提示', () => {
 });
 
 test('dayStatus：start/end/in/predicted', () => {
-  const cycles = [cyc('2026-08-24', '2026-08-28', 5)];
-  const p = predict(cycles, '2026-09-01');
-  assert.equal(dayStatus(cycles, p, '2026-08-24'), 'start');
-  assert.equal(dayStatus(cycles, p, '2026-08-28'), 'end');
-  assert.equal(dayStatus(cycles, p, '2026-08-26'), 'in');
-  assert.equal(dayStatus(cycles, p, p.predictedStart), 'predicted');
-  assert.equal(dayStatus(cycles, p, '2026-10-01'), null);
+  // 两个完整周期 → 可预测下一次；预测期与真实周期分开验证
+  const cycles = [cyc('2026-06-01', '2026-06-05', 5), cyc('2026-06-29', '2026-07-03', 5)];
+  const p = predict(cycles, '2026-07-10'); // predictedStart = 06-29 + 28 = 07-27
+  assert.equal(dayStatus(cycles, p, '2026-06-01'), 'start');
+  assert.equal(dayStatus(cycles, p, '2026-06-05'), 'end');
+  assert.equal(dayStatus(cycles, p, '2026-06-03'), 'in');
+  assert.equal(dayStatus(cycles, p, '2026-07-27'), 'predicted');
+  assert.equal(dayStatus(cycles, p, '2026-08-20'), null);
+});
+
+test('dayStatus：历史数据不足 / 边界日期 / 无周期数据 → null（非 undefined）', () => {
+  assert.equal(dayStatus([], predict([], '2026-09-01'), '2026-09-01'), null);
+  const single = [cyc('2026-08-24', null, null)];
+  // 开始日当天是 start；开始日之前是 null（进行中的经期只覆盖开始日及之后）
+  assert.equal(dayStatus(single, predict(single, '2026-09-01'), '2026-08-24'), 'start');
+  assert.equal(dayStatus(single, predict(single, '2026-09-01'), '2026-08-10'), null);
 });

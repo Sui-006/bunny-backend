@@ -164,6 +164,29 @@ router.post('/purchase/parse', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /api/ai/calories/parse —— 自然语言 → 热量估算（摄入 in / 运动 out）
+// 只返回 AI 的估算值，不落库；前端拿到结果后由用户确认再写入健康记录。
+router.post('/calories/parse', async (req, res, next) => {
+  try {
+    const text = String(req.body?.text || '').trim();
+    const kind = req.body?.kind === 'out' ? 'out' : 'in';
+    if (!text) throw new HttpError(400, 'INVALID', 'text 不能为空');
+    const system = kind === 'in'
+      ? '你是营养热量估算助手。根据用户描述的食物/饮品估算摄入热量(千卡 kcal)。只输出 JSON：{"calories":number,"note":"..."}。不确定就给合理估计并在 note 里说明是估算；没有可估内容则 calories:0。'
+      : '你是运动热量估算助手。根据用户描述的运动(类型+时长/距离)估算消耗热量(千卡 kcal)。只输出 JSON：{"calories":number,"note":"..."}。不确定就给合理估计并在 note 里说明是估算；没有可估内容则 calories:0。';
+    const reply = await aiCall({
+      model: config.defaultModel, temperature: 0.2, maxTokens: 300,
+      system,
+      messages: [{ role: 'user', content: text }],
+    });
+    let parsed = null;
+    try { parsed = JSON.parse(stripFences(reply.content)); } catch {}
+    const c = Number(parsed?.calories);
+    if (!parsed || !Number.isFinite(c)) throw new HttpError(502, 'PARSE_FAILED', 'AI 返回无法解析');
+    ok(res, { calories: Math.max(0, Math.round(c)), kind, note: parsed.note || '', description: text });
+  } catch (e) { next(e); }
+});
+
 // POST /api/ai/medical/parse —— 自然语言 → 病历字段（区分「用户自述」与「医生诊断」）
 router.post('/medical/parse', async (req, res, next) => {
   try {

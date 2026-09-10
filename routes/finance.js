@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 const PURCHASE_FIELDS = ['itemName', 'quantity', 'unitPriceCents', 'totalAmountCents', 'currency', 'category', 'purchasedAt', 'note'];
-const EXPENSE_FIELDS = ['title', 'category', 'amountCents', 'currency', 'occurredAt', 'occurredTime', 'note'];
+const EXPENSE_FIELDS = ['title', 'category', 'amountCents', 'currency', 'kind', 'occurredAt', 'occurredTime', 'note'];
 
 function normDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? v : todayStr(); }
 
@@ -117,7 +117,7 @@ router.post('/expenses', async (req, res, next) => {
     if (req.body?.text) {
       const parsed = parseExpenseText(req.body.text);
       if (!parsed) throw new HttpError(400, 'INVALID', '无法从文本解析出金额，请补充金额（如「麻辣烫 20元」）');
-      fields = { ...parsed, occurredAt: normDate(req.body.occurredAt), occurredTime: req.body.occurredTime || '', note: req.body.note || '' };
+      fields = { ...parsed, occurredAt: normDate(req.body.occurredAt), occurredTime: req.body.occurredTime || '', note: req.body.note || '', kind: req.body.kind === 'income' ? 'income' : 'expense' };
       if (req.body.category) fields.category = req.body.category;
     } else {
       if (!req.body?.title) throw new HttpError(400, 'MISSING_FIELDS', '缺少字段: title');
@@ -129,6 +129,7 @@ router.post('/expenses', async (req, res, next) => {
         category: req.body.category || guessCategory(req.body.title),
         amountCents,
         currency: 'CNY',
+        kind: req.body.kind === 'income' ? 'income' : 'expense',
         occurredAt: normDate(req.body.occurredAt),
         occurredTime: req.body.occurredTime || '',
         note: req.body.note || '',
@@ -149,6 +150,7 @@ router.patch('/expenses/:id', async (req, res, next) => {
     const patch = pick(req.body, EXPENSE_FIELDS);
     if (patch.amount != null && patch.amountCents == null) patch.amountCents = yuanToCents(patch.amount);
     delete patch.amount;
+    if (patch.kind != null) patch.kind = patch.kind === 'income' ? 'income' : 'expense';
     Object.assign(e, patch, { updatedAt: Date.now() });
     await putState(req.user.id, doc);
     ok(res, e);

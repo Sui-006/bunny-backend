@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import {
   search, songUrl, loginQrKey, loginQrCreate, loginQrCheck, loginStatus,
-  logout, userPlaylists, playlistDetail,
+  logout, userPlaylists, playlistDetail, songInfo,
 } from '../lib/netease.js';
 import { HttpError, ok } from '../lib/rest.js';
 
@@ -74,6 +74,15 @@ router.get('/playlist', async (req, res, next) => {
     const id = String(req.query.id || '').trim();
     if (!id) throw new HttpError(400, 'MISSING_ID', '缺少 id');
     ok(res, await playlistDetail(id));
+  } catch (e) { next(e); }
+});
+
+// GET /api/music/info?id= —— 歌曲公开信息（详情 + 歌词 + 热门评论），供 AI 读取（需求 18）
+router.get('/info', async (req, res, next) => {
+  try {
+    const id = String(req.query.id || '').trim();
+    if (!id) throw new HttpError(400, 'MISSING_ID', '缺少 id');
+    ok(res, await songInfo(id));
   } catch (e) { next(e); }
 });
 

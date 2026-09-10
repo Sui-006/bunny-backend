@@ -4,8 +4,10 @@ import { getState, putState } from '../lib/domain.js';
 import { HttpError, ok, pick, requireFields } from '../lib/rest.js';
 
 const router = Router();
-const HEALTH_FIELDS = ['date', 'sleep', 'steps', 'heartRate', 'calories', 'water'];
-const METRICS = ['sleep', 'steps', 'heartRate', 'calories', 'water'];
+// 健康记录字段：睡眠(小时)/饮水(升)/摄入热量(千卡)/运动消耗(千卡)/体重(kg)。
+// 已按需求移除 steps / heartRate / 旧 calories 字段。
+const HEALTH_FIELDS = ['date', 'sleep', 'water', 'caloriesIn', 'caloriesOut', 'weight'];
+const METRICS = ['sleep', 'water', 'caloriesIn', 'caloriesOut', 'weight'];
 const MEDICAL_TYPES = ['过敏史', '疾病', '就诊', '检查', '手术', '用药', '其他'];
 const MEDICAL_FIELDS = ['title', 'type', 'date', 'hospital', 'doctor', 'diagnosis', 'symptoms', 'treatment', 'medication', 'notes', 'source'];
 const pad = (n) => (n < 10 ? '0' + n : '' + n);
@@ -38,6 +40,25 @@ router.get('/summary', async (req, res, next) => {
       return out;
     };
     ok(res, { sevenDay: avg(7), thirtyDay: avg(30) });
+  } catch (e) { next(e); }
+});
+
+// ---- 健康档案：身高（单一值，cm） ----
+router.get('/profile', async (req, res, next) => {
+  try {
+    const doc = await getState(req.user.id);
+    ok(res, doc.healthProfile || { height: null });
+  } catch (e) { next(e); }
+});
+
+router.put('/profile', async (req, res, next) => {
+  try {
+    const doc = await getState(req.user.id);
+    const height = Number(req.body?.height);
+    if (height != null && !Number.isFinite(height)) throw new HttpError(400, 'INVALID', 'height 必须是数字');
+    doc.healthProfile = { ...(doc.healthProfile || {}), height: height != null && height > 0 ? height : null };
+    await putState(req.user.id, doc);
+    ok(res, doc.healthProfile);
   } catch (e) { next(e); }
 });
 
@@ -129,7 +150,7 @@ router.post('/', async (req, res, next) => {
     requireFields(req.body, ['date']);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(req.body.date)) throw new HttpError(400, 'INVALID', 'date 必须是 YYYY-MM-DD');
     const doc = await getState(req.user.id);
-    const record = { id: randomUUID(), date: todayStr(), sleep: 0, steps: 0, heartRate: 0, calories: 0, water: 0, ...pick(req.body, HEALTH_FIELDS) };
+    const record = { id: randomUUID(), date: todayStr(), sleep: 0, water: 0, caloriesIn: 0, caloriesOut: 0, weight: null, ...pick(req.body, HEALTH_FIELDS) };
     doc.health.push(record);
     await putState(req.user.id, doc);
     ok(res, record, 201);
