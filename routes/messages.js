@@ -9,6 +9,10 @@ import { config } from '../lib/config.js';
 import { sendBark } from '../lib/bark.js';
 import { composeNotification, barkLevelFor } from '../lib/notify.js';
 import { McpSession, parseMcpServers } from '../lib/mcp.js';
+import { ensureOwner } from '../lib/auth.js';
+import { getState } from '../lib/domain.js';
+import { buildContextSnippet, detectDomains } from '../lib/aiContext.js';
+import { buildDomainTools } from '../lib/tools.js';
 
 const router = Router();
 
@@ -27,6 +31,24 @@ async function buildChatEnv(sessionId) {
     tools = mcp.tools;
   }
   return { settings, app, mcp, tools };
+}
+
+// 组装会话环境 + 领域上下文 + 领域工具（财务/经期/病历按问题相关性注入）
+async function buildAssistEnv(sessionId, content) {
+  const { settings, app, mcp, tools: mcpTools } = await buildChatEnv(sessionId);
+  const userId = (await ensureOwner()).id;
+  const doc = await getState(userId);
+  const contextSnippet = buildContextSnippet(doc, content);
+  const domains = detectDomains(content);
+  const domain = buildDomainTools(userId);
+  const useDomain = domains.length > 0;
+  const tools = [...mcpTools, ...(useDomain ? domain.tools : [])];
+  const callTool = async (name, args) => {
+    if (useDomain && domain.names.includes(name)) return domain.callTool(name, args);
+    if (mcp) return mcp.callTool(name, args);
+    throw new Error('未知工具: ' + name);
+  };
+  return { settings, app, mcp, tools, callTool, contextSnippet };
 }
 
 // 回复通知：标题/正文由 AI 生成（普通通知，绝不 critical/call）
@@ -67,11 +89,12 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     const content = (req.body?.content || '').trim();
     if (!content) return res.status(400).json({ error: 'content 不能为空' });
 
-    const { settings, app, mcp, tools } = await buildChatEnv(sessionId);
+    const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
 
     const userMessage = await createMessage(sessionId, { role: 'user', content });
     const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
+    const systemWithCtx = [system, contextSnippet].filter(Boolean).join('\n\n');
 
     const stream = settings.stream && tools.length === 0;
     const barkUrl = config.barkUrl || app?.bark_url;
@@ -88,7 +111,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       let result;
       try {
         result = await chatStream({
-          model, system, messages,
+          model, system: systemWithCtx, messages,
           temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
           onDelta: (d) => { full += d; send({ delta: d }); },
         });
@@ -114,12 +137,12 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       return;
     }
 
-    // 非流式（含 MCP 工具循环）
+    // 非流式（含 MCP + 领域工具循环）
     const reply = await chat({
-      model, system, messages,
+      model, system: systemWithCtx, messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
       tools,
-      callTool: tools.length ? (name, args) => mcp.callTool(name, args) : null,
+      callTool: tools.length ? callTool : null,
     });
 
     const assistantMessage = await createMessage(sessionId, {
@@ -140,18 +163,23 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 router.post('/:sessionId/regenerate', async (req, res, next) => {
   try {
     const { sessionId } = req.params;
-    const { settings, app, mcp, tools } = await buildChatEnv(sessionId);
+    const allMsgs = await listMessages(sessionId, { limit: 50, visibleOnly: true });
+    const lastUser = [...allMsgs].reverse().find((m) => m.role === 'user');
+    const content = lastUser?.content || '';
+
+    const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
 
     const last = await getLastAssistantMessage(sessionId);
     if (last) await deleteMessage(last.id);
 
     const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
+    const systemWithCtx = [system, contextSnippet].filter(Boolean).join('\n\n');
     const reply = await chat({
-      model, system, messages,
+      model, system: systemWithCtx, messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
       tools,
-      callTool: tools.length ? (name, args) => mcp.callTool(name, args) : null,
+      callTool: tools.length ? callTool : null,
     });
 
     const assistantMessage = await createMessage(sessionId, {

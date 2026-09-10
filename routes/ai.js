@@ -4,6 +4,7 @@ import { chat } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { getState, putState, defaultPlan } from '../lib/domain.js';
 import { HttpError, ok } from '../lib/rest.js';
+import { parseExpenseText, parsePurchaseText, guessCategory } from '../lib/finance.js';
 
 const router = Router();
 
@@ -109,6 +110,75 @@ router.post('/plan/confirm', async (req, res, next) => {
 
     await putState(req.user.id, doc);
     ok(res, { ok: true, plans: doc.plans.length, tasks: doc.tasks.length }, 201);
+  } catch (e) { next(e); }
+});
+
+// POST /api/ai/expense/parse —— 自然语言 → 记账字段（AI 优先，确定性解析兜底）
+router.post('/expense/parse', async (req, res, next) => {
+  try {
+    const text = String(req.body?.text || '').trim();
+    if (!text) throw new HttpError(400, 'INVALID', 'text 不能为空');
+    const det = parseExpenseText(text);
+    try {
+      const reply = await aiCall({
+        model: config.defaultModel, temperature: 0.1, maxTokens: 300,
+        system: '你是记账解析助手。根据用户的话提取条目(title)、分类(category，从 吃饭/娱乐/生活用品/看病/零食/学习/交通/住房/通讯/服饰/旅行/其他 选)、金额(amountCents，整数分，￥1=100，缺失填 null)。只输出 JSON：{"title":"...","category":"...","amountCents":number|null}。分类按语义判断；用户明确指定分类则以用户为准。金额不确定就 amountCents:null。',
+        messages: [{ role: 'user', content: text }],
+      });
+      const parsed = JSON.parse(stripFences(reply.content));
+      if (parsed && (parsed.title || parsed.amountCents != null)) {
+        return ok(res, {
+          title: parsed.title || (det?.title || text),
+          category: parsed.category || det?.category || '其他',
+          amountCents: parsed.amountCents != null ? parsed.amountCents : det?.amountCents ?? null,
+          currency: 'CNY',
+        });
+      }
+    } catch (e) { /* AI 失败 → 回退确定性解析 */ }
+    if (!det) throw new HttpError(400, 'INVALID', '没识别出金额，请补上（如「麻辣烫 20元」）');
+    ok(res, det);
+  } catch (e) { next(e); }
+});
+
+// POST /api/ai/purchase/parse —— 自然语言 → 最近购买字段
+router.post('/purchase/parse', async (req, res, next) => {
+  try {
+    const text = String(req.body?.text || '').trim();
+    if (!text) throw new HttpError(400, 'INVALID', 'text 不能为空');
+    const det = parsePurchaseText(text);
+    try {
+      const reply = await aiCall({
+        model: config.defaultModel, temperature: 0.1, maxTokens: 300,
+        system: '你是购物解析助手。根据用户的话提取商品名(itemName)、数量(quantity，缺省1)、单价(unitPriceCents，整数分，￥1=100，缺失填 null)、分类(category，从 吃饭/娱乐/生活用品/看病/零食/学习/交通/住房/通讯/服饰/旅行/其他 选)。只输出 JSON：{"itemName":"...","quantity":number,"unitPriceCents":number|null,"category":"..."}。单价不确定就 unitPriceCents:null，绝不擅自捏造金额。',
+        messages: [{ role: 'user', content: text }],
+      });
+      const parsed = JSON.parse(stripFences(reply.content));
+      if (parsed && parsed.itemName && parsed.unitPriceCents != null) {
+        const q = Math.max(1, Math.round(Number(parsed.quantity) || 1));
+        const unit = parsed.unitPriceCents;
+        return ok(res, { itemName: parsed.itemName, quantity: q, unitPriceCents: unit, totalAmountCents: unit * q, currency: 'CNY', category: parsed.category || '其他' });
+      }
+    } catch (e) { /* AI 失败 → 回退 */ }
+    if (!det) throw new HttpError(400, 'INVALID', '没识别出单价，请补上（如「雨伞 38元」）');
+    ok(res, det);
+  } catch (e) { next(e); }
+});
+
+// POST /api/ai/medical/parse —— 自然语言 → 病历字段（区分「用户自述」与「医生诊断」）
+router.post('/medical/parse', async (req, res, next) => {
+  try {
+    const text = String(req.body?.text || '').trim();
+    if (!text) throw new HttpError(400, 'INVALID', 'text 不能为空');
+    try {
+      const reply = await aiCall({
+        model: config.defaultModel, temperature: 0.2, maxTokens: 400,
+        system: '你是病历记录助手。根据用户的话提取健康信息，只输出 JSON：{"title":"...","type":"过敏史|疾病|就诊|检查|手术|用药|其他","date":"YYYY-MM-DD或空","diagnosis":"...","symptoms":"...","notes":"...","source":"doctor|user"}。关键规则：只有医生明确诊断的内容才标 source=doctor 并写进 diagnosis；用户自己感觉/猜测的（如「我可能感冒了」）标 source=user 且 diagnosis 留空、症状写进 symptoms。绝不能把用户自述当成确诊。',
+        messages: [{ role: 'user', content: text }],
+      });
+      const parsed = JSON.parse(stripFences(reply.content));
+      if (parsed && parsed.title) return ok(res, parsed);
+    } catch (e) { /* AI 失败 → 回退 */ }
+    ok(res, { title: text, type: '其他', date: '', diagnosis: '', symptoms: '', notes: '', source: 'user' });
   } catch (e) { next(e); }
 });
 

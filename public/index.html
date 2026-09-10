@@ -335,7 +335,6 @@
     .bubble { max-width: 78%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.55; word-break: break-word; }
     .bubble.in { background: var(--card-solid); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
     .bubble.out { background: var(--accent); color: #fff; border-bottom-right-radius: 6px; align-self: flex-end; }
-    .msgs { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; padding: 16px; }
     .chat-input-bar { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
     .chat-input { flex: 1; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; outline: none; max-height: 110px; min-height: 42px; background: var(--card-solid); }
     .chat-input:focus { border-color: var(--accent-border); }
@@ -363,11 +362,6 @@
     .note-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
     .note-title { font-size: 15px; font-weight: 700; color: var(--text); }
     .note-body { font-size: 13px; color: var(--text-soft); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
-
-    /* ============ Workspace / Family ============ */
-    .ws-card { padding: 18px; cursor: pointer; transition: transform 0.15s; height: 100%; }
-    .ws-card:hover { transform: translateY(-2px); }
-    .fam-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
 
     /* splash */
     .splash { position: fixed; inset: 0; background: var(--bg2); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; transition: opacity 0.6s ease; }
@@ -408,10 +402,6 @@
     .shop-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--border); }
     .shop-item:last-child { border-bottom: none; }
     .shop-cat { font-size: 10.5px; padding: 1px 7px; border-radius: 8px; background: var(--accent-tint); color: var(--accent-strong); }
-    .screen-bar-row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; }
-    .screen-bar-row .app { width: 90px; font-size: 13px; font-weight: 600; }
-    .screen-bar { flex: 1; height: 10px; background: var(--accent-tint); border-radius: 8px; overflow: hidden; }
-    .screen-bar > span { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--accent), var(--accent-soft)); }
     .together-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; background: #fdf2f8; color: #db2777; border: 1px solid #f9d8e6; font-size: 12px; }
     html[data-theme="dark"] .together-badge { background: #2a1f2a; color: #f9a8d4; border-color: #5b3a52; }
     .ai-notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--accent-tint); border: 1px solid var(--accent-line); margin-bottom: 10px; }
@@ -603,36 +593,18 @@ function defaultDB() {
     const d = addDays(todayStr(), -i);
     health.push({ id: uid(), date: d, sleep: +(6.5 + Math.random() * 2).toFixed(1), steps: 5000 + Math.floor(Math.random() * 7000), heartRate: 62 + Math.floor(Math.random() * 14), calories: 300 + Math.floor(Math.random() * 300), water: +(1 + Math.random() * 1.5).toFixed(1) });
   }
-  const convos = [
-    { id: 'family', name: 'Family', avatar: '👨‍👩‍👧', kind: 'family', unread: 2, last: '晚饭想吃什么？', time: Date.now() - 3600000, messages: [ { role: 'in', content: '晚饭想吃什么？', time: Date.now() - 3700000 }, { role: 'out', content: '随便，你定～', time: Date.now() - 3600000 } ] },
-    { id: 'alice', name: 'Alice', avatar: '👩', kind: 'friend', unread: 0, last: '周末一起爬山吗', time: Date.now() - 7200000, messages: [ { role: 'in', content: '周末一起爬山吗', time: Date.now() - 7200000 } ] },
-    { id: 'work', name: 'Work', avatar: '💼', kind: 'work', unread: 1, last: '方案改好了发你', time: Date.now() - 86400000, messages: [ { role: 'in', content: '方案改好了发你', time: Date.now() - 86400000 } ] },
-    { id: 'ai', name: '我的AI', avatar: '♥', kind: 'ai', unread: 0, last: '今天怎么样？', time: Date.now() - 172800000, messages: [ { role: 'out', content: '明天有什么安排？', time: Date.now() - 173000000 }, { role: 'in', content: '今天怎么样？', time: Date.now() - 172800000 } ] },
-  ];
-  const workspace = [
-    { id: uid(), name: 'Three Minute Workflow', kind: 'build', color: '#6b8cae', description: '阅读 · 输出 · 复盘', items: [ { title: '阅读', done: false }, { title: '输出', done: false }, { title: '复盘', done: false } ] },
-    { id: uid(), name: 'Habit System', kind: 'system', color: '#10b981', description: '习惯打卡与连续记录', items: [ { title: '每日习惯', done: true } ] },
-    { id: uid(), name: 'Task System', kind: 'system', color: '#f97316', description: '任务与日历联动', items: [] },
-    { id: uid(), name: 'AI System', kind: 'system', color: '#8b5cf6', description: '我的AI 与记忆', items: [] },
-  ];
-  const family = [
-    { id: uid(), name: 'Mom', relationship: '母亲', avatar: '👩‍🦳', status: '健康', care: [ { title: 'Medication Reminder', time: '08:00', done: false } ] },
-    { id: uid(), name: 'Dad', relationship: '父亲', avatar: '👨‍🦳', status: '注意血压', care: [ { title: 'Health Check', time: '', done: false } ] },
-    { id: uid(), name: 'Kid', relationship: '孩子', avatar: '👧', status: '开心', care: [ { title: 'School Plan', time: '', done: false } ] },
-  ];
   return {
     version: 1,
     ai: {
       memories: [ { id: uid(), content: '用户下雨天容易忘记带伞', category: '习惯', sourceType: 'memory', sourceId: null, confidence: 0.9, createdAt: Date.now(), updatedAt: Date.now() } ],
       states: [],
       activities: [],
-      permissions: { pageContext: true, memories: true, tasks: true, plans: true, calendar: true, shopping: true, music: true, weather: true, location: false, screenTime: true, aiState: true, journal: true },
+      permissions: { pageContext: true, memories: true, tasks: true, plans: true, calendar: true, shopping: true, music: true, weather: true, location: false, aiState: true, journal: true },
       notifications: [],
       _asked: {},
     },
     shoppingLists: [ { id: 'mine', type: 'mine', title: '我的清单' }, { id: 'deity', type: 'deity', title: '祂的清单' } ],
     shoppingItems: [],
-    screenTime: { records: [], thresholds: { global: 120, perApp: { 'YouTube': 120, 'Chrome': 120, 'Discord': 120, 'VS Code': 999999 } } },
     weather: null,
     location: null,
     journal: [ { id: uid(), content: '今天把 Bunny\'s Home 又往前推进了一点。', date: todayStr(), time: '21:32', mood: '平静', moodSymbol: '🌙', tags: ['生活'], createdAt: Date.now(), updatedAt: Date.now() } ],
@@ -644,9 +616,6 @@ function defaultDB() {
     habits,
     health,
     notes: [ { id: uid(), title: '欢迎使用 Bunny\'s Home', content: '这是一个属于你的个人数字空间。\n\n· 点击右下角 + 快速创建任务 / 计划 / 习惯\n· 我的AI 可以帮你安排今天\n· 所有数据都保存在本地', tags: ['欢迎'], pinned: true, createdAt: Date.now(), updatedAt: Date.now() } ],
-    family,
-    workspace,
-    conversations: convos,
     player: { playlist: [ { title: 'Turning Page', artist: 'Sleeping At Last', cover: '', duration: 255 } ], current: 0, playing: false, currentTime: 0, volume: 0.8, togetherListening: false },
     notifications: [
       { id: uid(), type: 'ai', title: '我的AI', body: '欢迎来到 Bunny\'s Home 👋', read: false, time: Date.now() },
@@ -669,9 +638,6 @@ function loadDB() {
   if (!Array.isArray(db.habits)) db.habits = [];
   if (!Array.isArray(db.health)) db.health = [];
   if (!Array.isArray(db.notes)) db.notes = [];
-  if (!Array.isArray(db.family)) db.family = [];
-  if (!Array.isArray(db.workspace)) db.workspace = [];
-  if (!Array.isArray(db.conversations)) db.conversations = [];
   if (!Array.isArray(db.notifications)) db.notifications = [];
   if (!Array.isArray(db.alarms)) db.alarms = [];
   if (!db.player) db.player = def.player;
@@ -689,10 +655,6 @@ function loadDB() {
   if (!Array.isArray(db.shoppingLists)) db.shoppingLists = def.shoppingLists;
   if (!Array.isArray(db.shoppingItems)) db.shoppingItems = [];
   if (!Array.isArray(db.journal)) db.journal = [];
-  if (!db.screenTime) db.screenTime = def.screenTime;
-  if (!db.screenTime.records || !Array.isArray(db.screenTime.records)) db.screenTime.records = [];
-  if (!db.screenTime.thresholds) db.screenTime.thresholds = def.screenTime.thresholds;
-  if (!db.screenTime.thresholds.perApp) db.screenTime.thresholds.perApp = def.screenTime.thresholds.perApp;
   // ensure each plan type has >= 1 plan
   for (const t of Object.keys(TYPE_META)) {
     const arr = db.plans.filter((p) => p.type === t);
@@ -809,15 +771,14 @@ const ROUTES = {
   '/today': 'Home', '/calendar': '日历', '/alarm': '闹钟', '/plans': '计划',
   '/plans/long-term': '长期计划', '/plans/stage': '阶段计划', '/plans/monthly': '月度计划', '/plans/weekly': '周计划',
   '/habit': '习惯', '/health': '健康', '/statistics': '统计',
-  '/messages': '消息', '/chat': '我的AI · 对话', '/player': '音乐', '/workspace': '工作台', '/family': '家庭',
-  '/shopping': '购物清单', '/screen-time': '屏幕使用时间', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/journal': '我的日志',
+  '/chat': '我的AI · 对话', '/player': '音乐',
+  '/shopping': '购物清单', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/journal': '我的日志',
   '/notes': '笔记', '/notifications': '通知', '/profile': '我的主页', '/search': '搜索',
   '/settings': '设置', '/settings/appearance': '外观', '/settings/ai': '我的AI 设置', '/settings/api': 'API 设置', '/settings/mcp': 'MCP', '/settings/notifications': '通知设置',
 };
 function parseHash() {
   let h = location.hash.replace(/^#/, '');
   if (!h || h === '/') h = '/today';
-  if (h.startsWith('/messages/')) h = '/messages';
   if (h.startsWith('/settings/')) { const seg = h.split('/')[2]; h = seg ? '/settings/' + seg : '/settings'; }
   if (!ROUTES[h] && h.startsWith('/plans/')) h = '/plans';
   if (!ROUTES[h]) h = '/today';
@@ -847,18 +808,14 @@ function navGroups() {
   const n = (route, ico, label, badge) => ({ route, ico, label, badge });
   return [
     { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/calendar', '📅', 'Calendar'), n('/alarm', '⏰', '闹钟') ] },
-    { title: 'PLANS', items: [ n('/plans/long-term', '🎯', 'Long-term'), n('/plans/stage', '🧭', 'Stage'), n('/plans/monthly', '📆', 'Monthly'), n('/plans/weekly', '🗓', 'Weekly') ] },
-    { title: 'LIFE', items: [ n('/habit', '🌱', 'Habits'), n('/health', '❤️', 'Health'), n('/statistics', '📊', 'Statistics'), n('/shopping', '🛒', 'Shopping') ] },
-    { title: 'WORK', items: [ n('/workspace', '🧰', 'Workspace'), n('/family', '👨‍👩‍👧', 'Family') ] },
-    { title: 'MEDIA', items: [ n('/player', '🎵', 'Music') ] },
-    { title: 'COMMUNICATION', items: [ n('/messages', '💬', 'Messages') ] },
     { title: '♥ 我的AI', ai: true, items: [ n('/chat', '💬', 'AI Chat'), n('/ai/memory', '🧠', 'AI Memory'), n('/ai/activity', '💗', 'AI Activity') ] },
+    { title: 'PLANS', items: [ n('/plans/long-term', '🎯', 'Long-term'), n('/plans/stage', '🧭', 'Stage'), n('/plans/monthly', '📆', 'Monthly'), n('/plans/weekly', '🗓', 'Weekly') ] },
+    { title: 'LIFE', items: [ n('/habit', '🌱', 'Habit'), n('/health', '❤️', 'Health'), n('/statistics', '📊', 'Statistics'), n('/shopping', '🛒', 'Shopping'), n('/player', '🎵', 'Music') ] },
   ];
 }
 function renderSidebar() {
   const el = document.getElementById('sidebar');
   const unread = DB.notifications.filter((x) => !x.read).length;
-  const msgs = DB.conversations.reduce((s, c) => s + (c.unread || 0), 0);
   let html = '<div class="logo"><span>🐰</span><span class="name">' + esc(DB.appName) + '</span></div>';
   html += '<button class="nav-new" onclick="OS.toggleSidebar(false);openQuickCreate()">＋ New Task</button>';
   html += '<div class="nav-scroll">';
@@ -928,15 +885,20 @@ function newPlanSheet() {
 }
 function newEventModal() { newTaskModal(true); }
 function openMoreNav() {
-  const items = [ ['/calendar', '📅', 'Calendar'], ['/messages', '💬', 'Messages'], ['/player', '🎵', 'Music'], ['/workspace', '🧰', 'Workspace'], ['/family', '👨‍👩‍👧', 'Family'], ['/chat', '🤖', 'Chat'], ['/notes', '📝', 'Notes'], ['/statistics', '📊', 'Statistics'], ['/notifications', '🔔', 'Notifications'], ['/profile', '👤', 'Profile'], ['/settings', '⚙️', 'Settings'] ];
+  const items = [ ['/calendar', '📅', 'Calendar'], ['/chat', '💬', 'AI Chat'], ['/ai/memory', '🧠', 'AI Memory'], ['/ai/activity', '💗', 'AI Activity'], ['/player', '🎵', 'Music'], ['/notes', '📝', 'Notes'], ['/statistics', '📊', 'Statistics'], ['/notifications', '🔔', 'Notifications'], ['/profile', '👤', 'Profile'], ['/settings', '⚙️', 'Settings'] ];
   drawer('<div class="sheet"><div class="sheet-grab"></div>' + items.map((i) => '<button class="sheet-item" onclick="OS.closeModal();OS.go(\'' + i[0] + '\')"><span class="ico">' + i[1] + '</span>' + i[2] + '</button>').join('') + '</div>', 'bottom');
 }
 
 /* ---------------- router dispatch ---------------- */
+// 每个路由记住自己的滚动位置，切回时恢复；同路由内重渲染（如翻月历）不重置
+const viewScrollPos = {};
+let _lastRoute = OS.route;
 function render() {
   renderSidebar(); renderTopbar(); renderBottomnav();
   const view = document.getElementById('view');
   const r = OS.route;
+  const routeChanged = _lastRoute !== r;
+  if (routeChanged) { viewScrollPos[_lastRoute] = view.scrollTop; _lastRoute = r; }
   let html;
   if (r === '/chat') {
     html = viewChat();
@@ -950,15 +912,11 @@ function render() {
     else if (r === '/habit') html += viewHabit();
     else if (r === '/health') html += viewHealth();
     else if (r === '/statistics') html += viewStatistics();
-    else if (r === '/messages') html += viewMessages();
     else if (r === '/shopping') html += viewShopping();
-    else if (r === '/screen-time') html += viewScreenTime();
     else if (r === '/ai/memory') html += viewAIMemory();
     else if (r === '/ai/activity') html += viewAIActivity();
     else if (r === '/journal') html += viewJournal();
     else if (r === '/player') html += viewPlayer();
-    else if (r === '/workspace') html += viewWorkspace();
-    else if (r === '/family') html += viewFamily();
     else if (r === '/notes') html += viewNotes();
     else if (r === '/notifications') html += viewNotifications();
     else if (r === '/profile') html += viewProfile();
@@ -973,13 +931,13 @@ function render() {
     html += '</div>';
   }
   view.innerHTML = html;
+  if (routeChanged) view.scrollTop = viewScrollPos[r] || 0;
   afterRender(r);
 }
 function afterRender(r) {
   if (r === '/chat') { OS.chat.ensureLoaded(); }
   if (r === '/health') { drawHealthCharts(); }
   if (r === '/statistics') { drawStatCharts(); }
-  if (r === '/messages' && OS.ui.convId) { OS.ui.convId = null; }
   if (r === '/calendar') { bindCalendar(); }
   if (r === '/settings/mcp') { loadMcp(); }
   if (r === '/settings/api') { openApiFill(); }
@@ -1688,45 +1646,6 @@ function drawStatCharts() {
 }
 
 /* ================= MESSAGES (mock social chat) ================= */
-function convById(id) { return DB.conversations.find((c) => c.id === id); }
-function viewMessages() {
-  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Messages</div><div class="muted">你的会话</div></div><button class="btn btn-soft" onclick="newConversation()">＋ 新会话</button></div>';
-  html += '<div class="card card-pad" style="padding:6px 8px">';
-  if (DB.conversations.length === 0) html += '<div class="empty"><div class="eico">💬</div><div class="etitle">暂无会话</div></div>';
-  else html += DB.conversations.map((c) => '<div class="conv-item" onclick="openConversation(\'' + c.id + '\')"><div class="avatar" style="background-image:url(' + c.avatar + ')"></div><div class="grow"><div style="font-weight:600">' + esc(c.name) + '</div><div class="c-last">' + esc(c.last || '') + '</div></div><div style="text-align:right"><div class="c-time">' + relTime(c.time) + '</div>' + (c.unread ? '<div class="unread" style="margin-top:4px">' + c.unread + '</div>' : '') + '</div></div>').join('');
-  html += '</div>';
-  return html;
-}
-function newConversation() {
-  modal('<div class="modal-head"><h3>新会话</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="field"><label>名称</label><input class="input" id="cvName" placeholder="如：Bob"></div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveConversation()">创建</button></div>');
-}
-function saveConversation() {
-  const name = document.getElementById('cvName').value.trim(); if (!name) return;
-  const c = { id: uid(), name, avatar: '👤', kind: 'friend', unread: 0, last: '', time: Date.now(), messages: [] };
-  DB.conversations.push(c); saveDB(); closeModal(); render(); openConversation(c.id);
-}
-function openConversation(id) {
-  const c = convById(id); if (!c) return;
-  c.unread = 0; saveDB();
-  drawer('<div style="position:sticky;top:0;display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border);background:var(--card-solid)"><button class="icon-btn" onclick="OS.closeModal()">‹</button><div class="avatar" style="background-image:url(' + c.avatar + ')"></div><div class="grow"><div style="font-weight:700">' + esc(c.name) + '</div><div class="muted" style="font-size:11px">' + (c.kind === 'ai' ? '我的AI' : '在线') + '</div></div><button class="icon-btn" onclick="confirmDialog(\'删除会话\',\'删除后不可恢复。\',()=>{deleteConversation(\'' + c.id + '\')},\'删除\')">🗑</button></div>' +
-    '<div class="msgs" id="convMsgs" style="min-height:300px">' + c.messages.map(convMsgHtml).join('') + '</div>' +
-    '<div class="chat-input-bar"><input class="chat-input" id="convInput" placeholder="Message..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();sendConvMessage(\'' + c.id + '\')}"><button class="btn btn-primary" onclick="sendConvMessage(\'' + c.id + '\')">发送</button></div>', 'right');
-  setTimeout(() => { const el = document.getElementById('convMsgs'); if (el) el.scrollTop = el.scrollHeight; document.getElementById('convInput') && document.getElementById('convInput').focus(); }, 80);
-}
-function convMsgHtml(m) { return '<div style="display:flex;' + (m.role === 'out' ? 'justify-content:flex-end' : 'justify-content:flex-start') + '"><div class="bubble ' + (m.role === 'out' ? 'out' : 'in') + '">' + esc(m.content) + '</div></div>'; }
-function sendConvMessage(id) {
-  const c = convById(id); const input = document.getElementById('convInput'); const text = input.value.trim(); if (!text) return;
-  c.messages.push({ role: 'out', content: text, time: Date.now() }); c.last = text; c.time = Date.now();
-  input.value = ''; saveDB();
-  const el = document.getElementById('convMsgs'); if (el) { el.innerHTML = c.messages.map(convMsgHtml).join(''); el.scrollTop = el.scrollHeight; }
-  setTimeout(() => {
-    const replies = ['好的，收到 👍', '嗯嗯，晚点回你', '哈哈，有意思', '稍等，我看看', '没问题，就这么定了'];
-    c.messages.push({ role: 'in', content: replies[Math.floor(Math.random() * replies.length)], time: Date.now() }); c.last = c.messages[c.messages.length - 1].content; saveDB();
-    const el2 = document.getElementById('convMsgs'); if (el2) { el2.innerHTML = c.messages.map(convMsgHtml).join(''); el2.scrollTop = el2.scrollHeight; }
-  }, 900);
-}
-function deleteConversation(id) { DB.conversations = DB.conversations.filter((c) => c.id !== id); saveDB(); render(); }
-
 /* ================= MUSIC PLAYER ================= */
 let playerTimer = null;
 let musicAudio = null, musicAudioSrc = '', _musicResults = [], _neteaseUser = null, _neteasePlaylists = [], _qrKey = '', _qrTimer = null;
@@ -1913,93 +1832,6 @@ async function musicLogout() {
   _neteaseUser = null; _neteasePlaylists = []; render(); toast('已退出网易云');
 }
 
-/* ================= WORKSPACE ================= */
-function wsById(id) { return DB.workspace.find((w) => w.id === id); }
-function viewWorkspace() {
-  const tabs = ['build', 'system', 'projects', 'resources'];
-  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Workspace</div><div class="muted">Build · System · Projects · Resources</div></div><button class="btn btn-primary" onclick="newWorkspace()">＋ 新建卡片</button></div>';
-  html += '<div class="section-head"><h2>Build</h2></div><div class="grid cols-2">' + DB.workspace.filter((w) => w.kind === 'build').map(wsCardHtml).join('') + (DB.workspace.filter((w) => w.kind === 'build').length === 0 ? '<div class="empty" style="grid-column:1/-1"><div class="esub">还没有 Build 项目</div></div>' : '') + '</div>';
-  html += '<div class="section-head"><h2>System</h2></div><div class="grid cols-2">' + DB.workspace.filter((w) => w.kind === 'system').map(wsCardHtml).join('') + (DB.workspace.filter((w) => w.kind === 'system').length === 0 ? '<div class="empty" style="grid-column:1/-1"><div class="esub">还没有系统卡片</div></div>' : '') + '</div>';
-  return html;
-}
-function wsCardHtml(w) {
-  const done = (w.items || []).filter((i) => i.done).length;
-  return '<div class="card ws-card" style="border-top:4px solid ' + w.color + '" onclick="openWorkspace(\'' + w.id + '\')"><div class="row" style="margin-bottom:8px"><span style="font-size:24px">' + (w.kind === 'build' ? '📦' : w.kind === 'system' ? '⚙️' : '📁') + '</span><div class="grow"><div style="font-weight:700">' + esc(w.name) + '</div><div class="muted" style="font-size:12px">' + esc(w.description || '') + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();workspaceMenu(event,\'' + w.id + '\')">⋯</button></div>' + (w.items && w.items.length ? '<div class="progress"><span style="width:' + Math.round(done / w.items.length * 100) + '%;background:' + w.color + '"></span></div><div class="muted" style="font-size:11px;margin-top:6px">' + done + ' / ' + w.items.length + ' 完成</div>' : '<div class="muted" style="font-size:11px">空项目</div>') + '</div>';
-}
-function workspaceMenu(e, id) {
-  e.stopPropagation();
-  menu([ { label: '编辑', ico: '✎', fn: 'OS.closeMenu();editWorkspace(\'' + id + '\')' }, { label: '删除', ico: '🗑', danger: true, fn: 'OS.closeMenu();confirmDialog(\'删除卡片\',\'删除后不可恢复。\',()=>{DB.workspace=DB.workspace.filter(x=>x.id!==\'' + id + '\');saveDB();render()},\'删除\')' } ], e.clientX, e.clientY);
-}
-function newWorkspace() { workspaceModal(null); }
-function editWorkspace(id) { workspaceModal(id); }
-function workspaceModal(id) {
-  const w = id ? wsById(id) : null;
-  modal('<div class="modal-head"><h3>' + (w ? '编辑卡片' : '新建卡片') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
-    '<div class="field"><label>名称</label><input class="input" id="wsName" value="' + esc(w ? w.name : '') + '"></div>' +
-    '<div class="field"><label>描述</label><input class="input" id="wsDesc" value="' + esc(w ? w.description : '') + '"></div>' +
-    '<div class="field"><label>类型</label><select class="select" id="wsKind"><option value="build"' + (w && w.kind === 'build' ? ' selected' : '') + '>Build</option><option value="system"' + (w && w.kind === 'system' ? ' selected' : '') + '>System</option><option value="projects"' + (w && w.kind === 'projects' ? ' selected' : '') + '>Projects</option><option value="resources"' + (w && w.kind === 'resources' ? ' selected' : '') + '>Resources</option></select></div>' +
-    '<div class="field"><label>颜色</label>' + swatchHtml(w ? w.color : '#6b8cae') + '<input type="hidden" id="swVal" value="' + (w ? w.color : '#6b8cae') + '"></div>' +
-    '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveWorkspace(\'' + (w ? w.id : '') + '\')">保存</button></div>');
-}
-function saveWorkspace(id) {
-  const name = document.getElementById('wsName').value.trim(); if (!name) { toast('请输入名称', true); return; }
-  const data = { name, description: document.getElementById('wsDesc').value.trim(), kind: document.getElementById('wsKind').value, color: document.getElementById('swVal').value };
-  if (id) Object.assign(wsById(id), data); else DB.workspace.push({ id: uid(), items: [], ...data });
-  saveDB(); closeModal(); render(); toast('已保存 ✓');
-}
-function openWorkspace(id) {
-  const w = wsById(id); if (!w) return;
-  drawer('<div style="padding:20px 22px;border-bottom:1px solid var(--border)"><div class="spread"><div style="font-size:18px;font-weight:700">' + esc(w.name) + '</div><button class="icon-btn" onclick="OS.closeModal()">✕</button></div><div class="muted">' + esc(w.description || '') + '</div></div><div style="padding:16px 22px 28px" id="wsItems">' + wsItemsHtml(w) + '</div><div style="padding:0 22px 22px"><div class="row" style="gap:8px"><input class="input" id="wsItemInput" placeholder="添加条目…" onkeydown="if(event.key===\'Enter\'){addWsItem(\'' + w.id + '\')}"><button class="btn btn-primary" onclick="addWsItem(\'' + w.id + '\')">＋</button></div></div>', 'right');
-}
-function wsItemsHtml(w) {
-  if (!(w.items || []).length) return '<div class="empty"><div class="esub">还没有条目</div></div>';
-  return w.items.map((it, i) => '<div class="task-row" onclick="toggleWsItem(\'' + w.id + '\',' + i + ')"><span class="chk' + (it.done ? ' on' : '') + '"></span><div class="t-title' + (it.done ? ' done' : '') + '">' + esc(it.title) + '</div><button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="event.stopPropagation();delWsItem(\'' + w.id + '\',' + i + ')">🗑</button></div>').join('');
-}
-function addWsItem(id) { const w = wsById(id); const input = document.getElementById('wsItemInput'); const t = input.value.trim(); if (!t) return; w.items = w.items || []; w.items.push({ title: t, done: false }); input.value = ''; saveDB(); document.getElementById('wsItems').innerHTML = wsItemsHtml(w); }
-function toggleWsItem(id, i) { const w = wsById(id); w.items[i].done = !w.items[i].done; saveDB(); document.getElementById('wsItems').innerHTML = wsItemsHtml(w); }
-function delWsItem(id, i) { const w = wsById(id); w.items.splice(i, 1); saveDB(); document.getElementById('wsItems').innerHTML = wsItemsHtml(w); }
-
-/* ================= FAMILY / CARE ================= */
-function famById(id) { return DB.family.find((f) => f.id === id); }
-function viewFamily() {
-  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Family</div><div class="muted">家人关怀与提醒</div></div><button class="btn btn-primary" onclick="newFamily()">＋ 添加成员</button></div>';
-  html += '<div class="grid cols-2">' + DB.family.map((f) => famCardHtml(f)).join('') + '</div>';
-  return html;
-}
-function famCardHtml(f) {
-  const care = f.care || [];
-  const pending = care.filter((c) => !c.done).length;
-  return '<div class="card card-pad"><div class="row" style="margin-bottom:10px"><div class="fam-avatar" style="background:' + hexToRgba('#6b8cae', 0.15) + '">' + esc(f.avatar || '👤') + '</div><div class="grow"><div style="font-weight:700">' + esc(f.name) + '</div><div class="muted" style="font-size:12px">' + esc(f.relationship) + ' · ' + esc(f.status || '') + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="familyMenu(event,\'' + f.id + '\')">⋯</button></div>' +
-    (care.length ? care.map((c, i) => '<div class="task-row" style="padding:6px 8px" onclick="toggleCare(\'' + f.id + '\',' + i + ')"><span class="chk sm' + (c.done ? ' on' : '') + '"></span><div class="t-title" style="font-size:13px">' + esc(c.title) + '</div>' + (c.time ? '<span class="chip" style="font-size:10px">⏰ ' + esc(c.time) + '</span>' : '') + '</div>').join('') : '<div class="muted" style="font-size:12px;padding:4px 0">暂无关怀事项</div>') +
-    '<button class="btn btn-sm btn-soft" style="width:100%;margin-top:8px" onclick="addCare(\'' + f.id + '\')">＋ 关怀 / 提醒</button></div>';
-}
-function familyMenu(e, id) {
-  e.stopPropagation();
-  menu([ { label: '编辑', ico: '✎', fn: 'OS.closeMenu();editFamily(\'' + id + '\')' }, { label: '删除', ico: '🗑', danger: true, fn: 'OS.closeMenu();confirmDialog(\'删除成员\',\'删除后不可恢复。\',()=>{DB.family=DB.family.filter(x=>x.id!==\'' + id + '\');saveDB();render()},\'删除\')' } ], e.clientX, e.clientY);
-}
-function newFamily() { familyModal(null); }
-function editFamily(id) { familyModal(id); }
-function familyModal(id) {
-  const f = id ? famById(id) : null;
-  modal('<div class="modal-head"><h3>' + (f ? '编辑成员' : '添加成员') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
-    '<div class="field"><label>姓名</label><input class="input" id="fmName" value="' + esc(f ? f.name : '') + '"></div>' +
-    '<div class="field"><div class="row gap2" style="gap:8px"><div class="grow"><label>关系</label><input class="input" id="fmRel" value="' + esc(f ? f.relationship : '') + '" placeholder="如：母亲"></div><div class="grow"><label>头像</label><input class="input" id="fmAvatar" value="' + esc(f ? f.avatar : '') + '" placeholder="👩"></div></div></div>' +
-    '<div class="field"><label>状态</label><input class="input" id="fmStatus" value="' + esc(f ? f.status : '') + '" placeholder="如：健康"></div>' +
-    '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveFamily(\'' + (f ? f.id : '') + '\')">保存</button></div>');
-}
-function saveFamily(id) {
-  const name = document.getElementById('fmName').value.trim(); if (!name) { toast('请输入姓名', true); return; }
-  const data = { name, relationship: document.getElementById('fmRel').value.trim(), avatar: document.getElementById('fmAvatar').value.trim() || '👤', status: document.getElementById('fmStatus').value.trim() };
-  if (id) Object.assign(famById(id), data); else DB.family.push({ id: uid(), care: [], ...data });
-  saveDB(); closeModal(); render(); toast('已保存 ✓');
-}
-function addCare(id) {
-  const f = famById(id);
-  modal('<div class="modal-head"><h3>关怀 / 提醒</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="field"><label>事项</label><input class="input" id="careTitle" placeholder="如：吃药提醒"></div><div class="field"><label>时间（可选）</label><input class="input" type="time" id="careTime"></div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveCare(\'' + id + '\')">保存</button></div>');
-}
-function saveCare(id) { const f = famById(id); const t = document.getElementById('careTitle').value.trim(); if (!t) return; f.care = f.care || []; f.care.push({ title: t, time: document.getElementById('careTime').value, done: false }); saveDB(); closeModal(); render(); }
-function toggleCare(id, i) { const f = famById(id); f.care[i].done = !f.care[i].done; saveDB(); render(); }
-
 /* ================= NOTES ================= */
 function noteById(id) { return DB.notes.find((n) => n.id === id); }
 function viewNotes() {
@@ -2050,7 +1882,7 @@ function viewNotifications() {
   html += '</div>';
   return html;
 }
-function notifIcon(t) { return { ai: '♥', task: '✅', habit: '🌱', plan: '🎯', health: '❤️', family: '👨‍👩‍👧' }[t] || '🔔'; }
+function notifIcon(t) { return { ai: '♥', task: '✅', habit: '🌱', plan: '🎯', health: '❤️' }[t] || '🔔'; }
 function markRead(id) { const n = DB.notifications.find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
 function markAllRead() { DB.notifications.forEach((n) => n.read = true); saveDB(); render(); }
 
@@ -2190,19 +2022,17 @@ async function createAlarmFromText(text) {
 /* ================= GLOBAL SEARCH ================= */
 function viewSearch() {
   const q = OS.ui.search.trim().toLowerCase();
-  let html = '<div class="h1" style="margin-bottom:14px">Search</div><div class="search-box" style="margin-bottom:18px"><span class="sico">🔍</span><input class="input" placeholder="搜索任务 / 计划 / 习惯 / 消息 / 笔记…" id="gsInput" value="' + esc(OS.ui.search) + '" oninput="OS.ui.search=this.value;render();document.getElementById(\'gsInput\').focus()"></div>';
+  let html = '<div class="h1" style="margin-bottom:14px">Search</div><div class="search-box" style="margin-bottom:18px"><span class="sico">🔍</span><input class="input" placeholder="搜索任务 / 计划 / 习惯 / 笔记…" id="gsInput" value="' + esc(OS.ui.search) + '" oninput="OS.ui.search=this.value;render();document.getElementById(\'gsInput\').focus()"></div>';
   if (!q) { html += '<div class="empty"><div class="eico">🔍</div><div class="etitle">输入关键词开始搜索</div></div>'; return html; }
   const tasks = DB.tasks.filter((t) => t.title.toLowerCase().includes(q));
   const plans = DB.plans.filter((p) => p.title.toLowerCase().includes(q));
   const habits = DB.habits.filter((h) => h.name.toLowerCase().includes(q));
-  const msgs = DB.conversations.filter((c) => (c.name + ' ' + c.last).toLowerCase().includes(q));
   const notes = DB.notes.filter((n) => (n.title + ' ' + n.content).toLowerCase().includes(q));
-  const total = tasks.length + plans.length + habits.length + msgs.length + notes.length;
+  const total = tasks.length + plans.length + habits.length + notes.length;
   if (total === 0) { html += '<div class="empty"><div class="eico">🔍</div><div class="etitle">没有找到「' + esc(OS.ui.search) + '」</div></div>'; return html; }
   if (tasks.length) { html += '<div class="section-head"><h2>Tasks</h2></div><div class="card card-pad" style="padding:6px 8px">' + tasks.map((t) => taskRowHtml(t)).join('') + '</div>'; }
   if (plans.length) { html += '<div class="section-head"><h2>Plans</h2></div><div class="card card-pad" style="padding:6px 8px">' + plans.map((p) => '<div class="conv-item" onclick="OS.go(\'/plans/' + p.type + '\')"><span style="font-size:20px">' + TYPE_META[p.type].ico + '</span><div class="grow"><div style="font-weight:600">' + esc(p.title) + '</div><div class="c-last">' + esc(TYPE_META[p.type].label) + '</div></div></div>').join('') + '</div>'; }
   if (habits.length) { html += '<div class="section-head"><h2>Habits</h2></div><div class="card card-pad" style="padding:6px 8px">' + habits.map((h) => habitRowHtml(h, todayStr())).join('') + '</div>'; }
-  if (msgs.length) { html += '<div class="section-head"><h2>Messages</h2></div><div class="card card-pad" style="padding:6px 8px">' + msgs.map((c) => '<div class="conv-item" onclick="openConversation(\'' + c.id + '\')"><div class="avatar" style="background-image:url(' + c.avatar + ')"></div><div class="grow"><div style="font-weight:600">' + esc(c.name) + '</div><div class="c-last">' + esc(c.last) + '</div></div></div>').join('') + '</div>'; }
   if (notes.length) { html += '<div class="section-head"><h2>Notes</h2></div><div class="card card-pad" style="padding:6px 8px">' + notes.map((n) => '<div class="conv-item" onclick="editNote(\'' + n.id + '\')"><span style="font-size:18px">📝</span><div class="grow"><div style="font-weight:600">' + esc(n.title) + '</div></div></div>').join('') + '</div>'; }
   return html;
 }
@@ -2311,7 +2141,7 @@ function viewProfile() {
   html += '<div class="grid cols-4" style="margin-bottom:22px">' +
     pstat(DB.tasks.length, 'Tasks', '/today') + pstat(DB.plans.filter((x) => !x.archived).length, 'Plans', '/plans') + pstat(DB.habits.length, 'Habits', '/habit') + pstat(maxStreak, 'Streak 🔥', '/habit') + '</div>';
   html += '<div class="section-head"><h2>我的空间</h2></div><div class="grid cols-2">';
-  const links = [ ['📖', '我的日志', (DB.journal || []).length + ' 条', '/journal'], ['📝', '笔记', DB.notes.length + ' 篇', '/notes'], ['💬', '消息', DB.conversations.length + ' 个会话', '/messages'], ['🧰', '工作台', DB.workspace.length + ' 张卡片', '/workspace'], ['👨‍👩‍👧', '家庭', DB.family.length + ' 位成员', '/family'], ['🎵', '音乐', DB.player.playlist.length + ' 首', '/player'], ['📊', '统计', '数据总览', '/statistics'] ];
+  const links = [ ['📖', '我的日志', (DB.journal || []).length + ' 条', '/journal'], ['📝', '笔记', DB.notes.length + ' 篇', '/notes'], ['💬', 'AI Chat', '与 Bunny 对话', '/chat'], ['🎵', '音乐', DB.player.playlist.length + ' 首', '/player'], ['📊', '统计', '数据总览', '/statistics'] ];
   html += links.map((l) => '<div class="card card-pad" style="cursor:pointer;display:flex;align-items:center;gap:12px" onclick="OS.go(\'' + l[3] + '\')"><span style="font-size:26px">' + l[0] + '</span><div class="grow"><div style="font-weight:700">' + l[1] + '</div><div class="muted" style="font-size:12px">' + l[2] + '</div></div><span style="color:var(--text-faint)">›</span></div>').join('');
   html += '</div>';
 
@@ -2414,25 +2244,64 @@ async function saveAISettings() {
 }
 
 /* ================= SETTINGS / API ================= */
-function viewSettingsAPI() {
-  return '<div class="h1" style="margin-bottom:16px">API Settings</div><div class="card card-pad"><p class="muted" style="margin-bottom:14px;font-size:12px">密钥保存在服务器端，只显示打码。留空 = 不修改。</p>' +
-    '<div class="field"><label>DeepSeek Key</label><input class="input" type="password" id="dsKey" placeholder="sk-..."></div><div class="field"><label>DeepSeek 中转地址</label><input class="input" id="dsBase" placeholder="https://api.deepseek.com/v1"></div>' +
-    '<div class="field"><label>OpenAI Key</label><input class="input" type="password" id="oaKey" placeholder="sk-..."></div><div class="field"><label>OpenAI 中转地址</label><input class="input" id="oaBase" placeholder="https://api.openai.com/v1"></div>' +
-    '<div class="field"><label>Claude Key</label><input class="input" type="password" id="anKey" placeholder="sk-ant-..."></div><div class="field"><label>Claude 中转地址</label><input class="input" id="anBase" placeholder="https://api.anthropic.com"></div><div class="field"><label>Claude 协议</label><select class="select" id="anProto"><option value="anthropic">Anthropic 原生</option><option value="openai-compat">OpenAI 兼容中转</option></select></div>' +
-    '<button class="btn btn-primary btn-block" onclick="saveApiSettings()">保存密钥</button></div>';
+let _apiConnections = { deepseek: null, openai: null, anthropic: null };
+let _apiKeySet = { deepseek: false, openai: false, anthropic: false };
+
+function connStatusHtml(p) {
+  const c = _apiConnections[p];
+  if (!c) return '<span class="muted" style="font-size:11px">未测试</span>';
+  const color = c.status === 'CONNECTED' ? '#2e7d32' : (c.status === 'DISCONNECTED' ? '#c0392b' : '#b9770e');
+  const code = c.code && c.code !== 'OK' ? ' · ' + esc(c.code) : '';
+  return '<span style="color:' + color + ';font-weight:600;font-size:11px">● ' + esc(c.status) + code + '</span>' + (c.message ? ' <span class="muted" style="font-size:11px">' + esc(c.message) + '</span>' : '');
 }
+function renderConn(p) { const el = document.getElementById(p + 'Conn'); if (el) el.innerHTML = connStatusHtml(p); }
+function setConn(p, c) { _apiConnections[p] = c; renderConn(p); }
+
+function viewSettingsAPI() {
+  let html = '<div class="h1" style="margin-bottom:16px">API Settings</div><div class="card card-pad"><p class="muted" style="margin-bottom:14px;font-size:12px">密钥保存在服务器端并加密（AES-256-GCM），前端只显示打码，绝不回传明文。留空 = 不修改。</p>';
+  html += '<div class="field"><label>DeepSeek Key</label><input class="input" type="password" id="dsKey" placeholder="sk-..."></div><div class="field"><label>DeepSeek 中转地址</label><input class="input" id="dsBase" placeholder="https://api.deepseek.com/v1"></div><div class="row" style="gap:8px;align-items:center;margin:2px 0 14px"><button class="btn btn-sm btn-soft" onclick="testProvider(\'deepseek\')">测试连接</button><span id="deepseekConn"></span></div>';
+  html += '<div class="field"><label>OpenAI Key</label><input class="input" type="password" id="oaKey" placeholder="sk-..."></div><div class="field"><label>OpenAI 中转地址</label><input class="input" id="oaBase" placeholder="https://api.openai.com/v1"></div><div class="row" style="gap:8px;align-items:center;margin:2px 0 14px"><button class="btn btn-sm btn-soft" onclick="testProvider(\'openai\')">测试连接</button><span id="openaiConn"></span></div>';
+  html += '<div class="field"><label>Claude Key</label><input class="input" type="password" id="anKey" placeholder="sk-ant-..."></div><div class="field"><label>Claude 中转地址</label><input class="input" id="anBase" placeholder="https://api.anthropic.com"></div><div class="field"><label>Claude 协议</label><select class="select" id="anProto"><option value="anthropic">Anthropic 原生</option><option value="openai-compat">OpenAI 兼容中转</option></select></div><div class="row" style="gap:8px;align-items:center;margin:2px 0 14px"><button class="btn btn-sm btn-soft" onclick="testProvider(\'anthropic\')">测试连接</button><span id="anthropicConn"></span></div>';
+  html += '<button class="btn btn-primary btn-block" onclick="saveApiSettings()">保存密钥</button></div>';
+  return html;
+}
+
 async function openApiFill() {
   try {
     const resp = await fetch(API_BASE + '/api/settings'); if (!resp.ok) return;
-    const s = (await resp.json()).settings || {};
+    const data = await resp.json();
+    const s = data.settings || {};
+    _apiConnections = data.connections || { deepseek: null, openai: null, anthropic: null };
+    _apiKeySet = { deepseek: Boolean(s.deepseek_key_set), openai: Boolean(s.openai_key_set), anthropic: Boolean(s.anthropic_key_set) };
     const set = (id, v, ph) => { const el = document.getElementById(id); if (el) { el.value = v || ''; if (ph) el.placeholder = ph; } };
     set('dsKey', s.deepseek_api_key, s.deepseek_key_set ? '已保存（留空不变）' : 'sk-...');
     set('oaKey', s.openai_api_key, s.openai_key_set ? '已保存（留空不变）' : 'sk-...');
     set('anKey', s.anthropic_api_key, s.anthropic_key_set ? '已保存（留空不变）' : 'sk-ant-...');
     set('dsBase', s.deepseek_base_url); set('oaBase', s.openai_base_url); set('anBase', s.anthropic_base_url);
     const proto = document.getElementById('anProto'); if (proto) proto.value = s.anthropic_protocol || 'anthropic';
+    ['deepseek', 'openai', 'anthropic'].forEach(renderConn);
   } catch (e) {}
 }
+
+async function testProvider(provider) {
+  setConn(provider, { status: 'PENDING', code: null, message: '测试中…' });
+  const keyEl = document.getElementById(provider === 'deepseek' ? 'dsKey' : provider === 'openai' ? 'oaKey' : 'anKey');
+  const baseEl = document.getElementById(provider === 'deepseek' ? 'dsBase' : provider === 'openai' ? 'oaBase' : 'anBase');
+  const body = { provider };
+  const key = keyEl ? keyEl.value.trim() : '';
+  if (key && !key.includes('•')) body.api_key = key;
+  if (baseEl && baseEl.value.trim()) body.base_url = baseEl.value.trim();
+  if (provider === 'anthropic') { const proto = document.getElementById('anProto'); body.protocol = proto ? proto.value : 'anthropic'; }
+  try {
+    const r = await fetch(API_BASE + '/api/settings/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + r.status));
+    setConn(provider, data.connection || { status: 'FAILED', code: 'UNKNOWN_ERROR', message: '无返回' });
+  } catch (e) {
+    setConn(provider, { status: 'DISCONNECTED', code: 'BACKEND_UNAVAILABLE', message: e.message });
+  }
+}
+
 async function saveApiSettings() {
   const body = {};
   const ds = document.getElementById('dsKey').value.trim(), oa = document.getElementById('oaKey').value.trim(), an = document.getElementById('anKey').value.trim();
@@ -2443,8 +2312,15 @@ async function saveApiSettings() {
   body.openai_base_url = document.getElementById('oaBase').value.trim();
   body.anthropic_base_url = document.getElementById('anBase').value.trim();
   body.anthropic_protocol = document.getElementById('anProto').value;
-  try { const r = await fetch(API_BASE + '/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); if (!r.ok) throw new Error('HTTP ' + r.status); toast('API 设置已保存 ✓'); }
-  catch (e) { toast('保存失败：' + e.message + '（后端未连接）', true); }
+  try {
+    const r = await fetch(API_BASE + '/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + r.status));
+    ['dsKey', 'oaKey', 'anKey'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+    await openApiFill();
+    toast('已保存（密钥已加密）✓');
+    for (const p of ['deepseek', 'openai', 'anthropic']) if (_apiKeySet[p]) await testProvider(p);
+  } catch (e) { toast('保存失败：' + e.message, true); }
 }
 
 /* ================= SETTINGS / MCP ================= */
@@ -2567,9 +2443,19 @@ function chatBubbleHtml(msg, isLast) {
     '<div class="bubble ' + (isUser ? 'out' : 'in') + '" style="opacity:' + (s.bubbleOpacity || 0.9) + '">' + bubble + '</div>' + actions + '</div></div>';
 }
 OS.chat.loaded = false;
+let _chatLongPress = 0;
+function bindChatLongPress(el) {
+  const sid = el.getAttribute('data-sid'); if (!sid) return;
+  let timer = null, sx = 0, sy = 0;
+  el.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; timer = setTimeout(() => { timer = null; _chatLongPress = Date.now(); OS.chat.sessionMenu({ clientX: sx, clientY: sy }, sid); }, 500); }, { passive: true });
+  el.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (timer && (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10)) { clearTimeout(timer); timer = null; } }, { passive: true });
+  el.addEventListener('touchend', () => { if (timer) { clearTimeout(timer); timer = null; } });
+  el.addEventListener('touchcancel', () => { if (timer) { clearTimeout(timer); timer = null; } });
+}
 OS.chat.renderSessions = function() {
   const el = document.getElementById('chatSessions'); if (!el) return;
-  el.innerHTML = OS.chat.sessions.map((s) => '<button class="chip" style="cursor:pointer;flex-shrink:0;' + (s.id === OS.chat.currentId ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : '') + '" onclick="OS.chat.switch(\'' + s.id + '\')">' + (s.pinned ? '📌 ' : '') + esc(s.name || '未命名') + '</button>').join('');
+  el.innerHTML = OS.chat.sessions.map((s) => '<button class="chip" data-sid="' + s.id + '" style="cursor:pointer;flex-shrink:0;' + (s.id === OS.chat.currentId ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : '') + '" onclick="OS.chat.switch(\'' + s.id + '\')" oncontextmenu="event.preventDefault();OS.chat.sessionMenu(event,\'' + s.id + '\')">' + (s.pinned ? '📌 ' : '') + esc(s.name || '未命名') + '</button>').join('');
+  el.querySelectorAll('.chip[data-sid]').forEach(bindChatLongPress);
 };
 OS.chat.renderMessages = function() {
   const el = document.getElementById('chatMsgs'); if (!el) return;
@@ -2597,19 +2483,20 @@ OS.chat.loadMessages = async function() { const r = await fetch(API_BASE + '/api
 OS.chat.loadSessionSettings = async function() { try { const r = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings'); OS.chat.sessionSettings = r.ok ? ((await r.json()).settings || {}) : {}; } catch (e) { OS.chat.sessionSettings = {}; } };
 OS.chat.saveSessionSettings = async function() { if (!OS.chat.currentId) return; const s = aiSet(); try { await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system_prompt: s.systemPrompt, stream: s.streaming, use_memory: s.memory, auto_compress: s.autoCompress }) }); } catch (e) {} };
 OS.chat.newChat = async function() { try { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions.unshift(c); OS.chat.currentId = c.id; OS.chat.messages = []; OS.chat.attachments = []; OS.chat.renderAll(); } catch (e) { toast('新建会话失败：' + e.message, true); } };
-OS.chat.switch = async function(id) { OS.chat.currentId = id; OS.chat.attachments = []; OS.chat.renderSessions(); const el = document.getElementById('chatMsgs'); if (el) el.innerHTML = '<div class="muted" style="margin:auto">加载中…</div>'; try { await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); } catch (e) { OS.chat.messages = [{ role: 'assistant', content: '加载失败：' + e.message, error: true }]; } OS.chat.renderAll(); };
+OS.chat.switch = async function(id) { if (Date.now() - _chatLongPress < 600) return; OS.chat.currentId = id; OS.chat.attachments = []; OS.chat.renderSessions(); const el = document.getElementById('chatMsgs'); if (el) el.innerHTML = '<div class="muted" style="margin:auto">加载中…</div>'; try { await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); } catch (e) { OS.chat.messages = [{ role: 'assistant', content: '加载失败：' + e.message, error: true }]; } OS.chat.renderAll(); };
 OS.chat.changeModel = function() { aiSet().model = document.getElementById('chatModel').value; saveDB(); };
-OS.chat.sessionMenu = function(e) {
-  const items = [ { label: '重命名', ico: '✎', fn: 'OS.closeMenu();OS.chat.renameCurrent()' }, { label: '置顶 / 取消置顶', ico: '📌', fn: 'OS.closeMenu();OS.chat.togglePin()' }, { label: '删除', ico: '🗑', danger: true, fn: 'OS.closeMenu();OS.chat.deleteCurrent()' } ];
+OS.chat.sessionMenu = function(e, id) {
+  const sid = id || OS.chat.currentId;
+  const items = [ { label: '重命名', ico: '✎', fn: 'OS.closeMenu();OS.chat.renameSession(\'' + sid + '\')' }, { label: '置顶 / 取消置顶', ico: '📌', fn: 'OS.closeMenu();OS.chat.togglePinSession(\'' + sid + '\')' }, { label: '删除', ico: '🗑', danger: true, fn: 'OS.closeMenu();OS.chat.deleteSession(\'' + sid + '\')' } ];
   menu(items, e.clientX, e.clientY);
 };
-OS.chat.renameCurrent = async function() { const s = OS.chat.sessions.find((x) => x.id === OS.chat.currentId); if (!s) return; modal('<div class="modal-head"><h3>重命名会话</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><input class="input" id="csName" value="' + esc(s.name) + '"></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="OS.chat.doRename()">保存</button></div>'); };
-OS.chat.doRename = async function() { const v = document.getElementById('csName').value.trim(); if (!v) return; try { await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: v }) }); const s = OS.chat.sessions.find((x) => x.id === OS.chat.currentId); if (s) s.name = v; closeModal(); OS.chat.renderSessions(); } catch (e) { toast('重命名失败：' + e.message, true); } };
-OS.chat.togglePin = async function() { const s = OS.chat.sessions.find((x) => x.id === OS.chat.currentId); if (!s) return; try { await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pinned: !s.pinned }) }); s.pinned = !s.pinned; OS.chat.renderSessions(); } catch (e) { toast('操作失败：' + e.message, true); } };
-OS.chat.deleteCurrent = function() {
-  const s = OS.chat.sessions.find((x) => x.id === OS.chat.currentId);
+OS.chat.renameSession = function(id) { const s = OS.chat.sessions.find((x) => x.id === id); if (!s) return; modal('<div class="modal-head"><h3>重命名会话</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><input class="input" id="csName" value="' + esc(s.name) + '"></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="OS.chat.doRename(\'' + id + '\')">保存</button></div>'); };
+OS.chat.doRename = async function(id) { const v = document.getElementById('csName').value.trim(); if (!v) return; try { await fetch(API_BASE + '/api/sessions/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: v }) }); const s = OS.chat.sessions.find((x) => x.id === id); if (s) s.name = v; closeModal(); OS.chat.renderSessions(); } catch (e) { toast('重命名失败：' + e.message, true); } };
+OS.chat.togglePinSession = async function(id) { const s = OS.chat.sessions.find((x) => x.id === id); if (!s) return; try { await fetch(API_BASE + '/api/sessions/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pinned: !s.pinned }) }); s.pinned = !s.pinned; OS.chat.renderSessions(); } catch (e) { toast('操作失败：' + e.message, true); } };
+OS.chat.deleteSession = function(id) {
+  const s = OS.chat.sessions.find((x) => x.id === id);
   confirmDialog('删除会话', '删除「' + (s ? s.name : '') + '」？消息将一并删除。', async () => {
-    try { await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId, { method: 'DELETE' }); OS.chat.sessions = OS.chat.sessions.filter((x) => x.id !== OS.chat.currentId); if (OS.chat.sessions.length === 0) { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions = [c]; } OS.chat.currentId = OS.chat.sessions[0].id; await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); OS.chat.renderAll(); } catch (e) { toast('删除失败：' + e.message, true); }
+    try { await fetch(API_BASE + '/api/sessions/' + id, { method: 'DELETE' }); OS.chat.sessions = OS.chat.sessions.filter((x) => x.id !== id); if (OS.chat.sessions.length === 0) { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions = [c]; } if (OS.chat.currentId === id) { OS.chat.currentId = OS.chat.sessions[0].id; await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); } OS.chat.renderAll(); } catch (e) { toast('删除失败：' + e.message, true); }
   }, '删除');
 };
 OS.chat.onFiles = function(input) {
@@ -2696,13 +2583,12 @@ function init() {
 /* ================= ♥ 我的AI · CORE ENGINE ================= */
 const AI_EMOTIONS = ['开心', '委屈', '担心', '安心', '期待', '失落', '满足', '想帮忙', '有点困惑', '认真', '在意'];
 const AI_INTENSITY = ['一点点', '有一点', '轻微', '明显', '很强', '非常强'];
-const AI_PERM_DEFAULT = { pageContext: true, memories: true, tasks: true, plans: true, calendar: true, shopping: true, music: true, weather: true, location: false, screenTime: true, aiState: true, journal: true };
-const AI_PERM_LABEL = { pageContext: '页面上下文', memories: '记忆', tasks: '任务', plans: '计划', calendar: '日历', shopping: '购物清单', music: '音乐', weather: '天气', location: '位置（默认关闭）', screenTime: '屏幕使用时间', aiState: 'AI 状态', journal: '日志' };
+const AI_PERM_DEFAULT = { pageContext: true, memories: true, tasks: true, plans: true, calendar: true, shopping: true, music: true, weather: true, location: false, aiState: true, journal: true };
+const AI_PERM_LABEL = { pageContext: '页面上下文', memories: '记忆', tasks: '任务', plans: '计划', calendar: '日历', shopping: '购物清单', music: '音乐', weather: '天气', location: '位置（默认关闭）', aiState: 'AI 状态', journal: '日志' };
 const AI_MIN_GAP = 8000;
 let _aiLastAction = 0;
 let _aiPendingMem = null;
 let _shopList = 'mine';
-let _screenRange = 'today';
 
 function currentTrack() { const p = DB.player; return (p.playlist && p.playlist[p.current]) || null; }
 function aiPerm() { if (!DB.ai) DB.ai = {}; if (!DB.ai.permissions) DB.ai.permissions = Object.assign({}, AI_PERM_DEFAULT); return DB.ai.permissions; }
@@ -2726,7 +2612,7 @@ const AIBus = {
 /* ---- 统一上下文 ---- */
 function currentPageInfo() {
   const r = OS.route;
-  const map = { '/today': '首页', '/calendar': '日历', '/alarm': '闹钟', '/habit': '习惯', '/health': '健康', '/statistics': '统计', '/shopping': '购物清单', '/screen-time': '屏幕使用时间', '/chat': '对话', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/player': '音乐', '/workspace': '工作台', '/family': '家庭', '/messages': '消息', '/notes': '笔记' };
+  const map = { '/today': '首页', '/calendar': '日历', '/alarm': '闹钟', '/habit': '习惯', '/health': '健康', '/statistics': '统计', '/shopping': '购物清单', '/chat': '对话', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/player': '音乐', '/notes': '笔记' };
   let label = map[r] || '';
   if (r.startsWith('/plans/')) label = '计划 · ' + ((TYPE_META[r.split('/')[2]] || {}).label || '');
   if (r.startsWith('/settings')) label = '设置';
@@ -2756,7 +2642,6 @@ function buildAIContext() {
       const recent = recentJournalEntries(5);
       return { total: (DB.journal || []).length, today: (DB.journal || []).filter((j) => j.date === today).length, recent: recent.map((j) => ({ date: j.date, time: j.time, mood: j.mood, moodSymbol: j.moodSymbol, content: j.content })), recentMoods: recent.map((j) => j.mood).filter(Boolean) };
     })() : null,
-    screenTime: { todayMinutes: Math.round(screenTodayMinutes()), overThreshold: !!screenTimeOver() },
   };
 }
 
@@ -2823,7 +2708,7 @@ function aiStateDotsHtml(n) {
   for (let k = 0; k < 5; k++) h += '<i class="' + (k < i ? 'on' : '') + '"></i>';
   return h + '</span>';
 }
-function aiStateTriggerLabel(s) { const map = { task: '任务', habit: '习惯', plan: '计划', shopping: '购物', music: '音乐', weather: '天气', location: '位置', screenTime: '屏幕时间', memory: '记忆', chat: '对话', journal: '日志', manual: '自发' }; return map[s.triggerType] || (s.triggerType || ''); }
+function aiStateTriggerLabel(s) { const map = { task: '任务', habit: '习惯', plan: '计划', shopping: '购物', music: '音乐', weather: '天气', location: '位置', memory: '记忆', chat: '对话', journal: '日志', manual: '自发' }; return map[s.triggerType] || (s.triggerType || ''); }
 
 /* ---- AI 动态 ---- */
 function aiLogActivity(type, text) {
@@ -2831,7 +2716,7 @@ function aiLogActivity(type, text) {
   if (DB.ai.activities.length > 200) DB.ai.activities.length = 200;
   saveDB();
 }
-function aiActivityIcon(type) { return { memory: '🧠', state: '💗', task: '✅', habit: '🌱', plan: '🎯', shopping: '🛒', music: '🎵', weather: '🌤', screenTime: '⏳', chat: '💬', journal: '📖' }[type] || '✨'; }
+function aiActivityIcon(type) { return { memory: '🧠', state: '💗', task: '✅', habit: '🌱', plan: '🎯', shopping: '🛒', music: '🎵', weather: '🌤', chat: '💬', journal: '📖' }[type] || '✨'; }
 function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:18px">' + aiActivityIcon(a.type) + '</span><div class="grow"><div style="font-size:13.5px">' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></div></div></div>'; }
 
 /* ---- AI 通知引擎（非报错式） ---- */
@@ -2908,12 +2793,6 @@ const AINotificationComposer = {
       message: this.pick(['祂记得你下雨天容易忘记带伞。要不要先放进祂的清单？', '今天' + rain + '，我记得你常忘带伞，要不要放进祂的清单？']),
       actionLabel: '放进去', secondaryActionLabel: '不用' };
   },
-  screen(over) {
-    const app = over.app, total = fmtDuration(over.total), limit = fmtDuration(over.limit);
-    return { shouldNotify: true, title: '你已经用了很久屏幕了', severity: 'GENTLE_NUDGE',
-      message: this.pick([app + ' 已经用了 ' + total + '（超过 ' + limit + '）。要不要先歇一下眼睛？', app + ' 今天占了不少时间了。还想继续一会儿，还是先离开屏幕几分钟？']),
-      actionLabel: '知道了', secondaryActionLabel: null };
-  },
 };
 
 /* ---- Providers（诚实标注 Mock） ---- */
@@ -2957,15 +2836,41 @@ const WeatherProvider = {
 function setMockWeather(text, temp, code) { DB.weather = { text, temp, code, source: 'mock', updatedAt: Date.now() }; saveDB(); render(); toast('已更新天气（Mock）'); WeatherProvider.evaluate(DB.weather); }
 
 const LocationProvider = {
+  // 优先走高德定位：先 IP 定位（国内稳定、即时、城市级，无需浏览器定位权限）；
+  // 浏览器 GPS 仅在高德不可用时兜底（国内 Chrome/Edge 依赖 Google 定位服务常超时）。
   async getCurrentLocation() {
+    const ipLoc = await this.ipLocation();
+    if (ipLoc) return ipLoc;
+    const gps = await this.gpsLocation();
+    if (gps && gps.lat) { DB.location = gps; saveDB(); return gps; }
+    return this.mock();
+  },
+  // 高德 IP 定位（城市级）
+  async ipLocation() {
+    try {
+      const r = await fetch(API_BASE + '/api/ip-location');
+      if (r.ok) {
+        const d = (await r.json()).data;
+        if (d && (d.city || d.province)) {
+          const loc = { city: d.city || d.province, lat: d.lat || null, lng: d.lng || null, source: 'ip', updatedAt: Date.now() };
+          DB.location = loc; saveDB(); return loc;
+        }
+      }
+    } catch (e) {}
+    return null;
+  },
+  // 浏览器 GPS（精确坐标，兜底）
+  gpsLocation() {
     return new Promise((resolve) => {
-      if (!('geolocation' in navigator)) return resolve(this.mock());
+      if (!('geolocation' in navigator)) return resolve(null);
       navigator.geolocation.getCurrentPosition(async (pos) => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
         const city = await this.reverseGeocode(lat, lng);
-        const loc = { city, lat, lng, source: 'geolocation', updatedAt: Date.now() };
-        DB.location = loc; saveDB(); resolve(loc);
-      }, () => resolve(this.mock()), { timeout: 8000 });
+        resolve({ city, lat, lng, source: 'geolocation', updatedAt: Date.now() });
+      }, (err) => {
+        try { console.warn('[location] 浏览器 GPS 不可用:', err && err.code, err && err.message); } catch (e) {}
+        resolve(null);
+      }, { timeout: 8000, maximumAge: 5 * 60 * 1000 });
     });
   },
   async reverseGeocode(lat, lng) {
@@ -2982,41 +2887,6 @@ const MusicProvider = {
   current() { return currentTrack(); },
   isPlaying() { return DB.player.playing; },
 };
-
-const ScreenTimeProvider = {
-  refresh() {
-    if (!aiCan('screenTime')) return null;
-    if (!DB.screenTime.records || DB.screenTime.records.length === 0) this.seedMock();
-    this.evaluate();
-    return DB.screenTime;
-  },
-  seedMock() {
-    const today = todayStr();
-    // 造最近 7 天数据，供「今日 / 昨日 / 本周」切换查看
-    ['YouTube', 'Chrome', 'Discord', 'WeChat', 'Bilibili'].forEach((app) => {
-      for (let i = 0; i < 7; i++) {
-        const per = (DB.screenTime.thresholds.perApp && DB.screenTime.thresholds.perApp[app]) || 120;
-        DB.screenTime.records.push({ date: addDays(today, -i), app, minutes: Math.max(5, Math.round(per * (0.4 + Math.random() * 0.9))) });
-      }
-    });
-    saveDB();
-  },
-  evaluate() { if (screenTimeOver()) aiOnScreenOver(); },
-};
-function screenRecordsOf(date) { return (DB.screenTime.records || []).filter((r) => r.date === date); }
-function screenTodayMinutes() { return screenRecordsOf(todayStr()).reduce((s, r) => s + r.minutes, 0); }
-function screenTimeOver() {
-  const total = screenTodayMinutes();
-  const g = (DB.screenTime.thresholds || {}).global;
-  if (g && total > g) return { app: '全部应用', total, limit: g };
-  for (const app in ((DB.screenTime.thresholds || {}).perApp || {})) {
-    const lim = DB.screenTime.thresholds.perApp[app];
-    const m = screenRecordsOf(todayStr()).filter((r) => r.app === app).reduce((s, r) => s + r.minutes, 0);
-    if (lim < 100000 && m > lim) return { app, total: m, limit: lim };
-  }
-  return null;
-}
-function fmtDuration(min) { min = Math.max(0, Math.round(min || 0)); const h = Math.floor(min / 60), m = min % 60; return (h ? h + 'h ' : '') + m + 'm'; }
 
 /* ---- 购物清单 ---- */
 function shoppingList(id) { return (DB.shoppingLists || []).find((l) => l.id === id); }
@@ -3075,70 +2945,6 @@ function viewShopping() {
   const list = _shopList === 'mine' ? mine : deity;
   html += '<div class="card card-pad" style="padding:4px 8px">' + (list.length ? list.map(shopItemHtml).join('') : '<div class="empty"><div class="eico">🛒</div><div class="etitle">' + (_shopList === 'mine' ? '还没有清单项' : '祂还没建议什么') + '</div></div>') + '</div>';
   html += '<button class="btn btn-primary btn-block" style="margin-top:14px" onclick="shoppingItemModal(null)">＋ 新增到' + (_shopList === 'mine' ? '我的清单' : '祂的清单') + '</button>';
-  return html;
-}
-
-/* ---- 屏幕使用时间 ---- */
-function setScreenRange(r) { _screenRange = r; render(); }
-function screenDaysInRange() {
-  const days = [];
-  if (_screenRange === 'today') days.push(todayStr());
-  else if (_screenRange === 'yesterday') days.push(addDays(todayStr(), -1));
-  else for (let i = 6; i >= 0; i--) days.push(addDays(todayStr(), -i));
-  return days;
-}
-function screenRecordsInRange() {
-  const days = screenDaysInRange();
-  return (DB.screenTime.records || []).filter((r) => days.indexOf(r.date) >= 0);
-}
-function screenTotalInRange() { return screenRecordsInRange().reduce((s, r) => s + r.minutes, 0); }
-function editScreenThresholds() {
-  const st = DB.screenTime.thresholds || {};
-  const perApp = st.perApp || {};
-  const apps = Array.from(new Set((DB.screenTime.records || []).map((r) => r.app)));
-  let rows = '';
-  for (const app of apps) rows += '<div class="field"><div class="row" style="justify-content:space-between;align-items:center"><label style="margin:0">' + esc(app) + '</label><input class="input" type="number" style="width:110px" id="stApp_' + app.replace(/[^a-zA-Z0-9]/g, '_') + '" value="' + (perApp[app] == null ? 120 : (perApp[app] >= 100000 ? '' : perApp[app])) + '" placeholder="关闭"></div></div>';
-  modal('<div class="modal-head"><h3>屏幕时间提醒阈值</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
-    '<div class="muted" style="font-size:12px;margin-bottom:12px">按 App 设置每日提醒阈值（分钟）。留空 = 关闭提醒。</div>' +
-    '<div class="field"><label>每日总时长上限（分钟）</label><input class="input" type="number" id="stGlobal" value="' + (st.global || 120) + '"></div>' +
-    rows +
-    '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveScreenThresholds()">保存</button></div>');
-}
-function saveScreenThresholds() {
-  const st = DB.screenTime.thresholds || (DB.screenTime.thresholds = {});
-  st.global = Math.max(1, +document.getElementById('stGlobal').value || 120);
-  if (!st.perApp) st.perApp = {};
-  const apps = Array.from(new Set((DB.screenTime.records || []).map((r) => r.app)));
-  for (const app of apps) {
-    const el = document.getElementById('stApp_' + app.replace(/[^a-zA-Z0-9]/g, '_'));
-    if (!el) continue;
-    const v = parseInt(el.value, 10);
-    st.perApp[app] = isNaN(v) || v <= 0 ? 999999 : v;
-  }
-  saveDB(); closeModal(); render(); toast('已保存 ✓');
-}
-function viewScreenTime() {
-  const records = screenRecordsInRange();
-  const total = screenTotalInRange();
-  const g = (DB.screenTime.thresholds || {}).global || 120;
-  const perApp = (DB.screenTime.thresholds || {}).perApp || {};
-  const over = screenTimeOver();
-  const rangeLabel = { today: '今日', yesterday: '昨日', week: '本周' }[_screenRange] || '今日';
-  let html = '<div class="h1" style="margin-bottom:2px">屏幕使用时间</div><div class="muted" style="margin-bottom:14px">⚠️ 浏览器无法读取系统真实数据，以下为 Mock 演示，未来需原生 App / 扩展</div>';
-  html += '<div class="spread" style="margin-bottom:14px"><div class="seg">' +
-    ['today', 'yesterday', 'week'].map((r) => '<button class="' + (_screenRange === r ? 'on' : '') + '" onclick="setScreenRange(\'' + r + '\')">' + ({ today: '今日', yesterday: '昨日', week: '本周' }[r]) + '</button>').join('') +
-    '</div><button class="btn btn-sm" onclick="editScreenThresholds()">⚙ 提醒阈值</button></div>';
-  html += '<div class="card card-pad" style="margin-bottom:14px"><div class="spread"><div><div style="font-size:28px;font-weight:800">' + fmtDuration(total) + '</div><div class="muted" style="font-size:12px">' + rangeLabel + '总时长</div></div><div style="text-align:right"><div style="font-size:20px;font-weight:700">' + Math.min(100, Math.round(total / g * 100)) + '%</div><div class="muted" style="font-size:12px">' + fmtDuration(g) + ' 上限</div></div></div>' +
-    '<div class="progress" style="margin-top:10px"><span style="width:' + Math.min(100, total / g * 100) + '%"></span></div>' +
-    (over && _screenRange === 'today' ? '<div class="ai-notice" style="margin-top:12px"><div>🌿</div><div class="body"><div style="font-weight:700;font-size:13px">已超过上限</div><div class="muted" style="font-size:12px">' + esc(over.app) + ' 已用 ' + fmtDuration(over.total) + '，注意休息眼睛。</div></div></div>' : '') + '</div>';
-  const appNames = Array.from(new Set(records.map((r) => r.app)));
-  html += '<div class="section-head"><h2>应用明细</h2></div>';
-  html += '<div class="card card-pad" style="padding:8px 10px">' + appNames.map((app) => {
-    const m = records.filter((r) => r.app === app).reduce((s, r) => s + r.minutes, 0);
-    const lim = perApp[app] || 120;
-    const pct = Math.min(100, m / lim * 100);
-    return '<div class="screen-bar-row"><span class="app">' + esc(app) + '</span><div class="screen-bar"><span style="width:' + pct + '%"></span></div><span class="muted" style="font-size:12px;width:86px;text-align:right">' + fmtDuration(m) + (lim >= 100000 ? '' : ' / ' + fmtDuration(lim)) + '</span></div>';
-  }).join('') + (appNames.length ? '' : '<div class="empty"><div class="eico">⏳</div><div class="etitle">暂无数据</div></div>') + '</div>';
   return html;
 }
 
@@ -3253,7 +3059,7 @@ function aiLocationModal() {
 function aiLocationAllow() {
   aiPerm().location = true; saveDB();
   LocationProvider.getCurrentLocation().then(async (loc) => {
-    toast('定位成功：' + esc(loc.city)); render();
+    toast('定位成功：' + esc(loc.city) + (loc.source === 'ip' ? '（高德 IP 大致定位）' : '')); render();
     AIBus.emit({ type: 'LOCATION_CHANGED', entityType: 'location', payload: loc });
     // 拿到位置后顺手拉一次真实天气
     const w = await WeatherProvider.fetchReal();
@@ -3298,15 +3104,6 @@ function aiRejectUmbrella() {
   aiSetState('委屈', 1, '我记了一周的雨伞，但你刚刚说不需要了。不是生气，只是想帮你却没帮上。', 'weather', 'shopping', null, null);
   toast('好的，那这次先不带。');
 }
-function aiOnScreenOver() {
-  if (aiAskedRecently('screen_nudge')) return;
-  const over = screenTimeOver(); if (!over) return;
-  aiMarkAsked('screen_nudge');
-  const n = AINotificationComposer.screen(over);
-  AINotify.send(n.severity, n.title, n.message, [{ key: 'dismiss', label: n.actionLabel, primary: true }], { render: true });
-  aiSetState('在意', 2, '看到你屏幕时间有点长，有点在意你的眼睛。', 'screenTime', 'screenTime', null, null);
-}
-
 /* ---- 事件规则引擎 ---- */
 function aiOnEvent(ev) {
   try {
@@ -3355,7 +3152,6 @@ function aiBootstrap() {
   setTimeout(async () => {
     try {
       if (aiCan('weather')) { const w = await WeatherProvider.refresh(); if (w && w.code === 'rain') aiOnWeatherRain(w); }
-      if (aiCan('screenTime')) ScreenTimeProvider.refresh();
     } catch (e) { console.warn('[aiBootstrap]', e); }
   }, 1500);
 }

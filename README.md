@@ -2,7 +2,7 @@
 
 个人 AI 生活操作系统的后端。基于 **Node.js + Express + Supabase(PostgreSQL)**，已合并部署前端（`public/index.html`）与后端，手机/浏览器直接访问 Render 地址即可用。
 
-> 架构原则：以前端为唯一 UI 来源，后端只补数据层。核心生活数据（计划/任务/习惯/健康/笔记/家人/工作区/社交/通知/资料/设置）以 **JSON 文档存 PostgreSQL 的 `users.user_state`**，细粒度 REST 读写同一份文档；AI 对话走原有 `sessions/messages` 表。
+> 架构原则：以前端为唯一 UI 来源，后端只补数据层。核心生活数据（计划/任务/习惯/健康/笔记/通知/资料/设置）以 **JSON 文档存 PostgreSQL 的 `users.user_state`**，细粒度 REST 读写同一份文档；AI 对话走原有 `sessions/messages` 表。
 
 ## 目录结构
 
@@ -18,7 +18,7 @@ server/
     db.js / ai.js / context.js / tokens.js / mcp.js / bark.js   # 既有 AI 对话相关
   routes/
     auth.js state.js lifePlans.js tasks.js habits.js health.js calendar.js statistics.js
-    notes.js family.js workspaces.js conversations.js notifications.js profile.js
+    notes.js notifications.js profile.js
     userSettings.js mcp.js memory.js ai.js files.js
     sessions.js messages.js settings.js appSettings.js proactive.js plans.js(旧版)
   public/               # 前端（index.html）
@@ -61,8 +61,7 @@ npm run dev            # node --watch server.js
 - 健康：`GET/POST /api/health`、`PATCH/DELETE /:id`、`GET /api/health/summary`、`?start=&end=`
 - 日历：`GET /api/calendar?start=&end=`
 - 统计：`GET /api/statistics?range=7d|30d|90d`
-- 笔记/家人/工作区：标准 CRUD（`/api/notes` `/api/family` `/api/workspaces`）
-- 社交消息：`/api/conversations` + `POST /:id/messages`
+- 笔记：标准 CRUD（`/api/notes`）
 - 通知：`GET /api/notifications`、`PATCH /:id/read`、`POST /read-all`
 - 资料：`GET/PATCH /api/profile`、`POST /api/profile/avatar`
 - 用户设置：`GET/PATCH /api/user-settings`（外观/AI/通知）

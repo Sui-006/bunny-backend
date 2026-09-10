@@ -18,6 +18,8 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
       - key: BARK_URL
         sync: false
       - key: DEFAULT_MODEL
