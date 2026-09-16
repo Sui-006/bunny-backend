@@ -4,7 +4,6 @@ import {
   createMessage, listMessages, deleteMessage, getLastAssistantMessage, touchSession,
   updateMessage, markMessagesAfterInvisible,
 } from '../lib/db.js';
-import { prepareContext } from '../lib/context.js';
 import { chat, chatStream } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { sendBark } from '../lib/bark.js';
@@ -12,8 +11,10 @@ import { composeNotification, barkLevelFor } from '../lib/notify.js';
 import { McpSession, parseMcpServers } from '../lib/mcp.js';
 import { ensureOwner } from '../lib/auth.js';
 import { getState } from '../lib/domain.js';
-import { buildContextSnippet, detectDomains } from '../lib/aiContext.js';
+import { detectDomains } from '../lib/aiContext.js';
 import { buildDomainTools } from '../lib/tools.js';
+import { buildAIContext } from '../lib/context-builder.js';
+import { maybeSummarize, invalidateSummary } from '../services/conversation-summary.js';
 import { attachments as attachmentsTable } from '../lib/store.js';
 import { prepareAttachmentsForAI, attachmentRow } from '../lib/attachments.js';
 
@@ -36,14 +37,13 @@ async function buildChatEnv(sessionId) {
   return { settings, app, mcp, tools };
 }
 
-// 组装会话环境 + 领域上下文 + 领域工具（财务/经期/病历按问题相关性注入）
-async function buildAssistEnv(sessionId, content) {
+// 组装会话环境 + 领域工具（财务/经期/病历按问题相关性注入）；统一上下文由 buildAIContext 组装
+async function buildAssistEnv(sessionId, content, model = config.defaultModel) {
   const { settings, app, mcp, tools: mcpTools } = await buildChatEnv(sessionId);
   const userId = (await ensureOwner()).id;
   const doc = await getState(userId);
-  const contextSnippet = await buildContextSnippet(doc, content);
   const domains = detectDomains(content);
-  const domain = buildDomainTools(userId);
+  const domain = buildDomainTools(userId, model);
   const useDomain = domains.length > 0;
   const tools = [...mcpTools, ...(useDomain ? domain.tools : [])];
   const callTool = async (name, args) => {
@@ -51,7 +51,7 @@ async function buildAssistEnv(sessionId, content) {
     if (mcp) return mcp.callTool(name, args);
     throw new Error('未知工具: ' + name);
   };
-  return { settings, app, mcp, tools, callTool, contextSnippet };
+  return { settings, app, mcp, tools, callTool, doc, userId };
 }
 
 // 解析附件：按 id 读取 + 所有权校验（用户 A 不能引用用户 B 的附件），最多 10 个。
@@ -125,9 +125,8 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     const qd = req.body?.quotedDynamic;
     const quotedDynamic = (qd && qd.content) ? { id: qd.id, type: 'ai_dynamic', content: String(qd.content), createdAt: qd.createdAt } : null;
 
-    const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
-    const userId = (await ensureOwner()).id;
+    const { settings, app, mcp, tools, callTool, doc, userId } = await buildAssistEnv(sessionId, content, model);
 
     // 附件：解析 + 所有权校验 + 持久化到消息 metadata.attachments（独立字段，不进 content）
     const attachmentRows = await resolveAttachments(userId, attachmentIds);
@@ -137,10 +136,8 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     if (attachmentMeta.length) metadata.attachments = attachmentMeta;
 
     const userMessage = await createMessage(sessionId, { role: 'user', content, ...(Object.keys(metadata).length ? { metadata } : {}) });
-    const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
-    await augmentLastUserMessage(messages, attachmentRows);
-    const quoteNote = quotedDynamic ? '\n\n[用户引用了以下 AI 动态来发起对话，请结合这条动态内容理解用户意图]\n引用动态内容：' + quotedDynamic.content : '';
-    const systemWithCtx = [system, contextSnippet, quoteNote].filter(Boolean).join('\n\n');
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic });
+    await augmentLastUserMessage(built.messages, attachmentRows);
 
     const stream = settings.stream && tools.length === 0;
     const barkUrl = config.barkUrl || app?.bark_url;
@@ -157,7 +154,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       let result;
       try {
         result = await chatStream({
-          model, system: systemWithCtx, messages,
+          model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
           temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
           onDelta: (d) => { full += d; send({ delta: d }); },
         });
@@ -172,12 +169,13 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 
       const assistantMessage = await createMessage(sessionId, {
         role: 'assistant', content: full, reasoningContent: result.reasoningContent,
-        metadata: { usage: result.usage, model },
+        metadata: { usage: result.usage, model, contextStats: built.stats },
       });
       await touchSession(sessionId);
+      maybeSummarize(sessionId, { userId, settings, model }).catch(() => {});
       if (notify) await notifyReply(barkUrl, model, full);
 
-      send({ done: true, userMessage, assistantMessage, compressed });
+      send({ done: true, userMessage, assistantMessage, compressed: false });
       res.end();
       await mcp?.close();
       return;
@@ -185,7 +183,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 
     // 非流式（含 MCP + 领域工具循环）
     const reply = await chat({
-      model, system: systemWithCtx, messages,
+      model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
       tools,
       callTool: tools.length ? callTool : null,
@@ -193,13 +191,14 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 
     const assistantMessage = await createMessage(sessionId, {
       role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model },
+      metadata: { usage: reply.usage, model, contextStats: built.stats },
     });
     await touchSession(sessionId);
+    maybeSummarize(sessionId, { userId, settings, model }).catch(() => {});
     if (notify) await notifyReply(barkUrl, model, reply.content);
 
     await mcp?.close();
-    res.status(201).json({ userMessage, assistantMessage, compressed });
+    res.status(201).json({ userMessage, assistantMessage, compressed: false });
   } catch (e) {
     next(e);
   }
@@ -223,14 +222,15 @@ router.post('/:sessionId/messages/:messageId/edit', async (req, res, next) => {
 
     // 软删除该用户消息之后的所有消息（含旧 AI 回复），让 AI 从这里重新作答
     await markMessagesAfterInvisible(sessionId, messageId);
+    // 历史被改动 → 失效该会话摘要（下次 rebuild），不就地删旧摘要
+    await invalidateSummary(sessionId).catch(() => {});
 
-    const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
-    const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
-    const systemWithCtx = [system, contextSnippet].filter(Boolean).join('\n\n');
+    const { settings, app, mcp, tools, callTool, doc, userId } = await buildAssistEnv(sessionId, content, model);
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool });
 
     const reply = await chat({
-      model, system: systemWithCtx, messages,
+      model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
       tools,
       callTool: tools.length ? callTool : null,
@@ -238,14 +238,14 @@ router.post('/:sessionId/messages/:messageId/edit', async (req, res, next) => {
 
     const assistantMessage = await createMessage(sessionId, {
       role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model },
+      metadata: { usage: reply.usage, model, contextStats: built.stats },
     });
     await touchSession(sessionId);
     await mcp?.close();
 
     // 重新拉取可见消息列表（编辑后的一致视图），供前端刷新
     const visible = (await listMessages(sessionId, { limit: 500, visibleOnly: true })).filter((m) => m.visible !== false);
-    res.status(201).json({ assistantMessage, messages: visible, compressed });
+    res.status(201).json({ assistantMessage, messages: visible, compressed: false });
   } catch (e) {
     next(e);
   }
@@ -259,16 +259,15 @@ router.post('/:sessionId/regenerate', async (req, res, next) => {
     const lastUser = [...allMsgs].reverse().find((m) => m.role === 'user');
     const content = lastUser?.content || '';
 
-    const { settings, app, mcp, tools, callTool, contextSnippet } = await buildAssistEnv(sessionId, content);
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
+    const { settings, app, mcp, tools, callTool, doc, userId } = await buildAssistEnv(sessionId, content, model);
 
     const last = await getLastAssistantMessage(sessionId);
     if (last) await deleteMessage(last.id);
 
-    const { system, messages, compressed } = await prepareContext({ sessionId, settings, model });
-    const systemWithCtx = [system, contextSnippet].filter(Boolean).join('\n\n');
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool });
     const reply = await chat({
-      model, system: systemWithCtx, messages,
+      model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
       tools,
       callTool: tools.length ? callTool : null,
@@ -276,12 +275,12 @@ router.post('/:sessionId/regenerate', async (req, res, next) => {
 
     const assistantMessage = await createMessage(sessionId, {
       role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model },
+      metadata: { usage: reply.usage, model, contextStats: built.stats },
     });
     await touchSession(sessionId);
     await mcp?.close();
 
-    res.status(201).json({ assistantMessage, compressed });
+    res.status(201).json({ assistantMessage, compressed: false });
   } catch (e) {
     next(e);
   }
@@ -295,6 +294,7 @@ router.delete('/:sessionId/messages/:messageId', async (req, res, next) => {
     const target = allMsgs.find((m) => m.id === messageId);
     if (!target) return res.status(404).json({ error: '消息不存在' });
     await deleteMessage(messageId);
+    await invalidateSummary(sessionId).catch(() => {});
     res.json({ ok: true });
   } catch (e) { next(e); }
 });

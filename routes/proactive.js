@@ -10,11 +10,13 @@ import {
   createMessage,
   touchSession,
 } from '../lib/db.js';
-import { prepareContext } from '../lib/context.js';
 import { chat } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { sendBark } from '../lib/bark.js';
 import { composeNotification, barkLevelFor } from '../lib/notify.js';
+import { getState } from '../lib/domain.js';
+import { ensureOwner } from '../lib/auth.js';
+import { buildAIContext } from '../lib/context-builder.js';
 
 const router = Router();
 
@@ -147,13 +149,18 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    const { system, messages } = await prepareContext({ sessionId, settings, model });
-    const systemWithTask = [system, '【主动发言】' + instruction].filter(Boolean).join('\n\n');
+    const userId = (await ensureOwner()).id;
+    const doc = await getState(userId);
+    const built = await buildAIContext({ sessionId, doc, settings, content: '', model, tools: [], callTool: null });
+    const task = '【主动发言】' + instruction;
+    const systemWithTask = [built.system, task].filter(Boolean).join('\n\n');
+    const systemBlocks = built.systemBlocks.length ? [...built.systemBlocks, { type: 'text', text: task }] : null;
 
     const reply = await chat({
       model,
       system: systemWithTask,
-      messages,
+      systemBlocks,
+      messages: built.messages,
       temperature: settings.temperature,
       maxTokens: settings.max_reply_tokens,
     });
