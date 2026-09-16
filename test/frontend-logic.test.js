@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  neteaseUiState, memoryLoadFlags, targetWallpaperSize, pickWallpaperMime,
+  neteaseUiState, neteaseStatusDelta, musicEventNeedsRender, memoryLoadFlags, targetWallpaperSize, pickWallpaperMime,
   attachmentMaxSize, validateAttachmentFile, dedupeAttachmentIds,
 } from '../lib/frontend-logic.js';
 
@@ -38,6 +38,46 @@ test('neteaseUiState: expired → expired；error → error；网络失败 → n
   assert.equal(neteaseUiState({ ok: true, data: { status: 'expired' } }, null).action, 'expired');
   assert.equal(neteaseUiState({ ok: true, data: { status: 'error' } }, null).action, 'error');
   assert.equal(neteaseUiState({ ok: false, err: 'network' }, null).action, 'networkError');
+});
+
+test('neteaseStatusDelta: 登录态没变（同账号）→ needRender=false（不整页刷新，杜绝闪烁）', () => {
+  const d = neteaseStatusDelta(1775803316, { ok: true, data: { status: 'logged_in', userId: 1775803316, nickname: 'X' } });
+  assert.equal(d.action, 'loggedIn');
+  assert.equal(d.needRender, false);
+});
+
+test('neteaseStatusDelta: 首次登录/换号 → needRender=true（才需要整页 render 反映新账号）', () => {
+  assert.equal(neteaseStatusDelta(null, { ok: true, data: { status: 'logged_in', userId: 1 } }).needRender, true);
+  assert.equal(neteaseStatusDelta(1, { ok: true, data: { status: 'logged_in', userId: 2 } }).needRender, true);
+});
+
+test('neteaseStatusDelta: 未登录且本来就未登录 → needRender=false（不整页刷新）', () => {
+  assert.equal(neteaseStatusDelta(null, { ok: true, data: { status: 'not_logged_in' } }).needRender, false);
+  assert.equal(neteaseStatusDelta(null, { ok: true, data: {} }).needRender, false);
+});
+
+test('neteaseStatusDelta: 曾登录 → 现在未登录/失效 → needRender=true（按钮要回到登录态）', () => {
+  assert.equal(neteaseStatusDelta(1775803316, { ok: true, data: { status: 'not_logged_in' } }).needRender, true);
+  assert.equal(neteaseStatusDelta(1775803316, { ok: true, data: { status: 'expired' } }).needRender, true);
+});
+
+test('neteaseStatusDelta: error / 网络失败 → needRender=false（只提示，不刷新）', () => {
+  assert.equal(neteaseStatusDelta(null, { ok: true, data: { status: 'error' } }).needRender, false);
+  assert.equal(neteaseStatusDelta(1775803316, { ok: false, err: 'network' }).needRender, false);
+});
+
+// ---- 播放期间「绝不整页 render」策略（杜绝 Music 页持续闪烁）----
+
+test('musicEventNeedsRender: 高频播放事件一律不整页 render（timeupdate/play/pause/进度/音量等只做局部更新）', () => {
+  for (const ev of ['timeupdate', 'play', 'pause', 'progress', 'volumechange', 'playerTick', 'ended', 'waiting', 'canplay', 'playing', 'stalled', 'loadeddata', 'loadedmetadata', 'durationchange', 'loadstart', 'error']) {
+    assert.equal(musicEventNeedsRender(ev), false, ev + ' 绝不能触发整页 render');
+  }
+});
+
+test('musicEventNeedsRender: 用户主动切歌/登录态变化/队列结构变化才允许一次整页 render', () => {
+  for (const ev of ['play-track', 'track-change', 'queue-replace', 'add-to-queue', 'login-change', 'login-expired', 'logout', 'toggle-together']) {
+    assert.equal(musicEventNeedsRender(ev), true, ev + ' 允许整页 render');
+  }
 });
 
 // ---- 记忆加载循环守卫（只加载一次、渲染一次、不无限循环）----

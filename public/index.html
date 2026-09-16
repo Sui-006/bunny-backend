@@ -1047,6 +1047,15 @@ function render() {
   const view = document.getElementById('view');
   const topbar = document.getElementById('topbar');
   const r = OS.route;
+  // 诊断：处于 /player 路由时记录本次 render 的原因（用于定位「播放期间反复整页重建」的真实源头）。
+  // 播放期间 musicRenderCount 应恒为 0；若增长，lastRenderReasons 会直接指出是哪个调用点触发的。
+  if (r === '/player') {
+    _musicDiag.musicRenderCount++;
+    const _d = _musicDiag.lastRenderReasons;
+    _d.push({ time: Date.now(), reason: _musicRenderReason || 'render()-unknown', route: r, playing: DB.player.playing, currentSongId: currentTrack() ? currentTrack().id : null });
+    if (_d.length > 50) _d.shift();
+    _musicRenderReason = null;
+  }
   const isChat = r === '/chat';
   // AI Chat 独占整屏：隐藏全局顶栏 + 全局 FAB（FAB 会与聊天发送按钮重叠），view 去掉内边距
   if (topbar) topbar.style.display = isChat ? 'none' : 'flex';
@@ -1092,11 +1101,13 @@ function render() {
   }
   view.innerHTML = html;
   if (routeChanged) view.scrollTop = viewScrollPos[r] || 0;
-  afterRender(r);
+  afterRender(r, routeChanged);
 }
-function afterRender(r) {
+function afterRender(r, routeChanged) {
   if (r === '/chat') { OS.chat.ensureLoaded(); }
-  if (r === '/player') { musicRefreshStatus(); }
+  // 只在真正「进入」Music 页时查一次登录态；后续 render（播放/暂停/进度/登录态局部更新）绝不重复触发，
+  // 切断 afterRender ↔ musicRefreshStatus ↔ render 的持续刷新循环。
+  if (r === '/player' && routeChanged) { _musicDiag.initCount++; musicRefreshStatus(); }
   if (r === '/health') { drawHealthCharts(); }
   if (r === '/statistics') { drawStatCharts(); }
   if (r === '/calendar') { bindCalendar(); }
@@ -1991,6 +2002,28 @@ function drawStatCharts() {
 /* ================= MUSIC PLAYER ================= */
 let playerTimer = null;
 let musicAudio = null, musicAudioSrc = '', _musicResults = [], _neteaseUser = null, _neteasePlaylists = [], _qrKey = '', _qrTimer = null;
+let _musicStatusRequest = null; // 登录态请求 in-flight lock：同一时间最多一个 status 请求在飞
+let _musicRenderReason = null; // 最近一次 render 的原因标记（在全局 render 里消费并记录，用于定位闪烁来源）
+// 开发期诊断计数器（可在控制台读 window._musicDiag 验证）。
+// 关键断言（播放期间）：
+//   musicRenderCount / statusRequestCount / playlistRequestCount / audioCreateCount / audioListenerBindCount 都应保持稳定；
+//   timeupdateCount / playEventCount / pauseEventCount 只增（局部更新），绝不能伴随 musicRenderCount 增长。
+const _musicDiag = {
+  renderCount: 0,           // viewPlayer() 调用次数 = Music 整页 DOM 重建次数
+  musicRenderCount: 0,      // 处于 /player 路由时全局 render() 调用次数（播放期间应恒为 0）
+  statusRequestCount: 0,    // /api/music/status 请求次数
+  playlistRequestCount: 0,  // /api/music/playlists 请求次数
+  audioCreateCount: 0,      // new Audio() 次数（应恒为 1）
+  audioListenerBindCount: 0,// audio 事件绑定次数（应恒为 1）
+  playerTickCount: 0,       // 本地曲目 1s 推进次数（真实歌曲不启用此 timer）
+  timeupdateCount: 0,       // audio timeupdate 次数（只做局部进度更新，绝不 render）
+  playEventCount: 0,        // audio play 事件次数（只计数，不 render）
+  pauseEventCount: 0,       // audio pause 事件次数（只计数，不 render）
+  initCount: 0,             // 真正「进入 /player」（routeChanged）的初始化次数
+  lastRenderReasons: [],    // 最近 50 条「为何 render」记录
+};
+window._musicDiag = _musicDiag;
+function recordMusicRenderReason(reason) { _musicRenderReason = reason; }
 function fmtTime(s) { s = Math.max(0, Math.floor(s)); return pad(Math.floor(s / 60)) + ':' + pad(s % 60); }
 function currentTrackIsReal() { const t = currentTrack(); return !!(t && t.url); }
 // 播放队列语义（与后端 lib/music-queue.js 同一套规则）：
@@ -2023,14 +2056,19 @@ async function fetchTrackUrl(t) {
 function handleNeteaseExpired() {
   _neteaseUser = null; _neteasePlaylists = [];
   toast('网易云音乐登录已失效，请重新登录', true);
-  render();
+  recordMusicRenderReason('login-expired'); render();
 }
 function ensureAudio() {
   if (!musicAudio) {
     musicAudio = new Audio();
     musicAudio.preload = 'auto';
-    musicAudio.addEventListener('timeupdate', () => { if (!isNaN(musicAudio.currentTime)) { DB.player.currentTime = musicAudio.currentTime; playerUpdateProgressUI(); } });
+    _musicDiag.audioCreateCount++; // 应恒为 1：音频单例，绝不重复 new Audio()
+    // 高频事件只做局部 DOM 更新，绝不 render()；以下计数器用于证明这些事件不会触发整页重建。
+    musicAudio.addEventListener('timeupdate', () => { _musicDiag.timeupdateCount++; if (!isNaN(musicAudio.currentTime)) { DB.player.currentTime = musicAudio.currentTime; playerUpdateProgressUI(); } });
     musicAudio.addEventListener('ended', () => { playerAutoAdvance(); });
+    musicAudio.addEventListener('play', () => { _musicDiag.playEventCount++; });
+    musicAudio.addEventListener('pause', () => { _musicDiag.pauseEventCount++; });
+    _musicDiag.audioListenerBindCount++; // 应恒为 1：listener 只在创建时绑定一次
   }
   musicAudio.volume = DB.player.volume || 0.8;
   return musicAudio;
@@ -2047,21 +2085,22 @@ function applyAudio() {
   playerSyncTimer();
 }
 function viewPlayer() {
+  _musicDiag.renderCount++;
   const p = DB.player; const track = p.playlist[p.current] || { title: '—', artist: '—', duration: 0 };
   const cover = track.cover || '';
   const pct = track.duration ? (p.currentTime / track.duration * 100) : 0;
   let html = '<div class="player-stage" style="padding-top:8px">';
-  html += '<div class="album' + (p.playing ? ' playing' : '') + '" style="' + (cover ? 'background-image:url(' + cover + ')' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6)') + '"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;color:rgba(255,255,255,0.9)">' + (cover ? '' : '🎵') + '</div></div>';
+  html += '<div id="playerAlbum" class="album' + (p.playing ? ' playing' : '') + '" style="' + (cover ? 'background-image:url(' + cover + ')' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6)') + '"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;color:rgba(255,255,255,0.9)">' + (cover ? '' : '🎵') + '</div></div>';
   html += '<div style="text-align:center"><div style="font-size:20px;font-weight:700">' + esc(track.title) + '</div><div class="muted" style="margin-top:4px">' + esc(track.artist) + '</div>' +
     (p.togetherListening ? '<div style="margin-top:8px"><span class="together-badge">♥ 正在和你一起听</span></div>' : '') + '</div>';
   html += '<div style="width:100%;max-width:380px"><div class="seek" onclick="playerSeek(event)"><span style="width:' + pct + '%"></span><div class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:11px;margin-top:6px"><span id="ptCur">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>';
-  html += '<div class="player-controls"><button class="pctrl" onclick="playerPrev()">⏮</button><button class="pctrl play" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" onclick="playerNext()">⏭</button></div>';
+  html += '<div class="player-controls"><button class="pctrl" onclick="playerPrev()">⏮</button><button id="ptPlayBtn" class="pctrl play" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" onclick="playerNext()">⏭</button></div>';
   html += '<div class="row" style="width:100%;max-width:300px;gap:10px"><span>🔈</span><input type="range" min="0" max="1" step="0.05" value="' + p.volume + '" style="flex:1" oninput="playerVolume(this.value)"></div>';
   // 主页面保持干净：不列出全部歌曲（需求 17），通过底部抽屉 / 弹窗访问
   html += '<div class="row" style="gap:8px;margin-top:6px;width:100%;max-width:380px;flex-wrap:wrap;justify-content:center">' +
     '<button class="btn btn-sm btn-primary" onclick="openPlayerSheet()">🎶 播放列表</button>' +
     '<button class="btn btn-sm" onclick="openMusicSearchModal()">🔍 搜索</button>' +
-    '<button class="btn btn-sm" onclick="musicLoginModal()">' + (_neteaseUser ? '🎧 ' + esc(_neteaseUser.nickname) : '登录网易云') + '</button>' +
+    '<button id="musicLoginBtn" class="btn btn-sm" onclick="musicLoginModal()">' + (_neteaseUser ? '🎧 ' + esc(_neteaseUser.nickname) : '登录网易云') + '</button>' +
     '<button class="btn btn-sm ' + (p.togetherListening ? 'btn-primary' : '') + '" onclick="toggleTogether()">' + (p.togetherListening ? '♥ 一起听' : '和我一起听') + '</button>' +
     '</div>';
   html += '</div>';
@@ -2104,8 +2143,22 @@ function playerUpdateSheetUI(pct) {
   const f = document.getElementById('sheetSeekFill'); if (f) f.style.width = pct + '%';
   const k = document.getElementById('sheetSeekKnob'); if (k) k.style.left = pct + '%';
 }
+// 局部更新：只改登录按钮文字（登录态没变化时绝不整页 render）
+function updateMusicLoginBtn() {
+  const el = document.getElementById('musicLoginBtn');
+  if (el) el.textContent = _neteaseUser ? ('🎧 ' + _neteaseUser.nickname) : '登录网易云';
+}
+// 局部更新：播放/暂停按钮 + 封面旋转动画 + 底部抽屉按钮，绝不整页 render
+function updateMusicPlayPauseBtn() {
+  const b = document.getElementById('ptPlayBtn');
+  if (b) b.textContent = DB.player.playing ? '⏸' : '▶';
+  const album = document.getElementById('playerAlbum');
+  if (album) album.classList.toggle('playing', DB.player.playing);
+  playerUpdateSheetUI();
+}
 function playerTick() {
   const p = DB.player; const track = p.playlist[p.current]; if (!track) return;
+  _musicDiag.playerTickCount++; // 仅本地曲目（无 url）1s 推进；真实歌曲用 audio.timeupdate，不启用此 timer
   p.currentTime = Math.min(track.duration || 0, p.currentTime + 1);
   playerUpdateProgressUI();
   if (p.currentTime >= track.duration) playerAutoAdvance();
@@ -2118,7 +2171,7 @@ function playerPlayPause() {
     if (DB.player.playing) { a.pause(); DB.player.playing = false; }
     else { DB.player.playing = true; a.play().catch(() => { DB.player.playing = false; }); }
   } else DB.player.playing = !DB.player.playing;
-  playerSyncTimer(); saveDB(); render(); playerUpdateSheetUI();
+  playerSyncTimer(); saveDB(); updateMusicPlayPauseBtn();
   AIBus.emit({ type: DB.player.playing ? 'MUSIC_PLAY' : 'MUSIC_PAUSE', entityType: 'music' });
 }
 async function toggleTogether() {
@@ -2143,7 +2196,7 @@ async function toggleTogether() {
     if (DB.listeningSession && typeof DB.listeningSession === 'object') DB.listeningSession.status = 'ended';
     toast('已退出一起听');
   }
-  saveDB(); render();
+  saveDB(); recordMusicRenderReason('toggle-together'); render();
 }
 
 // 歌曲结束：自动接歌（陪听会话 + autoNext）时由后端 AI 推荐下一首；失败/未开启则走播放列表下一首，绝不中断播放
@@ -2179,7 +2232,7 @@ async function playTrack(i, autoplay) {
       else if (got.code === 'SONG_NOT_PLAYABLE') toast('⚠️ 这首歌当前无法播放（可能无版权/VIP）', true);
       else if (got.code === 'SONG_URL_FAILED' || got.code === 'NETEASE_NETWORK_ERROR') toast('⚠️ 无法获取播放地址，请稍后再试', true);
       else toast('⚠️ 这首歌暂无播放源', true);
-      saveDB(); render(); refreshPlayerSheetIfOpen(); return;
+      saveDB(); recordMusicRenderReason('play-track-failed'); render(); refreshPlayerSheetIfOpen(); return;
     }
     t.url = got.url; saveDB();
   }
@@ -2187,7 +2240,7 @@ async function playTrack(i, autoplay) {
   t.playCount = (t.playCount || 0) + 1; // 长期收听模式计数（供 AI 判断价值，需求 19）
   applyAudio();
   if (autoplay && currentTrackIsReal()) ensureAudio().play().catch(() => { p.playing = false; });
-  playerSyncTimer(); saveDB(); render(); refreshPlayerSheetIfOpen();
+  playerSyncTimer(); saveDB(); recordMusicRenderReason('play-track'); render(); refreshPlayerSheetIfOpen();
   AIBus.emit({ type: 'MUSIC_CHANGED', entityType: 'music', payload: currentTrack() });
 }
 function refreshPlayerSheetIfOpen() { if (document.getElementById('sheetPlayBtn')) openPlayerSheet(); }
@@ -2237,7 +2290,7 @@ function musicAddToQueue(s) {
   const k = songKey(track);
   if (k != null && p.playlist.some((t) => songKey(t) === k)) { toast('已在播放列表'); return; }
   p.playlist.push(track);
-  saveDB(); render(); toast('已加入队列：' + track.title);
+  saveDB(); recordMusicRenderReason('add-to-queue'); render(); toast('已加入队列：' + track.title);
 }
 // 播放/切换歌单：完全替换队列（不是追加）。新歌单 → 新队列 → 去重 → current=0 → 播放第一首。
 async function musicPlayPlaylist(id) {
@@ -2320,46 +2373,54 @@ async function musicQrPoll(key) {
   else if (d.code === 801) { if (hint) hint.textContent = '等待扫码…'; }
 }
 async function musicRefreshStatus() {
-  const r = await apiJson('/api/music/status');
-  if (!r.ok) {
-    // 网络/服务不可用：不清除已有登录态、不误判成过期；仅在音乐页提示
-    if (OS.route === '/player') toast('无法连接网易云服务，请稍后再试', true);
-    return;
-  }
-  const st = r.data || {};
-  // 权威来源是后端 /api/music/status，绝不依赖 localStorage 判断登录态。
-  // 兼容「status='logged_in'」与旧后端只回 userId（无 status）的形状：只要有 userId 即视为已登录。
-  const userId = (st.userId != null && st.userId !== '') ? st.userId : null;
-  if (st.status === 'expired') { handleNeteaseExpired(); return; }
-  if (st.status === 'error') {
-    // 接口错误：保留现有状态，不误判成过期；仅在音乐页提示
-    if (OS.route === '/player') toast('网易云接口暂时不可用，请稍后再试', true);
-    return;
-  }
-  if (st.status !== 'logged_in' && userId == null) {
-    // not_logged_in（或字段缺失且无 userId）：权威来源说未登录 → 清空并刷新，让按钮回到「登录网易云」
-    _neteaseUser = null; _neteasePlaylists = [];
-    render();
-    return;
-  }
-  const prevUserId = _neteaseUser ? _neteaseUser.userId : null;
-  const user = { userId: userId, nickname: st.nickname, avatarUrl: st.avatarUrl };
-  _neteaseUser = user;
-  const pr = await apiJson('/api/music/playlists');
-  if (pr.ok) _neteasePlaylists = pr.data || [];
-  // 歌单请求失败绝不把用户重置成未登录：保留已有 _neteasePlaylists
-  const changed = (prevUserId !== user.userId);
-  if (changed && prevUserId != null) {
-    // 换了网易云账号：清空旧账号下缓存的播放地址，避免 VIP/版权 URL 串号污染新账号队列
-    (DB.player.playlist || []).forEach((t) => { if (t.id) t.url = null; });
-    saveDB();
-  }
-  // 总是渲染，确保音乐页反映最新登录态（首次进入 / 二维码登录成功 / 刷新页面均覆盖）
-  render();
+  // 去重：同一时间最多一个 status 请求在飞；已有在飞的直接复用，绝不并发重复发起。
+  if (_musicStatusRequest) return _musicStatusRequest;
+  _musicStatusRequest = (async () => {
+    _musicDiag.statusRequestCount++;
+    const r = await apiJson('/api/music/status');
+    if (!r.ok) {
+      // 网络/服务不可用：不清除已有登录态、不误判成过期；仅在音乐页提示
+      if (OS.route === '/player') toast('无法连接网易云服务，请稍后再试', true);
+      return;
+    }
+    const st = r.data || {};
+    // 权威来源是后端 /api/music/status，绝不依赖 localStorage 判断登录态。
+    // 兼容「status='logged_in'」与旧后端只回 userId（无 status）的形状：只要有 userId 即视为已登录。
+    const userId = (st.userId != null && st.userId !== '') ? st.userId : null;
+    if (st.status === 'expired') { handleNeteaseExpired(); return; }
+    if (st.status === 'error') {
+      // 接口错误：保留现有状态，不误判成过期；仅在音乐页提示
+      if (OS.route === '/player') toast('网易云接口暂时不可用，请稍后再试', true);
+      return;
+    }
+    const prevUserId = _neteaseUser ? _neteaseUser.userId : null;
+    if (st.status !== 'logged_in' && userId == null) {
+      // not_logged_in（或字段缺失且无 userId）：权威来源说未登录。
+      // 仅当「之前是登录态」才整页 render 让按钮回到「登录网易云」；本来就是未登录则只局部更新，绝不整页刷新。
+      if (prevUserId != null) { _neteaseUser = null; _neteasePlaylists = []; recordMusicRenderReason('status-logout'); render(); }
+      else updateMusicLoginBtn();
+      return;
+    }
+    const user = { userId: userId, nickname: st.nickname, avatarUrl: st.avatarUrl };
+    _neteaseUser = user;
+    _musicDiag.playlistRequestCount++;
+    const pr = await apiJson('/api/music/playlists');
+    if (pr.ok) _neteasePlaylists = pr.data || [];
+    // 歌单请求失败绝不把用户重置成未登录：保留已有 _neteasePlaylists
+    const changed = (prevUserId !== user.userId);
+    if (changed && prevUserId != null) {
+      // 换了网易云账号：清空旧账号下缓存的播放地址，避免 VIP/版权 URL 串号污染新账号队列
+      (DB.player.playlist || []).forEach((t) => { if (t.id) t.url = null; });
+      saveDB();
+    }
+    // 登录态真的变化（首次登录/换号/登出）才整页 render；没变化只局部更新登录按钮，绝不整页刷新（避免持续闪烁）。
+    if (changed) { recordMusicRenderReason('status-login-change'); render(); } else updateMusicLoginBtn();
+  })().finally(() => { _musicStatusRequest = null; });
+  return _musicStatusRequest;
 }
 async function musicLogout() {
   try { await fetch(API_BASE + '/api/music/logout', { method: 'POST' }); } catch (e) {}
-  _neteaseUser = null; _neteasePlaylists = []; render(); toast('已退出网易云');
+  _neteaseUser = null; _neteasePlaylists = []; recordMusicRenderReason('logout'); render(); toast('已退出网易云');
 }
 
 /* ================= NOTES ================= */
