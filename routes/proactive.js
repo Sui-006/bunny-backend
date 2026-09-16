@@ -10,7 +10,7 @@ import {
   createMessage,
   touchSession,
 } from '../lib/db.js';
-import { chat } from '../lib/ai.js';
+import { chat, normalizeProviderUsage, providerForModel } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { sendBark } from '../lib/bark.js';
 import { composeNotification, barkLevelFor } from '../lib/notify.js';
@@ -172,7 +172,13 @@ router.get('/', async (req, res, next) => {
       role: 'assistant',
       content,
       reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model, proactive: true, reason },
+      metadata: {
+        usage: reply.usage,
+        model,
+        proactive: true,
+        reason,
+        contextStats: { ...built.stats, ...normalizeProviderUsage(reply.usage, providerForModel(model), model) },
+      },
     });
     await touchSession(sessionId);
 

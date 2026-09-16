@@ -4,7 +4,7 @@ import {
   createMessage, listMessages, deleteMessage, getLastAssistantMessage, touchSession,
   updateMessage, markMessagesAfterInvisible,
 } from '../lib/db.js';
-import { chat, chatStream } from '../lib/ai.js';
+import { chat, chatStream, normalizeProviderUsage, providerForModel } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { sendBark } from '../lib/bark.js';
 import { composeNotification, barkLevelFor } from '../lib/notify.js';
@@ -19,6 +19,11 @@ import { attachments as attachmentsTable } from '../lib/store.js';
 import { prepareAttachmentsForAI, attachmentRow } from '../lib/attachments.js';
 
 const router = Router();
+
+// provider usage → 统一可观测字段（仅计数，不含任何内容）合并进 contextStats 存储
+function withProviderUsage(stats, usage, model) {
+  return { ...stats, ...normalizeProviderUsage(usage, providerForModel(model), model) };
+}
 
 // 组装会话环境：设置 + 全局配置 + MCP 插件（若配置）
 async function buildChatEnv(sessionId) {
@@ -169,7 +174,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 
       const assistantMessage = await createMessage(sessionId, {
         role: 'assistant', content: full, reasoningContent: result.reasoningContent,
-        metadata: { usage: result.usage, model, contextStats: built.stats },
+        metadata: { usage: result.usage, model, contextStats: withProviderUsage(built.stats, result.usage, model) },
       });
       await touchSession(sessionId);
       maybeSummarize(sessionId, { userId, settings, model }).catch(() => {});
@@ -191,7 +196,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
 
     const assistantMessage = await createMessage(sessionId, {
       role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model, contextStats: built.stats },
+      metadata: { usage: reply.usage, model, contextStats: withProviderUsage(built.stats, reply.usage, model) },
     });
     await touchSession(sessionId);
     maybeSummarize(sessionId, { userId, settings, model }).catch(() => {});
@@ -238,7 +243,7 @@ router.post('/:sessionId/messages/:messageId/edit', async (req, res, next) => {
 
     const assistantMessage = await createMessage(sessionId, {
       role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model, contextStats: built.stats },
+      metadata: { usage: reply.usage, model, contextStats: withProviderUsage(built.stats, reply.usage, model) },
     });
     await touchSession(sessionId);
     await mcp?.close();
@@ -275,7 +280,7 @@ router.post('/:sessionId/regenerate', async (req, res, next) => {
 
     const assistantMessage = await createMessage(sessionId, {
       role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
-      metadata: { usage: reply.usage, model, contextStats: built.stats },
+      metadata: { usage: reply.usage, model, contextStats: withProviderUsage(built.stats, reply.usage, model) },
     });
     await touchSession(sessionId);
     await mcp?.close();

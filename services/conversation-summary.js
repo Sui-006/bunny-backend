@@ -27,8 +27,9 @@ function buildSummaryPrompt(oldSummary, newText) {
     + `请严格按以下格式输出（每个标题占一行，无内容的行写「无」，不要输出标题之外的任何说明）：\n${template}`;
 }
 
-// 实际摘要逻辑（供 maybeSummarize 内部调用 + 测试直接断言）
-export async function doSummarize(sessionId, { model }) {
+// 实际摘要逻辑（供 maybeSummarize 内部调用 + 测试直接断言）。
+// chatFn 仅供测试注入（默认走真实 chat()）；生产调用不传。
+export async function doSummarize(sessionId, { model, chatFn } = {}) {
   const old = await getConversationSummary(sessionId);
   const stale = !!(old && old.summary_stale);
 
@@ -46,7 +47,7 @@ export async function doSummarize(sessionId, { model }) {
     .join('\n\n')
     .slice(0, SUMMARY_INPUT_MAX_CHARS);
 
-  const { content } = await chat({
+  const { content } = await (chatFn || chat)({
     model,
     messages: [{ role: 'user', content: buildSummaryPrompt(stale ? null : (old?.summary ?? null), text) }],
     system: SUMMARY_SYSTEM,
@@ -54,7 +55,8 @@ export async function doSummarize(sessionId, { model }) {
     maxTokens: 800,
   });
   const summary = truncateByTokens(String(content || '').trim(), BUDGETS.SUMMARY_BUDGET);
-  if (!summary) return false; // 生成失败/空 → 保留旧摘要
+  // 空/畸形摘要（结构化摘要至少 8 个标题行，不可能 < 10 字符）绝不覆盖有效旧摘要
+  if (!summary || summary.length < 10) return false;
 
   const untilId = newMessages[newMessages.length - 1].id;
   const expected = old?.summary_version ?? 0;
@@ -71,11 +73,11 @@ export async function doSummarize(sessionId, { model }) {
 }
 
 // 非阻塞触发摘要：in-flight 去重，失败仅告警并保留旧摘要（Recent Context 兜底继续聊天）。
-export async function maybeSummarize(sessionId, { userId, settings, model }) {
+export async function maybeSummarize(sessionId, { userId, settings, model, chatFn }) {
   if (inFlight.has(sessionId)) return false;
   inFlight.add(sessionId);
   try {
-    return await doSummarize(sessionId, { model });
+    return await doSummarize(sessionId, { model, chatFn });
   } catch (e) {
     console.warn('[conversation-summary] 摘要失败，保留旧摘要 + 完整消息：', e.message);
     return false;
