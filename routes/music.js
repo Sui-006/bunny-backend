@@ -3,12 +3,20 @@
 // 不挂 requireAuth：搜索/取播放地址是公开数据代理；登录态存 app_settings（单行全局）。
 import { Router } from 'express';
 import {
-  search, songUrl, loginQrKey, loginQrCreate, loginQrCheck, loginStatus,
+  search, songUrl, loginQrKey, loginQrCreate, loginQrCheck, authState, authErrorOf,
   logout, userPlaylists, playlistDetail, songInfo,
 } from '../lib/netease.js';
 import { HttpError, ok } from '../lib/rest.js';
 
 const router = Router();
+
+// 需要网易云用户身份的接口统一在此校验，把「未登录 / 已失效 / 接口错误」转成结构化错误。
+function requireNeteaseAuth(st) {
+  const err = authErrorOf(st);
+  if (!err) return st;
+  const status = err.code === 'NETEASE_NETWORK_ERROR' ? 502 : 401;
+  throw new HttpError(status, err.code, err.message);
+}
 
 // GET /api/music/search?keywords=&limit=
 router.get('/search', async (req, res, next) => {
@@ -20,19 +28,23 @@ router.get('/search', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// GET /api/music/song-url?id=&level=
+// GET /api/music/song-url?id=&level= —— 取真实播放地址；无版权/VIP/失败返回结构化错误
 router.get('/song-url', async (req, res, next) => {
   try {
     const id = String(req.query.id || '').trim();
     if (!id) throw new HttpError(400, 'MISSING_ID', '缺少 id');
     const u = await songUrl(id, String(req.query.level || 'exhigh'));
-    ok(res, u || { url: null, reason: 'no_source' });
+    if (!u.ok) {
+      const status = u.code === 'SONG_NOT_PLAYABLE' ? 403 : 502;
+      throw new HttpError(status, u.code, u.message || '获取播放地址失败');
+    }
+    ok(res, u);
   } catch (e) { next(e); }
 });
 
-// GET /api/music/status —— 当前登录态（不含 cookie）
+// GET /api/music/status —— 当前登录态（不含 cookie），区分未登录/已登录/已失效/接口错误
 router.get('/status', async (req, res, next) => {
-  try { ok(res, await loginStatus()); } catch (e) { next(e); }
+  try { ok(res, await authState()); } catch (e) { next(e); }
 });
 
 // GET /api/music/login/qr —— 生成扫码登录二维码（返回 key + base64 图片）
@@ -59,20 +71,22 @@ router.post('/logout', async (req, res, next) => {
   try { await logout(); ok(res, { ok: true }); } catch (e) { next(e); }
 });
 
-// GET /api/music/playlists —— 当前登录用户歌单（需登录）
+// GET /api/music/playlists —— 当前登录用户歌单（需登录；登录失效绝不返回空歌单）
 router.get('/playlists', async (req, res, next) => {
   try {
-    const st = await loginStatus();
-    if (!st) throw new HttpError(401, 'NOT_LOGGED_IN', '未登录网易云');
+    const st = requireNeteaseAuth(await authState());
     ok(res, await userPlaylists(st.userId));
   } catch (e) { next(e); }
 });
 
-// GET /api/music/playlist?id= —— 歌单详情（歌曲列表）
+// GET /api/music/playlist?id= —— 歌单详情（歌曲列表）。
+// 曾登录但已失效时直接返回 NETEASE_AUTH_EXPIRED：失效 cookie 会导致私有歌单静默返回空，绝不能让前端把队列替换成空。
 router.get('/playlist', async (req, res, next) => {
   try {
     const id = String(req.query.id || '').trim();
     if (!id) throw new HttpError(400, 'MISSING_ID', '缺少 id');
+    const st = await authState();
+    if (st.status === 'expired') throw new HttpError(401, 'NETEASE_AUTH_EXPIRED', '网易云音乐登录已失效，请重新登录');
     ok(res, await playlistDetail(id));
   } catch (e) { next(e); }
 });

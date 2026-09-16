@@ -1096,6 +1096,7 @@ function render() {
 }
 function afterRender(r) {
   if (r === '/chat') { OS.chat.ensureLoaded(); }
+  if (r === '/player') { musicRefreshStatus(); }
   if (r === '/health') { drawHealthCharts(); }
   if (r === '/statistics') { drawStatCharts(); }
   if (r === '/calendar') { bindCalendar(); }
@@ -2326,21 +2327,23 @@ async function musicRefreshStatus() {
     return;
   }
   const st = r.data || {};
-  // 权威来源是后端 /api/music/status 的 status 字段，绝不依赖 localStorage 判断登录态
+  // 权威来源是后端 /api/music/status，绝不依赖 localStorage 判断登录态。
+  // 兼容「status='logged_in'」与旧后端只回 userId（无 status）的形状：只要有 userId 即视为已登录。
+  const userId = (st.userId != null && st.userId !== '') ? st.userId : null;
   if (st.status === 'expired') { handleNeteaseExpired(); return; }
   if (st.status === 'error') {
     // 接口错误：保留现有状态，不误判成过期；仅在音乐页提示
     if (OS.route === '/player') toast('网易云接口暂时不可用，请稍后再试', true);
     return;
   }
-  if (st.status !== 'logged_in') {
-    // not_logged_in（或字段缺失）：权威来源说未登录 → 清空并刷新，让按钮回到「登录网易云」
+  if (st.status !== 'logged_in' && userId == null) {
+    // not_logged_in（或字段缺失且无 userId）：权威来源说未登录 → 清空并刷新，让按钮回到「登录网易云」
     _neteaseUser = null; _neteasePlaylists = [];
     render();
     return;
   }
   const prevUserId = _neteaseUser ? _neteaseUser.userId : null;
-  const user = { userId: st.userId, nickname: st.nickname, avatarUrl: st.avatarUrl };
+  const user = { userId: userId, nickname: st.nickname, avatarUrl: st.avatarUrl };
   _neteaseUser = user;
   const pr = await apiJson('/api/music/playlists');
   if (pr.ok) _neteasePlaylists = pr.data || [];
@@ -3786,8 +3789,9 @@ function bindKeyboardViewport() {
     const vv = window.visualViewport;
     // 聊天页高度跟随可视视口（键盘弹出时缩小），CSS 用 --chat-vh 锚定，不平移整页/body
     root.style.setProperty('--chat-vh', vv.height + 'px');
-    // 键盘弹出时视觉视口已不含底部安全区：input-bar 不再叠加 safe-area，避免输入框与键盘之间出现灰/白横条
-    const keyboardOpen = vv.height < (window.innerHeight - 1);
+    // 键盘弹出时视觉视口已不含底部安全区：input-bar 不再叠加 safe-area，避免输入框与键盘之间出现灰/白横条。
+    // 判定用 offsetTop>1（iOS 键盘把可视视口往上推）与 height<innerHeight（视口缩小）双信号，任一命中即视为键盘弹出。
+    const keyboardOpen = vv.offsetTop > 1 || vv.height < (window.innerHeight - 1);
     root.style.setProperty('--chat-safe-bottom', keyboardOpen ? '0px' : 'env(safe-area-inset-bottom)');
     // iOS：fixed 元素锚定布局视口，键盘弹出触发视口滚动时用 offsetTop 补偿，只平移聊天页
     stage.style.transform = vv.offsetTop ? ('translateY(' + vv.offsetTop + 'px)') : '';

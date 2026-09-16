@@ -20,9 +20,18 @@ test('neteaseUiState: 同一账号刷新 → changed=false（不误清歌单队�
   assert.equal(s.changed, false);
 });
 
-test('neteaseUiState: not_logged_in / 缺失 status → notLoggedIn', () => {
+test('neteaseUiState: 旧后端只回 userId（无 status）→ loggedIn（不误清登录态）', () => {
+  // 用户真机 JSON：{"success":true,"data":{"userId":1775803316,"nickname":"...","avatarUrl":"..."}}（无 status）
+  const s = neteaseUiState({ ok: true, data: { userId: 1775803316, nickname: 'X', avatarUrl: '' } }, null);
+  assert.equal(s.action, 'loggedIn');
+  assert.equal(s.user.userId, 1775803316);
+  assert.equal(s.changed, true);
+});
+
+test('neteaseUiState: not_logged_in / 缺失 status 且无 userId → notLoggedIn', () => {
   assert.equal(neteaseUiState({ ok: true, data: { status: 'not_logged_in' } }, null).action, 'notLoggedIn');
   assert.equal(neteaseUiState({ ok: true, data: {} }, 1).action, 'notLoggedIn');
+  assert.equal(neteaseUiState({ ok: true, data: null }, 1).action, 'notLoggedIn');
 });
 
 test('neteaseUiState: expired → expired；error → error；网络失败 → networkError（不误判成过期）', () => {
