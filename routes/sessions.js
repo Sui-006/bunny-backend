@@ -24,11 +24,12 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/sessions —— 新建会话
+// POST /api/sessions —— 新建会话（可选绑定当前助手 assistant_id）
 router.post('/', async (req, res, next) => {
   try {
     const name = (req.body?.name || '').trim() || '新的对话';
-    const session = await createSession(name);
+    const assistantId = (typeof req.body?.assistant_id === 'string' && req.body.assistant_id) ? req.body.assistant_id : null;
+    const session = await createSession(name, assistantId);
     res.status(201).json({ session });
   } catch (e) {
     next(e);
@@ -56,10 +57,10 @@ router.get('/:sessionId', async (req, res, next) => {
   }
 });
 
-// PATCH /api/sessions/:sessionId —— 重命名 / 置顶（按需传 name、pinned）
+// PATCH /api/sessions/:sessionId —— 重命名 / 置顶 / 切换该会话助手（按需传 name、pinned、assistant_id）
 router.patch('/:sessionId', async (req, res, next) => {
   try {
-    const { name, pinned } = req.body || {};
+    const { name, pinned, assistant_id } = req.body || {};
     const patch = {};
     if (name !== undefined) {
       const trimmed = String(name).trim();
@@ -67,6 +68,13 @@ router.patch('/:sessionId', async (req, res, next) => {
       patch.name = trimmed;
     }
     if (pinned !== undefined) patch.pinned = Boolean(pinned);
+    if (assistant_id !== undefined) {
+      // 允许清空（回退到全局默认）；非空必须是字符串
+      if (assistant_id !== null && typeof assistant_id !== 'string') {
+        return res.status(400).json({ error: 'assistant_id 必须是字符串或 null' });
+      }
+      patch.assistant_id = assistant_id;
+    }
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: '没有可更新的字段' });
     }

@@ -102,7 +102,7 @@ app.use((req, res) => {
 
 // 统一错误处理：HttpError → 结构化；普通 Error → 兼容旧路由的 { error }
 app.use((err, req, res, next) => {
-  if (err instanceof HttpError) {
+  if (err instanceof HttpError || (err && typeof err.status === 'number' && err.code)) {
     return res.status(err.status || 500).json({ success: false, error: { code: err.code || 'ERROR', message: err.message } });
   }
   // 不记录敏感信息（password/key/token 不出现在日志）
