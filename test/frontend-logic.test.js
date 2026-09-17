@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   neteaseUiState, neteaseStatusDelta, musicEventNeedsRender, memoryLoadFlags, targetWallpaperSize, pickWallpaperMime,
   attachmentMaxSize, validateAttachmentFile, dedupeAttachmentIds, classifyChatResponse,
+  fontScaleValue, chatTokenNumber, chatOutputTokens, chatTokenText, chatReasoning,
 } from '../lib/frontend-logic.js';
 
 // ---- 网易云登录态（后端 /api/music/status 为权威来源，绝不依赖 localStorage）----
@@ -152,4 +153,54 @@ test('classifyChatResponse: content-type 大小写/参数不敏感；非 2xx 即
   assert.equal(classifyChatResponse(200, 'TEXT/EVENT-STREAM').mode, 'sse');
   assert.equal(classifyChatResponse(200, 'Application/JSON; Charset=UTF-8').mode, 'json');
   assert.equal(classifyChatResponse(500, 'text/event-stream').mode, 'error');
+});
+
+// ---- 全局字体缩放 ----
+
+test('fontScaleValue: 小/标准/大/特大 映射到统一 zoom 缩放值；未知档回退标准', () => {
+  assert.equal(fontScaleValue('small'), 0.875);
+  assert.equal(fontScaleValue('standard'), 1);
+  assert.equal(fontScaleValue('large'), 1.125);
+  assert.equal(fontScaleValue('xlarge'), 1.25);
+  assert.equal(fontScaleValue(undefined), 1);
+  assert.equal(fontScaleValue('bogus'), 1);
+});
+
+// ---- Token 展示（仅 AI 气泡、仅真实 usage，绝不估算） ----
+
+test('chatTokenNumber: 仅接受有限且 ≥0 的数字，其余 null（绝不估算 text.length//4）', () => {
+  assert.equal(chatTokenNumber(128), 128);
+  assert.equal(chatTokenNumber('128'), 128);
+  assert.equal(chatTokenNumber(0), 0);
+  assert.equal(chatTokenNumber(-1), null);
+  assert.equal(chatTokenNumber('abc'), null);
+  assert.equal(chatTokenNumber(undefined), null);
+  assert.equal(chatTokenNumber(null), null);
+  assert.equal(chatTokenNumber(NaN), null);
+});
+
+test('chatOutputTokens: 优先归一化 contextStats.outputTokens，回退原始 usage.output_tokens', () => {
+  assert.equal(chatOutputTokens({ metadata: { contextStats: { outputTokens: 42 } } }), 42);
+  assert.equal(chatOutputTokens({ metadata: { usage: { output_tokens: 7 } } }), 7);
+  assert.equal(chatOutputTokens({ metadata: { contextStats: { outputTokens: 42 }, usage: { output_tokens: 7 } } }), 42);
+  assert.equal(chatOutputTokens({ metadata: {} }), null);
+  assert.equal(chatOutputTokens({}), null);
+});
+
+test('chatTokenText: 仅 assistant 且存在真实 outputTokens 才返回「N tokens」，用户/缺失一律空', () => {
+  assert.equal(chatTokenText({ role: 'assistant', metadata: { contextStats: { outputTokens: 128 } } }), '128 tokens');
+  assert.equal(chatTokenText({ role: 'user', metadata: { contextStats: { outputTokens: 128 } } }), '');
+  assert.equal(chatTokenText({ role: 'assistant', metadata: {} }), '');
+  assert.equal(chatTokenText({ role: 'assistant', metadata: { contextStats: {} } }), '');
+  assert.equal(chatTokenText({ role: 'assistant', metadata: { contextStats: { outputTokens: 'not-a-number' } } }), '');
+});
+
+// ---- 思考摘要（仅 provider 明确给出的 reasoning_content，绝不伪造） ----
+
+test('chatReasoning: 仅 AI 且 reasoning_content 非空才展示；用户/缺失一律空', () => {
+  assert.equal(chatReasoning({ role: 'assistant', reasoning_content: '分步推理…' }), '分步推理…');
+  assert.equal(chatReasoning({ role: 'user', reasoning_content: 'x' }), '');
+  assert.equal(chatReasoning({ role: 'assistant', reasoning_content: '' }), '');
+  assert.equal(chatReasoning({ role: 'assistant' }), '');
+  assert.equal(chatReasoning(null), '');
 });

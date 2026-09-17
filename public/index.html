@@ -58,6 +58,9 @@
       --topbar-h: 56px;
       --bottomnav-h: 60px;
       --dur: 0.18s;
+      /* 全局字体缩放（小/标准/大/特大）：统一 typography scale，值由 applyTheme 按 DB.appearance.fontScale 设置 */
+      --app-font-scale: 1;
+      --app-font-inverse: 1;
     }
     html[data-theme="dark"] {
       --bg: #0f141b;
@@ -75,7 +78,9 @@
       --accent-tint: #1c2733;
       --accent-line: #223040;
     }
-    html { font-size: 15px; }
+    html { font-size: 15px; zoom: var(--app-font-scale, 1); }
+    /* 图片 / 头像跟随字体反缩放，保持原尺寸不放大（字体放大只作用于文字，不作用图片/图标） */
+    img, .avatar { zoom: var(--app-font-inverse, 1); }
     body {
       font-family: 'BAUHS93', -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       background: var(--bg);
@@ -342,14 +347,47 @@
     .conv-item .c-last { font-size: 12.5px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .conv-item .c-time { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
     .unread { min-width: 18px; height: 18px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
-    .bubble { max-width: 86%; padding: 11px 15px; border-radius: 18px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+    /* 消息主列：meta 名/时间 → 引用/附件 → 气泡 → Token。左（AI）/右（用户）由 .mine 统一控制。 */
+    .chat-msg-main { display: flex; flex-direction: column; max-width: 86%; min-width: 0; align-items: flex-start; }
+    .chat-msg-main.mine { align-items: flex-end; }
+    .chat-meta { font-size: 10px; color: var(--text-faint); margin-bottom: 2px; line-height: 1.3; }
+    .chat-tokenline { font-size: 10.5px; color: var(--text-faint); margin-top: 3px; line-height: 1.3; user-select: none; }
+    /* 气泡：shrink-wrap 到内容，短消息也有自然尺寸；min-width/min-height 避免「好/嗯」变成一小块；长消息自然换行，绝不撑破 */
+    .bubble {
+      display: inline-block; width: fit-content;
+      max-width: 100%; min-width: 48px; min-height: 36px;
+      padding: 11px 15px; border-radius: 18px; font-size: 14px; line-height: 1.6;
+      word-break: break-word; overflow-wrap: anywhere; text-align: left;
+    }
     .bubble.in { background: var(--card-solid); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
-    .bubble.out { background: var(--accent); color: #fff; border-bottom-right-radius: 6px; align-self: flex-end; }
+    .bubble.out { background: var(--accent); color: #fff; border-bottom-right-radius: 6px; }
     /* 气泡透明度只淡化背景、不影响文字（需求 8）：--bubble-alpha 仅作用于背景色 */
     @supports (background: color-mix(in srgb, red 50%, transparent)) {
       .bubble.in { background: color-mix(in srgb, var(--card-solid) calc(var(--bubble-alpha, 1) * 100%), transparent); }
       .bubble.out { background: color-mix(in srgb, var(--accent) calc(var(--bubble-alpha, 1) * 100%), transparent); }
     }
+    /* AI 思考摘要（仅展示 provider 明确提供的可展示 reasoning summary；不泄漏隐藏 CoT） */
+    .think-box {
+      margin: -2px 0 8px; padding: 8px 10px; border-radius: 10px;
+      background: rgba(0,0,0,0.04); border-left: 3px solid var(--accent-border);
+      font-size: 12.5px; color: var(--text-soft); cursor: pointer; line-height: 1.55;
+    }
+    html[data-theme="dark"] .think-box { background: rgba(255,255,255,0.05); }
+    .think-box .think-head { font-weight: 600; font-size: 12px; color: var(--text-faint); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+    .think-box .think-summary { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; overflow-wrap: anywhere; }
+    .think-box .think-more { font-size: 11.5px; color: var(--accent-strong); margin-top: 3px; }
+    /* 思考底部 Sheet：约 55% 高度、内部独立滚动、下拉关闭、遮罩关闭、不推挤 Chat 页面 */
+    .thinking-overlay { align-items: flex-end; padding: 0; }
+    .thinking-sheet {
+      background: var(--card-solid); border: 1px solid var(--border);
+      border-radius: 24px 24px 0 0; width: 100%; max-width: none;
+      min-height: 40dvh; max-height: 55dvh; height: auto; display: flex; flex-direction: column;
+      padding: 12px 16px calc(18px + env(safe-area-inset-bottom));
+      animation: slideUp 0.25s ease; box-shadow: var(--shadow-md); position: relative;
+    }
+    .thinking-sheet-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; margin-bottom: 10px; flex-shrink: 0; }
+    .thinking-sheet-head .x { background: none; border: none; font-size: 20px; color: var(--text-faint); cursor: pointer; line-height: 1; }
+    .thinking-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 13.5px; line-height: 1.7; color: var(--text-soft); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
     .chat-input-bar { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px calc(10px + var(--chat-safe-bottom, env(safe-area-inset-bottom)) + var(--chat-keyboard-inset, 0px)); border-top: 1px solid var(--border); }
     .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; line-height: 1.5; outline: none; max-height: 132px; min-height: 42px; background: var(--card-solid); overflow-y: auto; }
     .chat-input:focus { border-color: var(--accent-border); }
@@ -378,6 +416,22 @@
     .chat-actions .mini-act:hover { color: var(--accent-strong); background: var(--accent-tint); }
     .mini-act { border: none; background: none; color: var(--text-faint); font-size: 11px; padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
     .mini-act:hover { color: var(--accent-strong); background: var(--accent-tint); }
+
+    /* AI 后台写入成功的系统提示（时间线事件，非聊天气泡）：居中、浅灰、半透明、轻量 */
+    .ai-action-notice {
+      align-self: center;
+      margin: 4px auto;
+      padding: 5px 13px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: center;
+      color: var(--text-faint);
+      background: var(--accent-tint);
+      background: color-mix(in srgb, var(--text) 7%, transparent);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
 
     /* 引用 AI 动态（进入对话时显示在输入框上方） */
     .quote-card { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; margin: 0 14px 8px; border: 1px solid var(--accent-line); border-left: 3px solid #f472b6; border-radius: 12px; background: var(--accent-tint); font-size: 12.5px; color: var(--text-soft); }
@@ -536,6 +590,15 @@
       .h1 { font-size: 22px; }
       .album { width: 170px; height: 170px; }
     }
+    /* AI 编辑痕迹页脚（[助手] 于 … 编辑） */
+    .audit-trace { font-size: 11px; color: #8a94a6; margin-top: 3px; line-height: 1.45; opacity: .92; }
+    .audit-trace .audit-diff { display: block; margin-top: 2px; font-family: var(--mono, ui-monospace, monospace); }
+    .audit-trace .audit-diff b { font-weight: 600; color: #6b7486; }
+    /* AI 权限策略只读表格 */
+    .ai-policy-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .ai-policy-table th, .ai-policy-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
+    .ai-policy-table th { color: #8a94a6; font-weight: 600; font-size: 11px; }
+    .ai-policy-table td:first-child { text-align: left; }
   </style>
 </head>
 <body>
@@ -586,6 +649,39 @@ function startOfWeek(s) { const d = parseDate(s) || new Date(); const wd = (d.ge
 function weekTitle(s) { const w = startOfWeek(s); return ymd(w) + ' — ' + ymd(addDays(w, 6)); }
 function fmtDateHuman(s) { const d = parseDate(s); if (!d) return ''; const t = new Date(); if (dstr(d) === dstr(t)) return '今天'; if (dstr(d) === addDays(dstr(t), 1)) return '明天'; if (dstr(d) === addDays(dstr(t), -1)) return '昨天'; return (d.getMonth() + 1) + '月' + d.getDate() + '日'; }
 function relTime(ts) { if (!ts) return ''; const d = Date.now() - ts; const m = Math.floor(d / 60000); if (m < 1) return '刚刚'; if (m < 60) return m + '分钟前'; const h = Math.floor(m / 60); if (h < 24) return h + '小时前'; const dd = Math.floor(h / 24); if (dd < 30) return dd + '天前'; return new Date(ts).toLocaleDateString(); }
+
+/* ---- AI 编辑痕迹（Audit Log）：读 doc.ai.auditLog，渲染「[助手] 于 … 编辑」 ----
+   区分 [我]/[助手]/[系统]；update 带 before/after 时可展开看「字段：旧值 → 新值」。 */
+function latestAuditFor(entityType, entityId) {
+  const log = (DB && DB.ai && Array.isArray(DB.ai.auditLog)) ? DB.ai.auditLog : [];
+  return log.find((a) => a.entityType === entityType && a.entityId === entityId) || null;
+}
+function auditActorLabel(actor) { return actor === 'user' ? '[我]' : actor === 'system' ? '[系统]' : '[助手]'; }
+function auditActionLabel(action) { return action === 'create' ? '创建' : action === 'delete' ? '删除' : '编辑'; }
+function auditTimeStr(ts) {
+  const d = new Date(ts); if (!Number.isFinite(d.getTime())) return '';
+  const p = (n) => (n < 10 ? '0' + n : '' + n);
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function auditVal(v) {
+  if (v === undefined || v === null) return '∅';
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return JSON.stringify(v);
+}
+function auditTraceHtml(entityType, entityId) {
+  const a = latestAuditFor(entityType, entityId);
+  if (!a) return '';
+  const head = auditActorLabel(a.actor) + ' 于 ' + auditTimeStr(a.at) + ' ' + auditActionLabel(a.action);
+  let diff = '';
+  if (a.action === 'update' && a.before && a.after) {
+    const keys = Object.keys(a.after).filter((k) => k in a.after);
+    if (keys.length) {
+      diff = '<span class="audit-diff">' + keys.map((k) => '<span><b>' + esc(k) + '</b>：' + esc(auditVal(a.before[k])) + ' → ' + esc(auditVal(a.after[k])) + '</span>').join('') + '</span>';
+    }
+  }
+  const tip = (a.reason ? a.reason + (a.aiAction ? '（' + a.aiAction + '）' : '') : (a.aiAction || ''));
+  return '<div class="audit-trace"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + head + diff + '</div>';
+}
 function greeting() { const h = new Date().getHours(); if (h < 5) return '夜深了'; if (h < 12) return '早上好'; if (h < 14) return '中午好'; if (h < 18) return '下午好'; return '晚上好'; }
 function todayLong() { const d = new Date(); const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']; const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']; return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
 
@@ -697,6 +793,8 @@ function defaultDB() {
       permissions: { pageContext: true, memories: true, tasks: true, plans: true, calendar: true, shopping: true, music: true, weather: true, location: false, aiState: true, journal: true },
       notifications: [],
       _asked: {},
+      // AI 编辑审计日志（由后端写入，渲染「[助手] 于 … 编辑」痕迹）
+      auditLog: [],
     },
     memorySettings: { enabled: true, autoSaveEnabled: true, confirmationMode: 'ask_before_save' },
     shoppingLists: [ { id: 'mine', type: 'mine', title: '我的清单' }, { id: 'deity', type: 'deity', title: '祂的清单' } ],
@@ -707,7 +805,7 @@ function defaultDB() {
     journal: [ { id: uid(), content: '今天把 Bunny\'s Home 又往前推进了一点。', date: todayStr(), time: '21:32', mood: '平静', moodSymbol: '🌙', tags: ['生活'], createdAt: Date.now(), updatedAt: Date.now() } ],
     appName: "Bunny's Home",
     profile: { name: '', signature: '', avatar: '' },
-    appearance: { theme: 'light', accent: '#6b8cae', fontEn: "'BAUHS93'", font: '', wallpaper: '' },
+    appearance: { theme: 'light', accent: '#6b8cae', fontEn: "'BAUHS93'", font: '', wallpaper: '', fontScale: 'standard' },
     tasks: seedTasks,
     plans: [ longTerm, stage ],
     habits,
@@ -757,6 +855,7 @@ function loadDB() {
   if (!Array.isArray(db.listeningHistory)) db.listeningHistory = [];
   if (!db.appearance) db.appearance = def.appearance;
   if (db.appearance.fontEn == null) db.appearance.fontEn = def.appearance.fontEn;
+  if (!db.appearance.fontScale) db.appearance.fontScale = def.appearance.fontScale;
   if (!db.profile) db.profile = def.profile;
   if (!db.ai) db.ai = def.ai;
   if (!db.ai.memories || !Array.isArray(db.ai.memories)) db.ai.memories = [];
@@ -822,7 +921,7 @@ const SYNC = {
         for (const k of Object.keys(remote)) DB[k] = remote[k];
         DB._serverSeeded = true;
         try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) {}
-        render(); // 刷新 UI 显示服务端数据
+        applyTheme(); render(); // 刷新 UI + 重新应用主题/字体缩放/壁纸（服务端数据覆盖后不丢失外观设置）
       } else {
         SYNC.push(); // 首次：上传本地数据播种服务端
       }
@@ -862,9 +961,19 @@ function applyTheme() {
   const en = a.fontEn || "'BAUHS93'";
   const zh = a.font || '';
   document.body.style.fontFamily = (en ? en + ', ' : '') + (zh ? zh + ', ' : '') + '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  applyFontScale(a.fontScale || 'standard');
   const bg = document.getElementById('mainBg');
   if (bg) bg.style.backgroundImage = a.wallpaper ? 'url(' + a.wallpaper + ')' : '';
   document.title = DB.appName || "Bunny's Home";
+}
+
+/* 全局字体大小（小/标准/大/特大）：--app-font-scale 统一缩放文字，--app-font-inverse 反缩放图片/头像 */
+const FONT_SCALES = { small: 0.875, standard: 1, large: 1.125, xlarge: 1.25 };
+function applyFontScale(key) {
+  const scale = FONT_SCALES[key] || FONT_SCALES.standard || 1;
+  const root = document.documentElement;
+  root.style.setProperty('--app-font-scale', String(scale));
+  root.style.setProperty('--app-font-inverse', String(1 / scale));
 }
 
 /* ---------------- toasts / modal / confirm / menu ---------------- */
@@ -1129,6 +1238,7 @@ function afterRender(r, routeChanged) {
   if (r === '/settings/mcp') { loadMcp(); }
   if (r === '/settings/api') { openApiFill(); }
   if (r === '/settings/notifications') { loadBarkStatus(); }
+  if (r === '/settings/ai') { loadAIPolicy(); }
 }
 
 /* ================= TASKS ================= */
@@ -1156,7 +1266,7 @@ function taskRowHtml(t, opts) {
   return '<div class="task-row' + (t.completed ? ' done' : '') + '" draggable="true" ondragstart="taskDragStart(event,\'' + t.id + '\')" ondragover="event.preventDefault()" ondrop="taskDropOn(event,\'' + t.id + '\')" onclick="taskRowClick(event,\'' + t.id + '\')" oncontextmenu="event.preventDefault();openTaskModal(null,\'' + t.id + '\')" ontouchstart="taskPressStart(event,\'' + t.id + '\')" ontouchmove="taskPressMove()" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()">' +
     '<span class="chk' + (t.completed ? ' on' : '') + '" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></span>' +
     '<span class="prio ' + (t.priority || 'none') + '" style="background:' + p.color + '"></span>' +
-    '<div class="grow"><div class="t-title">' + esc(t.title) + note + '</div><div class="t-meta">' + time + tags + chain + '</div></div>' +
+    '<div class="grow"><div class="t-title">' + esc(t.title) + note + '</div><div class="t-meta">' + time + tags + chain + '</div>' + auditTraceHtml('tasks', t.id) + '</div>' +
     '<span class="drag-hint" title="拖动排序">⠿</span>' +
     '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();taskMenu(event,\'' + t.id + '\')">⋯</button></div>';
 }
@@ -1595,7 +1705,8 @@ function planHeader(plan, v) {
   return '<div class="card card-pad" style="margin-bottom:16px;border-left:4px solid ' + v['--tc'] + '">' +
     '<div class="spread" style="margin-bottom:8px"><div style="font-size:17px;font-weight:700;color:' + v['--tc-strong'] + '">' + esc(plan.title) + '</div><div class="chip" style="background:' + v['--tc-tint'] + ';color:' + v['--tc-strong'] + '">' + pct + '%</div></div>' +
     '<div class="muted" style="margin-bottom:10px">📅 ' + esc(range) + '</div>' +
-    '<div class="progress" style="background:' + v['--tc-tint'] + '"><span style="width:' + pct + '%;background:' + v['--tc'] + '"></span></div></div>';
+    '<div class="progress" style="background:' + v['--tc-tint'] + '"><span style="width:' + pct + '%;background:' + v['--tc'] + '"></span></div>' +
+    auditTraceHtml('plans', plan.id) + '</div>';
 }
 
 /* --- goals helpers (shared long-term / stage) --- */
@@ -1751,7 +1862,7 @@ function habitRowHtml(h, date) {
   const total = habitTotalCompletions(h);
   return '<div class="task-row" onclick="toggleHabit(\'' + h.id + '\',\'' + date + '\')">' +
     '<span class="habit-ico" style="width:36px;height:36px;font-size:18px;background:' + hexToRgba(h.color, 0.15) + '">' + esc(h.icon) + '</span>' +
-    '<div class="grow"><div class="t-title' + (done ? ' done' : '') + '">' + esc(h.name) + '</div><div class="t-meta"><span class="chip" style="font-size:10.5px">' + (FREQ[h.frequency] || h.frequency) + (h.goal ? ' · ' + h.goal : '') + '</span>' + (h.reminderTime ? '<span class="chip" style="font-size:10.5px">⏰ ' + esc(h.reminderTime) + '</span>' : '') + (h.description ? '<span class="muted" style="font-size:11px"> · ' + esc(h.description) + '</span>' : '') + '</div></div>' +
+    '<div class="grow"><div class="t-title' + (done ? ' done' : '') + '">' + esc(h.name) + '</div><div class="t-meta"><span class="chip" style="font-size:10.5px">' + (FREQ[h.frequency] || h.frequency) + (h.goal ? ' · ' + h.goal : '') + '</span>' + (h.reminderTime ? '<span class="chip" style="font-size:10.5px">⏰ ' + esc(h.reminderTime) + '</span>' : '') + (h.description ? '<span class="muted" style="font-size:11px"> · ' + esc(h.description) + '</span>' : '') + '</div>' + auditTraceHtml('habit', h.id) + '</div>' +
     '<span class="habit-streak">' + total + ' 次 · 🔥 ' + habitStreak(h) + ' 天</span>' +
     '<span class="chk' + (done ? ' on' : '') + '" onclick="event.stopPropagation();toggleHabit(\'' + h.id + '\',\'' + date + '\')"></span>' +
     '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();habitMenu(event,\'' + h.id + '\')">⋯</button></div>';
@@ -2479,7 +2590,7 @@ function viewNotes() {
   let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Notes</div><div class="muted">灵感与记录</div></div><button class="btn btn-primary" onclick="newNoteModal()">＋ 新建笔记</button></div>';
   html += '<div class="search-box" style="margin-bottom:16px"><span class="sico">🔍</span><input class="input" placeholder="搜索笔记…" value="' + esc(OS.ui.notesQuery) + '" oninput="OS.ui.notesQuery=this.value;render()"></div>';
   if (list.length === 0) html += '<div class="empty"><div class="eico">📝</div><div class="etitle">暂无笔记</div></div>';
-  else html += '<div class="grid cols-3">' + list.map((n) => '<div class="card note-card" onclick="editNote(\'' + n.id + '\')">' + (n.pinned ? '<div style="position:absolute;top:10px;right:12px">📌</div>' : '') + '<div class="note-title">' + esc(n.title) + '</div><div class="note-body">' + esc(n.content) + '</div><div class="t-meta" style="margin-top:auto">' + (n.tags || []).map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '<span class="muted" style="margin-left:auto;font-size:10.5px">' + relTime(n.updatedAt) + '</span></div></div>').join('') + '</div>';
+  else html += '<div class="grid cols-3">' + list.map((n) => '<div class="card note-card" onclick="editNote(\'' + n.id + '\')">' + (n.pinned ? '<div style="position:absolute;top:10px;right:12px">📌</div>' : '') + '<div class="note-title">' + esc(n.title) + '</div><div class="note-body">' + esc(n.content) + '</div><div class="t-meta" style="margin-top:auto">' + (n.tags || []).map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '<span class="muted" style="margin-left:auto;font-size:10.5px">' + relTime(n.updatedAt) + '</span></div>' + auditTraceHtml('notes', n.id) + '</div>').join('') + '</div>';
   return html;
 }
 function newNoteModal() { noteModal(null); }
@@ -2745,6 +2856,7 @@ function journalEntryHtml(j) {
     '<div class="j-content">' + esc(j.content) + '</div>' +
     (j.mood ? '<div class="j-mood">♥ 心情：' + esc(j.mood) + '</div>' : '') +
     (tags ? '<div class="j-tags">' + tags + '</div>' : '') +
+    auditTraceHtml('journal', j.id) +
     '</div>';
 }
 function viewJournal() {
@@ -2869,6 +2981,8 @@ function viewSettingsAppearance() {
   let html = '<div class="h1" style="margin-bottom:16px">Appearance</div>';
   html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field"><label>主题模式</label><div class="seg"><button class="' + (a.theme === 'light' ? 'on' : '') + '" onclick="setThemeMode(\'light\')">浅色</button><button class="' + (a.theme === 'dark' ? 'on' : '') + '" onclick="setThemeMode(\'dark\')">深色</button><button class="' + (a.theme === 'system' ? 'on' : '') + '" onclick="setThemeMode(\'system\')">跟随系统</button></div></div></div>';
   html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field"><label>全局主题色</label>' + globalSwatchHtml(a.accent) + '<div style="margin-top:10px;font-size:12px;color:var(--text-faint)">注意：这是全局颜色，每个计划仍有自己的独立颜色</div></div></div>';
+  const fsk = a.fontScale || 'standard';
+  html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field" style="margin:0"><label>全局字体大小</label><div class="seg" style="margin-top:8px"><button class="' + (fsk === 'small' ? 'on' : '') + '" onclick="setFontScale(\'small\')">小</button><button class="' + (fsk === 'standard' ? 'on' : '') + '" onclick="setFontScale(\'standard\')">标准</button><button class="' + (fsk === 'large' ? 'on' : '') + '" onclick="setFontScale(\'large\')">大</button><button class="' + (fsk === 'xlarge' ? 'on' : '') + '" onclick="setFontScale(\'xlarge\')">特大</button></div><div style="margin-top:8px;font-size:12px;color:var(--text-faint)">影响聊天 / 日历 / 任务 / 计划 / 习惯 / 健康 / 购物 / 音乐 / 笔记 / 记忆 / 动态等全部文字</div></div></div>';
   html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field" style="margin:0"><label>壁纸</label><div class="row" style="gap:8px;align-items:center"><div class="grow"><input class="input" id="wallpaperFile" type="file" accept="image/*" onchange="changeWallpaper(this)"></div>' + (a.wallpaper ? '<button class="btn btn-sm btn-danger" onclick="removeWallpaper()">移除</button>' : '') + '</div></div></div>';
   let enOpts = '';
   for (const f of ENGLISH_FONTS) enOpts += '<option value="' + "'" + f[1] + "'" + '"' + ((a.fontEn || '').includes(f[1]) ? ' selected' : '') + '>' + f[0] + '</option>';
@@ -2881,16 +2995,21 @@ function viewSettingsAppearance() {
   return html;
 }
 function setThemeMode(v) { DB.appearance.theme = v; saveDB(); applyTheme(); render(); }
+function setFontScale(v) { DB.appearance.fontScale = v; saveDB(); applyTheme(); render(); }
 function setFont(v) { DB.appearance.font = v; saveDB(); applyTheme(); }
 function setEnglishFont(v) { DB.appearance.fontEn = v; saveDB(); applyTheme(); }
 async function changeWallpaper(input) {
   const file = input.files[0]; if (!file) return;
   if (!(file.type || '').startsWith('image/')) { toast('壁纸需要是图片文件', true); return; }
-  let dataUrl;
-  try { dataUrl = await compressWallpaper(file); }
-  catch (e) { toast('图片读取失败：' + (e && e.message ? e.message : ''), true); return; }
+  // 上传原图 → 公网 URL（持久化到后端文件存储，不再把大 data URL 塞进 localStorage，也绝不 canvas 压缩/转码降质）
+  let url = await uploadWallpaperImage(file);
+  if (!url) {
+    // 后端不可达（本地开发 / 离线）：回退到原始 data URL，仅保证立即显示；仍保持原图质量
+    try { url = await readAsDataURL(file); }
+    catch (e) { toast('图片读取失败：' + (e && e.message ? e.message : ''), true); return; }
+  }
   const prev = DB.appearance.wallpaper;
-  DB.appearance.wallpaper = dataUrl;
+  DB.appearance.wallpaper = url;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(DB));
   } catch (e) {
@@ -2900,6 +3019,21 @@ async function changeWallpaper(input) {
   }
   scheduleSync();
   applyTheme(); render(); toast('壁纸已保存 ✓');
+}
+// 壁纸原图上传：原始字节 + 原始 MIME 直传 /api/files/upload（服务端存原字节，不做二次压缩），返回公网 URL。
+async function uploadWallpaperImage(file) {
+  const dataUrl = await readAsDataURL(file);
+  const base64 = String(dataUrl).replace(/^data:[^;]+;base64,/, '');
+  try {
+    const r = await fetch(API_BASE + '/api/files/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileName: file.name || 'wallpaper', mimeType: file.type || 'image/jpeg', dataBase64: base64 }),
+    });
+    if (!r.ok) return '';
+    const j = await r.json().catch(() => ({}));
+    return (j.data && j.data.publicUrl) || '';
+  } catch (e) { return ''; }
 }
 function removeWallpaper() { DB.appearance.wallpaper = ''; saveDB(); applyTheme(); render(); }
 
@@ -2982,13 +3116,38 @@ function viewSettingsAI() {
     '<div class="muted" style="font-size:11px;margin-top:6px">默认 / 纯色 / 上传 / 已有图片（头像或壁纸），永久保存。</div></div>' +
     '<div class="field"><label>气泡透明度：<span id="bubVal">' + s.bubbleOpacity + '</span></label><input type="range" min="0.1" max="1" step="0.05" value="' + s.bubbleOpacity + '" style="width:100%" oninput="document.getElementById(\'bubVal\').textContent=this.value"></div>' +
     toggles() +
-    '</div><div class="card card-pad" style="margin-top:14px">' + aiPermTogglesHtml() + '</div><div style="padding:16px"><button class="btn btn-primary btn-block" onclick="saveAISettings()">保存 AI 设置</button></div>';
+    '</div><div class="card card-pad" style="margin-top:14px">' + aiPermTogglesHtml() + '</div>' +
+    '<div class="card card-pad" style="margin-top:14px"><div style="font-weight:700;margin-bottom:6px">AI 权限策略（只读）</div><div class="muted" style="font-size:11px;margin-bottom:10px">固定后端策略：日志与签名仅用户本人可编辑，AI 只能读取、理解与共情，绝不修改。</div><div id="aiPolicyPanel">加载中…</div></div>' +
+    '<div style="padding:16px"><button class="btn btn-primary btn-block" onclick="saveAISettings()">保存 AI 设置</button></div>';
   return html;
 }
 function toggles() {
   const s = aiSet();
   const t = (label, id, val) => '<div class="field"><div class="row" style="justify-content:space-between"><label style="margin:0">' + label + '</label><button class="btn btn-sm ' + (val ? 'btn-primary' : '') + '" onclick="toggleAiFlag(\'' + id + '\')">' + (val ? '开' : '关') + '</button></div></div>';
   return t('流式输出（逐字回复）', 'streaming', s.streaming) + t('长期记忆', 'memory', s.memory) + t('自动整理记忆', 'autoCompress', s.autoCompress);
+}
+async function loadAIPolicy() {
+  const el = document.getElementById('aiPolicyPanel'); if (!el) return;
+  const NAMES = { journal: '日志', signature: '签名', tasks: '任务', plans: '计划', calendar: '日历', habit: '习惯', shopping: '购物', notes: '笔记', memory: 'AI 记忆', health: '健康', finance: '财务', medical: '病历', menstrual: '经期', music: '音乐', statistics: '统计', conversation: '会话历史', activity: 'AI 动态' };
+  try {
+    const r = await fetch(API_BASE + '/api/ai/permissions');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const policy = j.policy || {};
+    const userOnly = new Set(j.userOnlyEditable || []);
+    const ents = Object.keys(policy);
+    if (!ents.length) { el.innerHTML = '<div class="muted">暂无策略数据</div>'; return; }
+    const chk = (v) => v ? '✓' : '—';
+    const rows = ents.map((k) => {
+      const p = policy[k];
+      const isUserOnly = userOnly.has(k);
+      return '<tr><td>' + esc(NAMES[k] || k) + (isUserOnly ? ' <span class="muted" style="font-size:10px">（仅本人）</span>' : '') + '</td>' +
+        '<td>' + chk(p.read) + '</td><td>' + chk(p.create) + '</td><td>' + chk(p.write) + '</td><td>' + chk(p.delete) + '</td></tr>';
+    }).join('');
+    el.innerHTML = '<table class="ai-policy-table"><thead><tr><th>模块</th><th>读取</th><th>创建</th><th>写入</th><th>删除</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  } catch (e) {
+    el.innerHTML = '<div class="muted">策略加载失败（' + esc(e.message) + '）</div>';
+  }
 }
 function toggleAiFlag(k) { const s = aiSet(); s[k] = !s[k]; saveDB(); render(); OS.chat.saveSessionSettings(); }
 async function saveAISettings() {
@@ -3256,8 +3415,60 @@ function viewChat() {
     '</div>' +
     '</div></div>';
 }
-function chatMapMessage(m) { const usage = (m.metadata && m.metadata.usage) || {}; return { id: m.id, role: m.role, content: m.content || '', time: m.created_at ? new Date(m.created_at).toLocaleString() : '', tokens: usage.total_tokens, quotedDynamic: (m.metadata && m.metadata.quotedDynamic) || null, attachments: (m.metadata && m.metadata.attachments) || [] }; }
+function chatMapMessage(m) {
+  const md = (m.metadata && typeof m.metadata === 'object') ? m.metadata : {};
+  const usage = md.usage || {};
+  const cs = md.contextStats || {};
+  // Token 一律取真实 API usage 的归一化字段（outputTokens 优先），绝不估算 text.length / /4。
+  const outputTokens = numberOrNull(cs.outputTokens != null ? cs.outputTokens : usage.output_tokens);
+  const inputTokens = numberOrNull(cs.inputTokens != null ? cs.inputTokens : usage.input_tokens);
+  return {
+    id: m.id,
+    role: m.role,
+    content: m.content || '',
+    time: m.created_at ? new Date(m.created_at).toLocaleString() : '',
+    // 仅使用 provider 明确给出的可展示思考摘要；Anthropic 原生 reasoningContent 为空（不泄漏隐藏 CoT）
+    reasoning: m.reasoning_content || '',
+    outputTokens,
+    inputTokens,
+    quotedDynamic: md.quotedDynamic || null,
+    attachments: md.attachments || [],
+  };
+}
+function numberOrNull(v) { if (v == null) return null; if (typeof v === 'string' && v.trim() === '') return null; const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : null; }
+// Token 行：仅在真实 usage 存在时展示（AI 气泡下，绝不展示在用户气泡下），格式「128 tokens」
+function chatTokenText(msg) {
+  if (!msg || msg.role !== 'assistant') return '';
+  if (msg.outputTokens == null) return '';
+  return msg.outputTokens + ' tokens';
+}
+// 思考摘要：仅展示 provider 明确返回的 reasoning summary（DeepSeek R1 / OpenAI 兼容的 reasoning_content）
+function chatThinkingHtml(msg) {
+  if (!msg || !msg.reasoning || msg.role !== 'assistant') return '';
+  const id = msg.id || '';
+  const preview = String(msg.reasoning).replace(/\s+/g, ' ').trim();
+  if (!preview) return '';
+  return '<div class="think-box" onclick="OS.chat.showThinking(\'' + id + '\')">' +
+    '<div class="think-head">💭 思考</div>' +
+    '<div class="think-summary">' + esc(preview) + '</div>' +
+    '<div class="think-more">查看完整思考</div>' +
+    '</div>';
+}
+// 后端工具执行事件 → 系统提示。只有「真正成功写入（CREATED）」才提示；失败/DENIED/未知工具一律不提示，绝不假装成功。
+// create_ai_activity → 写了一条动态；save_memory / remember_user_preference / save_important_conversation → 写了一条记忆。
+function aiActionNoticeFor(ev) {
+  if (!ev || ev.code !== 'CREATED') return null;
+  const text = {
+    create_ai_activity: '[助手] 写了一条动态',
+    save_memory: '[助手] 写了一条记忆',
+    remember_user_preference: '[助手] 写了一条记忆',
+    save_important_conversation: '[助手] 写了一条记忆',
+  }[ev.name];
+  if (!text) return null;
+  return { type: 'ai_action_notice', action: ev.name, text, timestamp: Date.now() };
+}
 function chatBubbleHtml(msg, isLast) {
+  if (msg.type === 'ai_action_notice') return '<div class="ai-action-notice">' + esc(msg.text || '') + '</div>';
   const s = aiSet();
   const isUser = msg.role === 'user';
   const name = isUser ? (DB.profile.name || '我') : (s.aiName || 'Bunny');
@@ -3281,12 +3492,19 @@ function chatBubbleHtml(msg, isLast) {
   }
   // 需求 5：点击气泡才出现轻量操作菜单（不再常驻 hover，也不改变气泡本身）
   const clickable = msg.id && (msg.content || (msg.attachments && msg.attachments.length)) && !msg.thinking && !msg.error && !msg.pendingUser;
-  return '<div class="chat-msg-row" style="display:flex;' + (isUser ? 'flex-direction:row-reverse' : '') + ';gap:8px;align-items:flex-start">' +
+  // 头像始终对齐到气泡底部（align-items:flex-end）；用户行 row-reverse 把头像放到右侧，绝不靠动态 margin
+  const thinkHtml = chatThinkingHtml(msg);
+  const tokenHtml = chatTokenText(msg) ? '<div class="chat-tokenline">' + esc(chatTokenText(msg)) + '</div>' : '';
+  return '<div class="chat-msg-row" style="display:flex;' + (isUser ? 'flex-direction:row-reverse;' : '') + 'gap:8px;align-items:flex-end">' +
     '<div class="avatar" style="width:30px;height:30px;flex-shrink:0;' + (avatar ? 'background-image:url(' + avatar + ')' : '') + '">' + (avatar ? '' : (isUser ? '🙂' : '♥')) + '</div>' +
-    '<div style="max-width:86%;min-width:0"><div class="muted" style="font-size:10px;margin-bottom:2px">' + esc(name) + (msg.time ? ' · ' + esc(msg.time) : '') + '</div>' +
+    '<div class="chat-msg-main' + (isUser ? ' mine' : '') + '">' +
+    '<div class="chat-meta">' + esc(name) + (msg.time ? ' · ' + esc(msg.time) : '') + '</div>' +
     quote +
     attachHtml +
-    '<div class="bubble ' + (isUser ? 'out' : 'in') + '" style="--bubble-alpha:' + (s.bubbleOpacity || 0.9) + ';cursor:' + (clickable ? 'pointer' : 'default') + '"' + (clickable ? ' onclick="OS.chat.bubbleMenu(event,\'' + msg.id + '\')" ontouchstart="OS.chat.bubblePressStart(event,\'' + msg.id + '\')" ontouchmove="OS.chat.bubblePressMove()" ontouchend="OS.chat.bubblePressEnd()" ontouchcancel="OS.chat.bubblePressEnd()"' : '') + '>' + bubble + '</div></div></div>';
+    '<div class="bubble ' + (isUser ? 'out' : 'in') + '" style="--bubble-alpha:' + (s.bubbleOpacity || 0.9) + ';cursor:' + (clickable ? 'pointer' : 'default') + '"' + (clickable ? ' onclick="OS.chat.bubbleMenu(event,\'' + msg.id + '\')" ontouchstart="OS.chat.bubblePressStart(event,\'' + msg.id + '\')" ontouchmove="OS.chat.bubblePressMove()" ontouchend="OS.chat.bubblePressEnd()" ontouchcancel="OS.chat.bubblePressEnd()"' : '') + '>' + bubble + '</div>' +
+    thinkHtml +
+    tokenHtml +
+    '</div></div>';
 }
 OS.chat.loaded = false;
 OS.chat.attachments = []; // 待发送附件（上传状态：uploading / done / error）
@@ -3699,6 +3917,8 @@ function classifyChatResponse(status, contentType) {
   if (ct.includes('application/json')) return ok ? { mode: 'json', isJson: true } : { mode: 'error', isJson: true };
   return { mode: 'error', isJson: false };
 }
+let _chatSyncTimer = null;
+function chatSyncBootstrap() { clearTimeout(_chatSyncTimer); _chatSyncTimer = setTimeout(() => SYNC.bootstrap(), 600); }
 OS.chat.send = async function() {
   if (OS.chat.isGenerating) return;
   const input = document.getElementById('chatInput'); const text = input.value.trim();
@@ -3739,7 +3959,11 @@ OS.chat.send = async function() {
       if (mode.mode === 'error') throw new Error(data.error || ('HTTP ' + resp.status + (mode.isJson ? '' : ' · 服务器返回了非 JSON 响应，请检查中转地址')));
       OS.chat.messages = OS.chat.messages.filter((m) => m !== thinking && !m.pendingUser);
       if (data.compressed) { await OS.chat.loadMessages(); OS.chat.messages.push({ role: 'assistant', content: '（已自动整理历史记忆）', time: now, note: true }); }
-      else { OS.chat.messages.push(chatMapMessage(data.userMessage)); OS.chat.messages.push(chatMapMessage(data.assistantMessage)); }
+      else {
+        OS.chat.messages.push(chatMapMessage(data.userMessage));
+        for (const ev of (data.toolEvents || [])) { const n = aiActionNoticeFor(ev); if (n) OS.chat.messages.push(n); }
+        OS.chat.messages.push(chatMapMessage(data.assistantMessage));
+      }
     }
   } catch (err) {
     if (!(err && err.name === 'AbortError')) {
@@ -3749,6 +3973,7 @@ OS.chat.send = async function() {
   } finally {
     OS.chat.isGenerating = false; OS.chat.abortCtrl = null; OS.chat.syncSendButton();
     OS.chat.renderAll();
+    chatSyncBootstrap(); // AI 可能已落库编辑（任务/计划/习惯/购物/笔记/记忆）+ 审计日志，拉回 DB 并刷新
   }
 };
 OS.chat.sendStreaming = async function(resp, thinking) {
@@ -3832,6 +4057,42 @@ OS.chat.bubblePressStart = function(e, id) {
 };
 OS.chat.bubblePressMove = function() { _chatMsgPress.moved = true; };
 OS.chat.bubblePressEnd = function() { clearTimeout(_chatMsgPress.timer); };
+// 思考底部 Sheet：仅展示 provider 明确给出的 reasoning summary（DeepSeek R1/OpenAI 兼容的 reasoning_content），绝不展示隐藏 CoT
+OS.chat.showThinking = function(id) {
+  const m = OS.chat.messages.find((x) => x.id === id);
+  if (!m || !m.reasoning) return;
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = '<div class="overlay thinking-overlay" onclick="if(event.target===this)OS.closeModal()">' +
+    '<div class="thinking-sheet" id="thinkingSheet">' +
+    '<div class="sheet-grab" id="thinkingGrab"></div>' +
+    '<div class="thinking-sheet-head"><span>💭 思考</span><button class="x" onclick="OS.closeModal()">✕</button></div>' +
+    '<div class="thinking-sheet-body">' + esc(m.reasoning) + '</div>' +
+    '</div></div>';
+  bindThinkingDrag();
+};
+// 下拉关闭：从抓取条往下拖超过阈值即关闭，否则回弹；遮罩点击也可关闭
+function bindThinkingDrag() {
+  const sheet = document.getElementById('thinkingSheet');
+  const grab = document.getElementById('thinkingGrab');
+  if (!sheet || !grab) return;
+  let sy = 0, dy = 0, dragging = false;
+  grab.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    sy = e.touches[0].clientY; dy = 0; dragging = true; sheet.style.transition = 'none';
+  }, { passive: true });
+  grab.addEventListener('touchmove', (e) => {
+    if (!dragging || e.touches.length !== 1) return;
+    dy = Math.max(0, e.touches[0].clientY - sy);
+    sheet.style.transform = 'translateY(' + dy + 'px)';
+  }, { passive: true });
+  const finish = () => {
+    if (!dragging) return; dragging = false;
+    sheet.style.transition = 'transform 0.2s ease';
+    if (dy > 90) closeModal(); else sheet.style.transform = 'translateY(0)';
+  };
+  grab.addEventListener('touchend', finish);
+  grab.addEventListener('touchcancel', finish);
+}
 // 需求 3：编辑单条用户消息 —— 内容回填到输入框（而非弹窗），用户改完直接点发送即走编辑接口，不产生重复消息
 OS.chat.editMessage = function(id) {
   const m = OS.chat.messages.find((x) => x.id === id);
@@ -4453,6 +4714,7 @@ function shopItemHtml(it) {
     '<div class="grow" style="cursor:pointer" onclick="editShoppingItem(\'' + it.id + '\')">' +
     '<div style="font-weight:600;' + (it.completed ? 'text-decoration:line-through;opacity:.5' : '') + '">' + esc(it.title) + '</div>' +
     '<div class="muted" style="font-size:11px;margin-top:2px">' + (it.category ? '<span class="shop-cat">' + esc(it.category) + '</span> ' : '') + (it.priority === 'high' ? '<span class="chip" style="font-size:10px;color:#db2777">重要</span> ' : '') + (it.note ? esc(it.note) : '') + '</div>' +
+    auditTraceHtml('shopping', it.id) +
     '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="deleteShoppingItem(\'' + it.id + '\')">🗑</button></div>';
 }
 /* ================= FINANCE 记账 ================= */
@@ -4650,7 +4912,7 @@ function aiMemoryItemHtml(m) {
   const src = m.source === 'user_explicit' ? '用户明确' : m.source === 'ai_extracted' ? 'AI 提取' : m.source === 'imported' ? '手动/导入' : m.source === 'system_config' ? '系统配置' : '对话';
   const conf = m.userConfirmed ? ' · 已确认' : '';
   return '<div class="ai-mem-item" style="' + (inactive ? 'opacity:.5' : '') + '"><div class="spread"><div style="flex:1"><div style="font-size:14px;font-weight:600">' + esc(memText(m)) + (inactive ? ' <span class="chip" style="font-size:10px">已停用</span>' : '') + '</div><div class="muted" style="font-size:11px;margin-top:4px"><span class="shop-cat">' + memLabel(m) + '</span> · ' + src + conf + ' · ' + relTime(m.createdAt) + '</div></div>' +
-    '<div class="row" style="gap:4px"><button class="icon-btn" style="border:none;background:none" title="' + (inactive ? '恢复' : '停用') + '" onclick="aiToggleMemory(\'' + m.id + '\')">' + (inactive ? '↺' : '⏸') + '</button><button class="icon-btn" style="border:none;background:none" onclick="aiEditMemory(\'' + m.id + '\')">✎</button><button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="aiDeleteMemory(\'' + m.id + '\')">🗑</button></div></div></div>';
+    '<div class="row" style="gap:4px"><button class="icon-btn" style="border:none;background:none" title="' + (inactive ? '恢复' : '停用') + '" onclick="aiToggleMemory(\'' + m.id + '\')">' + (inactive ? '↺' : '⏸') + '</button><button class="icon-btn" style="border:none;background:none" onclick="aiEditMemory(\'' + m.id + '\')">✎</button><button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="aiDeleteMemory(\'' + m.id + '\')">🗑</button></div></div>' + auditTraceHtml('memory', m.id) + '</div>';
 }
 function aiNewMemory() {
   const catOpts = Object.keys(MEM_CATS).map((k) => '<option value="' + k + '">' + MEM_CATS[k] + '</option>').join('');
