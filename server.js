@@ -37,6 +37,7 @@ import aiRouter from './routes/ai.js';
 import filesRouter from './routes/files.js';
 import geoRouter from './routes/geo.js';
 import musicRouter from './routes/music.js';
+import musicCompanionRouter from './routes/music-companion.js';
 
 const app = express();
 
@@ -77,7 +78,7 @@ app.use('/api/notifications', requireAuth, notificationsRouter);
 app.use('/api/profile', requireAuth, profileRouter);
 app.use('/api/user-settings', requireAuth, userSettingsRouter);
 app.use('/api/mcp', requireAuth, mcpRouter);
-app.use('/api/memory', requireAuth, memoryRouter);
+app.use('/api/memories', requireAuth, memoryRouter);
 app.use('/api/ai', requireAuth, aiRouter);
 app.use('/api/files', requireAuth, filesRouter);
 // 聊天附件上传入口：POST /api/chat/attachments（与 /api/files/upload 同一存储、同一服务端校验）
@@ -87,6 +88,8 @@ app.use('/api/chat', requireAuth, filesRouter);
 app.use('/api', geoRouter);
 // 网易云音乐（服务端封装；登录态存 app_settings，cookie 不下发）
 app.use('/api/music', musicRouter);
+// 「一起听」陪听会话（绑定当前助手 assistantId，数据按用户隔离）
+app.use('/api/listening', requireAuth, musicCompanionRouter);
 
 // 静态前端（合并部署：手机直接访问 Render 地址即可打开界面）
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
