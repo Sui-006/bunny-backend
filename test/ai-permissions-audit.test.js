@@ -26,13 +26,20 @@ test('任务 / 计划 / 日历 / 习惯 / 购物 / 笔记 / 记忆 四粒度全�
   }
 });
 
-test('统计 / 会话历史 / AI 动态 = 派生只读，不可写', () => {
-  for (const e of ['statistics', 'conversation', 'activity']) {
+test('统计 / 会话历史 = 派生只读，不可写', () => {
+  for (const e of ['statistics', 'conversation']) {
     assert.equal(aiCan(e, 'read'), true);
     assert.equal(aiCan(e, 'create'), false);
     assert.equal(aiCan(e, 'write'), false);
     assert.equal(aiCan(e, 'delete'), false);
   }
+});
+
+test('AI 动态：AI 可新增自己的动态（create），但不可改写/删除历史', () => {
+  assert.equal(aiCan('activity', 'read'), true);
+  assert.equal(aiCan('activity', 'create'), true);
+  assert.equal(aiCan('activity', 'write'), false);
+  assert.equal(aiCan('activity', 'delete'), false);
 });
 
 test('未知实体 / 未知动作默认拒绝（绝不默认放行）', () => {

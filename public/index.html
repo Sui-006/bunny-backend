@@ -386,7 +386,7 @@
 
     /* 聊天背景（用户可设默认 / 纯色 / 图片） */
     /* ChatRoot：fixed 锚定视觉视口，高度跟随 --chat-vh（visualViewport），键盘弹出只改高度、不平移整页 */
-    .chat-stage { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: var(--chat-vh, 100dvh); display: flex; flex-direction: column; overflow: hidden; }
+    .chat-stage { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: var(--chat-vh, 100dvh); display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
     .chat-stage .chat-bg { position: absolute; inset: 0; background-size: cover; background-position: center; z-index: 0; }
     .chat-stage .chat-bg-overlay { position: absolute; inset: 0; background: var(--card-solid); opacity: 0.72; z-index: 1; }
     html[data-theme="dark"] .chat-stage .chat-bg-overlay { opacity: 0.82; }
@@ -394,6 +394,8 @@
     /* 顶部栏 / 消息区 / composer 均为 ChatRoot 的流式子项，不随文档滚动 */
     .chat-header { flex-shrink: 0; }
     .chat-body { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    /* 唯一滚动容器：#chatMsgs。iOS 惯性滚动 + overscroll 断链，滑动消息区绝不拖拽整个窗口/页面 */
+    #chatMsgs { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
     .chat-title { cursor: pointer; }
     .chat-title:hover { text-decoration: underline; text-decoration-color: var(--accent-soft); }
 
@@ -615,6 +617,18 @@ function inlineMd(s) {
     .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
     .replace(/~~([^~]+)~~/g, '<del>$1</del>')
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+// 剥离模型误输出的 function_calls / invoke / parameter / thinking XML（防泄漏到气泡；后端同样剥离，这里是流式渲染层的双保险）
+function stripInternalXml(text) {
+  const s = String(text == null ? '' : text);
+  if (!s) return s;
+  return s
+    .replace(/<\s*(?:antml:)?function_calls\b[^>]*>[\s\S]*?<\s*\/\s*(?:antml:)?function_calls\s*>/gi, '')
+    .replace(/<\s*(?:antml:)?(?:invoke|parameter|function_call|tool_call|tool_use)\b[^>]*>[\s\S]*?<\s*\/\s*(?:antml:)?(?:invoke|parameter|function_call|tool_call|tool_use)\s*>/gi, '')
+    .replace(/<\s*(?:antml:)?thinking\b[^>]*>[\s\S]*?<\s*\/\s*(?:antml:)?thinking\s*>/gi, '')
+    .replace(/<\s*\/?\s*(?:antml:)?(?:function_calls|function_call|invoke|parameter|tool_call|tool_use|thinking)\b[^>]*>/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 function renderMarkdown(text) {
   const e = esc(text); const lines = e.split('\n'); let html = '', listTag = null, inCode = false, codeBuf = [];
@@ -2953,7 +2967,7 @@ function viewSettingsAI() {
     '<div class="card card-pad">' +
     '<div class="field"><label>AI 名字</label><input class="input" id="aiName" value="' + esc(s.aiName) + '"></div>' +
     '<div class="field"><label>系统提示词（AI 人格）</label><textarea class="textarea" id="aiPrompt">' + esc(s.systemPrompt) + '</textarea></div>' +
-    '<div class="field"><label>默认模型</label><select class="select" id="aiModel"><optgroup label="DeepSeek"><option value="deepseek-chat"' + (s.model === 'deepseek-chat' ? ' selected' : '') + '>DeepSeek Chat</option><option value="deepseek-reasoner"' + (s.model === 'deepseek-reasoner' ? ' selected' : '') + '>DeepSeek Reasoner</option></optgroup><optgroup label="OpenAI"><option value="gpt-4o"' + (s.model === 'gpt-4o' ? ' selected' : '') + '>GPT-4o</option><option value="gpt-4o-mini"' + (s.model === 'gpt-4o-mini' ? ' selected' : '') + '>GPT-4o mini</option></optgroup><optgroup label="Claude"><option value="claude-sonnet-5"' + (s.model === 'claude-sonnet-5' ? ' selected' : '') + '>Claude Sonnet 5</option><option value="claude-opus-5"' + (s.model === 'claude-opus-5' ? ' selected' : '') + '>Claude Opus 5</option></optgroup></select></div>' +
+    '<div class="field"><label>默认模型</label><select class="select" id="aiModel"><optgroup label="DeepSeek"><option value="deepseek-chat"' + (s.model === 'deepseek-chat' ? ' selected' : '') + '>DeepSeek Chat</option><option value="deepseek-reasoner"' + (s.model === 'deepseek-reasoner' ? ' selected' : '') + '>DeepSeek Reasoner</option></optgroup><optgroup label="OpenAI"><option value="gpt-4o"' + (s.model === 'gpt-4o' ? ' selected' : '') + '>GPT-4o</option><option value="gpt-4o-mini"' + (s.model === 'gpt-4o-mini' ? ' selected' : '') + '>GPT-4o mini</option></optgroup><optgroup label="Claude"><option value="claude-sonnet-5"' + (s.model === 'claude-sonnet-5' ? ' selected' : '') + '>Claude Sonnet 5</option><option value="claude-opus-5"' + (s.model === 'claude-opus-5' ? ' selected' : '') + '>Claude Opus 5</option><option value="claude-opus-4-6"' + (s.model === 'claude-opus-4-6' ? ' selected' : '') + '>Claude Opus 4.6</option></optgroup></select></div>' +
     '<div class="field"><label>助手头像</label><div class="row" style="gap:8px;align-items:center"><div class="grow"><input class="input" id="aiAvatarFile" type="file" accept="image/*" onchange="previewAiAvatar(this)"></div></div><div id="aiAvatarPreview" style="margin-top:8px"></div><div class="muted" style="font-size:11px;margin-top:6px">助手头像也会作为 Bark 推送通知的图标，自动同步。</div></div>' +
     '<div class="field"><label>聊天背景</label>' +
     '<div class="row" style="gap:8px;flex-wrap:wrap">' +
@@ -3739,7 +3753,7 @@ OS.chat.send = async function() {
 };
 OS.chat.sendStreaming = async function(resp, thinking) {
   const reader = resp.body.getReader(); const decoder = new TextDecoder(); let buf = '', full = '', lastRender = 0;
-  const apply = (text) => { thinking.content = text; thinking.thinking = false; const bubbles = document.querySelectorAll('#chatMsgs .bubble'); const el = bubbles[bubbles.length - 1]; if (el) el.innerHTML = '<div class="md">' + renderMarkdown(text) + '</div>'; };
+  const apply = (text) => { text = stripInternalXml(text); thinking.content = text; thinking.thinking = false; const bubbles = document.querySelectorAll('#chatMsgs .bubble'); const el = bubbles[bubbles.length - 1]; if (el) el.innerHTML = '<div class="md">' + renderMarkdown(text) + '</div>'; };
   while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); let idx; while ((idx = buf.indexOf('\n\n')) >= 0) { const block = buf.slice(0, idx).trim(); buf = buf.slice(idx + 2); if (!block.startsWith('data:')) continue; const payload = block.slice(5).trim(); if (payload === '[DONE]') continue; let obj; try { obj = JSON.parse(payload); } catch (e) { continue; } if (obj.error) throw new Error(obj.error); if (obj.delta) { full += obj.delta; const t = Date.now(); if (t - lastRender >= 40) { lastRender = t; apply(full); } } if (obj.done) { if (obj.compressed) await OS.chat.loadMessages(); else { if (obj.userMessage) { const ui = OS.chat.messages.findIndex((m) => m.pendingUser); if (ui >= 0) OS.chat.messages[ui] = chatMapMessage(obj.userMessage); } if (obj.assistantMessage) { const i = OS.chat.messages.indexOf(thinking); if (i >= 0) OS.chat.messages[i] = chatMapMessage(obj.assistantMessage); } } apply(full); return; } } }
   apply(full);
 };

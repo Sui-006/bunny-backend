@@ -51,9 +51,12 @@ async function buildAssistEnv(sessionId, content, model = config.defaultModel) {
   const domain = buildDomainTools(userId, model, { sessionId });
   // 只有「可编辑领域」才注入编辑工具；只读域（life/journal/statistics/conversation）仅注入读块。
   const useDomain = domains.some((d) => TOOL_DOMAIN_SET.has(d));
-  const tools = [...mcpTools, ...(useDomain ? domain.tools : [])];
+  // create_ai_activity 不依赖领域关键词：AI 可自主决定写一条动态（用户要求「AI 自己写数据」）。
+  // 无领域命中时仍注入该工具；命中领域时随完整领域工具集一起注入。
+  const activityTool = domain.tools.find((t) => t.name === 'create_ai_activity');
+  const tools = [...mcpTools, ...(useDomain ? domain.tools : (activityTool ? [activityTool] : []))];
   const callTool = async (name, args) => {
-    if (useDomain && domain.names.includes(name)) return domain.callTool(name, args);
+    if (domain.names.includes(name)) return domain.callTool(name, args);
     if (mcp) return mcp.callTool(name, args);
     throw new Error('未知工具: ' + name);
   };
@@ -204,7 +207,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     if (notify) await notifyReply(barkUrl, model, reply.content);
 
     await mcp?.close();
-    res.status(201).json({ userMessage, assistantMessage, compressed: false });
+    res.status(201).json({ userMessage, assistantMessage, compressed: false, toolEvents: reply.toolEvents || [] });
   } catch (e) {
     next(e);
   }
