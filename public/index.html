@@ -1107,7 +1107,7 @@ function afterRender(r, routeChanged) {
   if (r === '/chat') { OS.chat.ensureLoaded(); }
   // 只在真正「进入」Music 页时查一次登录态；后续 render（播放/暂停/进度/登录态局部更新）绝不重复触发，
   // 切断 afterRender ↔ musicRefreshStatus ↔ render 的持续刷新循环。
-  if (r === '/player' && routeChanged) { _musicDiag.initCount++; musicRefreshStatus(); }
+  if (r === '/player' && routeChanged) { _musicDiag.initCount++; musicRefreshStatus(); applyAudio(); }
   if (r === '/health') { drawHealthCharts(); }
   if (r === '/statistics') { drawStatCharts(); }
   if (r === '/calendar') { bindCalendar(); }
@@ -1259,6 +1259,21 @@ function viewToday() {
     '<div class="progress"><span style="width:' + pct + '%"></span></div>' +
     (todays.length ? '<div class="muted" style="font-size:12px;margin-top:10px">' + todays.slice(0, 3).map((t) => (t.completed ? '✓ ' : '○ ') + esc(t.title)).join(' · ') + (todays.length > 3 ? ' …' : '') + '</div>' : '<div class="muted" style="font-size:12px;margin-top:10px">今天没有任务，点此安排</div>') +
     '</div>';
+
+  // 笔记预览：复用现有 DB.notes（不新建数据源），按置顶 + 最近更新取前 3 条，紧凑展示
+  const recentNotes = DB.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt)).slice(0, 3);
+  html += '<div class="section-head" style="margin-top:22px"><h2>笔记</h2><button class="more" onclick="OS.go(\'/notes\')">查看全部 ›</button></div>';
+  if (recentNotes.length === 0) html += '<div class="card card-pad" style="padding:16px"><div class="muted" style="font-size:13px">还没有笔记，记一条灵感吧</div></div>';
+  else html += '<div class="card card-pad" style="padding:6px 8px">' + recentNotes.map((n) => '<div class="conv-item" onclick="editNote(\'' + n.id + '\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(n.title) + '</div><div class="c-last" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(String(n.content || '').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</div></div><span class="muted" style="font-size:11px;flex-shrink:0">' + relTime(n.updatedAt) + '</span></div>').join('') + '</div>';
+
+  // 经期模块：复用 periodPrediction()（不改周期计算），只做 Home 预览 + 导航到完整页面
+  const pp = periodPrediction();
+  html += '<div class="section-head" style="margin-top:22px"><h2>经期</h2><button class="more" onclick="OS.go(\'/period\')">查看全部 ›</button></div>';
+  html += '<div class="card card-pad" style="cursor:pointer" onclick="OS.go(\'/period\')">';
+  if (pp.ongoing) html += '<div style="font-weight:700;font-size:15px">🌸 经期中</div><div class="muted" style="font-size:13px;margin-top:4px">开始于 ' + esc(pp.ongoing.startDate) + '，记得点「记录结束」</div>';
+  else if (pp.nextStart) html += '<div style="font-weight:700;font-size:15px">🔮 预计下次 ' + esc(pp.nextStart) + '</div><div class="muted" style="font-size:13px;margin-top:4px">平均周期 ' + pp.avgCycle + ' 天 · 预测仅供参考</div>';
+  else html += '<div style="font-weight:700;font-size:15px">📝 暂无经期记录</div><div class="muted" style="font-size:13px;margin-top:4px">记录几次后会逐步估算周期</div>';
+  html += '</div>';
   return html;
 }
 // 独立任务页（需求 1/8）：今日 / 未来 / 已完成 三种视图，创建/编辑/删除/完成，独立于首页
@@ -2020,6 +2035,8 @@ const _musicDiag = {
   playEventCount: 0,        // audio play 事件次数（只计数，不 render）
   pauseEventCount: 0,       // audio pause 事件次数（只计数，不 render）
   initCount: 0,             // 真正「进入 /player」（routeChanged）的初始化次数
+  playClickAt: 0,           // 最近一次点击播放的时间戳（用于计算点击→play 事件耗时）
+  lastPlayLatencyMs: null,  // 最近一次「点击播放 → audio play 事件」耗时（ms）
   lastRenderReasons: [],    // 最近 50 条「为何 render」记录
 };
 window._musicDiag = _musicDiag;
@@ -2066,7 +2083,7 @@ function ensureAudio() {
     // 高频事件只做局部 DOM 更新，绝不 render()；以下计数器用于证明这些事件不会触发整页重建。
     musicAudio.addEventListener('timeupdate', () => { _musicDiag.timeupdateCount++; if (!isNaN(musicAudio.currentTime)) { DB.player.currentTime = musicAudio.currentTime; playerUpdateProgressUI(); } });
     musicAudio.addEventListener('ended', () => { playerAutoAdvance(); });
-    musicAudio.addEventListener('play', () => { _musicDiag.playEventCount++; });
+    musicAudio.addEventListener('play', () => { _musicDiag.playEventCount++; if (_musicDiag.playClickAt) { _musicDiag.lastPlayLatencyMs = Date.now() - _musicDiag.playClickAt; _musicDiag.playClickAt = 0; } });
     musicAudio.addEventListener('pause', () => { _musicDiag.pauseEventCount++; });
     _musicDiag.audioListenerBindCount++; // 应恒为 1：listener 只在创建时绑定一次
   }
@@ -2166,13 +2183,30 @@ function playerTick() {
 function playerSyncTimer() { clearInterval(playerTimer); playerTimer = null; const t = currentTrack(); if (DB.player.playing && t && !t.url) playerTimer = setInterval(playerTick, 1000); }
 function playerPlayPause() {
   const t = currentTrack();
+  _musicDiag.playClickAt = Date.now(); // 诊断：点击播放到 'play' 事件的耗时（见 ensureAudio 的 play listener）
+  if (DB.player.playing) {
+    // 暂停：立即暂停，绝不等待任何请求
+    if (musicAudio) { try { musicAudio.pause(); } catch (e) {} }
+    DB.player.playing = false;
+    playerSyncTimer(); saveDB(); updateMusicPlayPauseBtn();
+    AIBus.emit({ type: 'MUSIC_PAUSE', entityType: 'music' });
+    return;
+  }
+  if (t && t.id && !t.url) {
+    // 没有缓存的播放地址：复用 playTrack 的轻量路径（只取 URL → applyAudio → play，绝不等待歌词/评论/详情）。
+    // playTrack 内部已处理登录失效 / 无版权 / 网络错误，并做局部 UI 更新，不额外整页 render。
+    playTrack(DB.player.current, true);
+    return;
+  }
   if (t && t.url) {
-    const a = ensureAudio();
-    if (DB.player.playing) { a.pause(); DB.player.playing = false; }
-    else { DB.player.playing = true; a.play().catch(() => { DB.player.playing = false; }); }
-  } else DB.player.playing = !DB.player.playing;
+    applyAudio(); // 确保 src 已挂到当前曲目（幂等、极轻）；修复刷新后 audio 无 src 导致 play() 失败的问题
+    DB.player.playing = true;
+    ensureAudio().play().catch(() => { DB.player.playing = false; updateMusicPlayPauseBtn(); });
+  } else {
+    DB.player.playing = true; // 本地曲目（无 id）：走 playerTick 秒级推进
+  }
   playerSyncTimer(); saveDB(); updateMusicPlayPauseBtn();
-  AIBus.emit({ type: DB.player.playing ? 'MUSIC_PLAY' : 'MUSIC_PAUSE', entityType: 'music' });
+  AIBus.emit({ type: 'MUSIC_PLAY', entityType: 'music' });
 }
 async function toggleTogether() {
   const turning = !DB.player.togetherListening;
