@@ -2976,7 +2976,7 @@ function toggles() {
   const t = (label, id, val) => '<div class="field"><div class="row" style="justify-content:space-between"><label style="margin:0">' + label + '</label><button class="btn btn-sm ' + (val ? 'btn-primary' : '') + '" onclick="toggleAiFlag(\'' + id + '\')">' + (val ? '开' : '关') + '</button></div></div>';
   return t('流式输出（逐字回复）', 'streaming', s.streaming) + t('长期记忆', 'memory', s.memory) + t('自动整理记忆', 'autoCompress', s.autoCompress);
 }
-function toggleAiFlag(k) { const s = aiSet(); s[k] = !s[k]; saveDB(); render(); }
+function toggleAiFlag(k) { const s = aiSet(); s[k] = !s[k]; saveDB(); render(); OS.chat.saveSessionSettings(); }
 async function saveAISettings() {
   ensureAssistants();
   const s = aiSet();
@@ -3474,10 +3474,10 @@ OS.chat.init = async function() {
   OS.chat.syncSendButton();
 };
 OS.chat.ensureLoaded = function() { if (!OS.chat.loaded) { OS.chat.loaded = true; OS.chat.init(); } else OS.chat.renderAll(); };
-OS.chat.createSession = async function(name) { const r = await fetch(API_BASE + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name || '新的对话' }) }); if (!r.ok) throw new Error('HTTP ' + r.status); return (await r.json()).session; };
+OS.chat.createSession = async function(name) { const r = await fetch(API_BASE + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name || '新的对话' }) }); if (!r.ok) throw new Error('HTTP ' + r.status); const session = (await r.json()).session; await OS.chat.saveSessionSettings(session.id); return session; };
 OS.chat.loadMessages = async function() { const r = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages?limit=500'); if (!r.ok) throw new Error('HTTP ' + r.status); OS.chat.messages = ((await r.json()).messages || []).filter((m) => m.visible !== false).map(chatMapMessage); };
-OS.chat.loadSessionSettings = async function() { try { const r = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings'); OS.chat.sessionSettings = r.ok ? ((await r.json()).settings || {}) : {}; } catch (e) { OS.chat.sessionSettings = {}; } };
-OS.chat.saveSessionSettings = async function() { if (!OS.chat.currentId) return; const s = aiSet(); try { await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system_prompt: s.systemPrompt, stream: s.streaming, use_memory: s.memory, auto_compress: s.autoCompress }) }); } catch (e) {} };
+OS.chat.loadSessionSettings = async function() { try { const r = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings'); OS.chat.sessionSettings = r.ok ? ((await r.json()).settings || {}) : {}; } catch (e) { OS.chat.sessionSettings = {}; } if (typeof OS.chat.sessionSettings.stream === 'boolean') { const s = aiSet(); if (s.streaming !== OS.chat.sessionSettings.stream) { s.streaming = OS.chat.sessionSettings.stream; saveDB(); } } };
+OS.chat.saveSessionSettings = async function(id) { const sid = id || OS.chat.currentId; if (!sid) return; const s = aiSet(); try { await fetch(API_BASE + '/api/sessions/' + sid + '/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system_prompt: s.systemPrompt, stream: s.streaming, use_memory: s.memory, auto_compress: s.autoCompress }) }); } catch (e) {} };
 OS.chat.newChat = async function() { OS.chat.saveDraft(); try { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions.unshift(c); OS.chat.currentId = c.id; OS.chat.messages = []; OS.chat.attachments = []; OS.chat.editingId = null; OS.chat.renderEditBar(); OS.chat.sidebarOpen = false; OS.chat.renderAll(); OS.chat.restoreDraft(); OS.chat.syncSendButton(); } catch (e) { toast('新建会话失败：' + e.message, true); } };
 OS.chat.switch = async function(id) { if (Date.now() - _chatLongPress < 600) return; if (_sessionPress.suppressClick) { _sessionPress.suppressClick = false; return; } OS.chat.saveDraft(); OS.chat.currentId = id; OS.chat.attachments = []; OS.chat.editingId = null; OS.chat.renderEditBar(); OS.chat.sidebarOpen = false; OS.chat.renderSessions(); const el = document.getElementById('chatMsgs'); if (el) el.innerHTML = '<div class="muted" style="margin:auto">加载中…</div>'; try { await OS.chat.loadMessages(); await OS.chat.loadSessionSettings(); } catch (e) { OS.chat.messages = [{ role: 'assistant', content: '加载失败：' + e.message, error: true }]; } OS.chat.renderAll(); OS.chat.restoreDraft(); OS.chat.syncSendButton(); };
 OS.chat.setModel = function(v) { aiSet().model = v; syncActiveAssistantBack(); saveDB(); toast('已切换模型'); };
@@ -3676,6 +3676,15 @@ OS.chat.previewFile = function(url, name) {
   if (url) window.open(url, '_blank', 'noopener');
   else toast('文件不可用（' + (name || '') + '）', true);
 };
+// 聊天响应解析方式：只依据 HTTP status + Content-Type 判定，绝不依据 aiSettings.streaming（与 server/lib/frontend-logic.js 保持同步）。
+// 后端「流式/非流式」由 session.settings.stream 决定；前端按实际响应头选解析器，避免二者不同步时把 JSON 回复误报成「流式响应异常」。
+function classifyChatResponse(status, contentType) {
+  const ct = (contentType || '').toLowerCase();
+  const ok = status >= 200 && status < 300;
+  if (ct.includes('text/event-stream')) return ok ? { mode: 'sse', isJson: false } : { mode: 'error', isJson: true };
+  if (ct.includes('application/json')) return ok ? { mode: 'json', isJson: true } : { mode: 'error', isJson: true };
+  return { mode: 'error', isJson: false };
+}
 OS.chat.send = async function() {
   if (OS.chat.isGenerating) return;
   const input = document.getElementById('chatInput'); const text = input.value.trim();
@@ -3705,14 +3714,15 @@ OS.chat.send = async function() {
   OS.chat.renderMessages(); OS.chat.scrollToBottom(true);
   const s = aiSet();
   try {
-    if (s.streaming) await OS.chat.sendStreaming(content, attachmentIds, thinking, now, quoted);
-    else {
-      const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: OS.chat.abortCtrl.signal, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted, attachmentIds }) });
-      const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: OS.chat.abortCtrl.signal, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted, attachmentIds }) });
+    const mode = classifyChatResponse(resp.status, resp.headers.get('content-type') || '');
+    if (mode.mode === 'sse') {
+      await OS.chat.sendStreaming(resp, thinking);
+    } else {
       let data = {};
-      if (ct.includes('json')) data = await resp.json().catch(() => ({}));
-      else { try { const txt = await resp.text(); console.error('[chat] AI 返回非 JSON（content-type: ' + ct + '）：', String(txt).slice(0, 500)); } catch (e) {} }
-      if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status + (ct.includes('json') ? '' : ' · 服务器返回了非 JSON 响应，请检查中转地址')));
+      if (mode.isJson) data = await resp.json().catch(() => ({}));
+      else { try { const txt = await resp.text(); console.error('[chat] AI 返回异常响应（content-type: ' + (resp.headers.get('content-type') || '') + '）：', String(txt).slice(0, 500)); } catch (e) {} }
+      if (mode.mode === 'error') throw new Error(data.error || ('HTTP ' + resp.status + (mode.isJson ? '' : ' · 服务器返回了非 JSON 响应，请检查中转地址')));
       OS.chat.messages = OS.chat.messages.filter((m) => m !== thinking && !m.pendingUser);
       if (data.compressed) { await OS.chat.loadMessages(); OS.chat.messages.push({ role: 'assistant', content: '（已自动整理历史记忆）', time: now, note: true }); }
       else { OS.chat.messages.push(chatMapMessage(data.userMessage)); OS.chat.messages.push(chatMapMessage(data.assistantMessage)); }
@@ -3727,15 +3737,7 @@ OS.chat.send = async function() {
     OS.chat.renderAll();
   }
 };
-OS.chat.sendStreaming = async function(content, attachmentIds, thinking, now, quoted) {
-  const s = aiSet();
-  const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: OS.chat.abortCtrl ? OS.chat.abortCtrl.signal : undefined, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted, attachmentIds }) });
-  if (!resp.ok) { let msg = 'HTTP ' + resp.status; try { msg = (await resp.json()).error || msg; } catch (e) {} throw new Error(msg); }
-  const sct = (resp.headers.get('content-type') || '').toLowerCase();
-  if (!sct.includes('text/event-stream')) {
-    let preview = ''; try { preview = String(await resp.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200); } catch (e) {}
-    throw new Error('AI 流式响应异常（content-type: ' + (sct || '无') + '）' + (preview ? '：' + preview : '') + '。请检查「API 设置」里的中转地址');
-  }
+OS.chat.sendStreaming = async function(resp, thinking) {
   const reader = resp.body.getReader(); const decoder = new TextDecoder(); let buf = '', full = '', lastRender = 0;
   const apply = (text) => { thinking.content = text; thinking.thinking = false; const bubbles = document.querySelectorAll('#chatMsgs .bubble'); const el = bubbles[bubbles.length - 1]; if (el) el.innerHTML = '<div class="md">' + renderMarkdown(text) + '</div>'; };
   while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); let idx; while ((idx = buf.indexOf('\n\n')) >= 0) { const block = buf.slice(0, idx).trim(); buf = buf.slice(idx + 2); if (!block.startsWith('data:')) continue; const payload = block.slice(5).trim(); if (payload === '[DONE]') continue; let obj; try { obj = JSON.parse(payload); } catch (e) { continue; } if (obj.error) throw new Error(obj.error); if (obj.delta) { full += obj.delta; const t = Date.now(); if (t - lastRender >= 40) { lastRender = t; apply(full); } } if (obj.done) { if (obj.compressed) await OS.chat.loadMessages(); else { if (obj.userMessage) { const ui = OS.chat.messages.findIndex((m) => m.pendingUser); if (ui >= 0) OS.chat.messages[ui] = chatMapMessage(obj.userMessage); } if (obj.assistantMessage) { const i = OS.chat.messages.indexOf(thinking); if (i >= 0) OS.chat.messages[i] = chatMapMessage(obj.assistantMessage); } } apply(full); return; } } }

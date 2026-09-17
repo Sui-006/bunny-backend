@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   neteaseUiState, neteaseStatusDelta, musicEventNeedsRender, memoryLoadFlags, targetWallpaperSize, pickWallpaperMime,
-  attachmentMaxSize, validateAttachmentFile, dedupeAttachmentIds,
+  attachmentMaxSize, validateAttachmentFile, dedupeAttachmentIds, classifyChatResponse,
 } from '../lib/frontend-logic.js';
 
 // ---- 网易云登录态（后端 /api/music/status 为权威来源，绝不依赖 localStorage）----
@@ -126,4 +126,30 @@ test('dedupeAttachmentIds: 去重 + 上限 10（过滤空值）', () => {
   assert.deepEqual(dedupeAttachmentIds(['a', 'b', 'a', 'c']), ['a', 'b', 'c']);
   assert.deepEqual(dedupeAttachmentIds(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']).length, 10);
   assert.deepEqual(dedupeAttachmentIds([null, '', 'x']), ['x']);
+});
+
+// ---- 聊天响应解析（修复流式开关不同步：只按 status + content-type 判定，绝不报「流式响应异常」）----
+
+test('classifyChatResponse: 2xx + text/event-stream → sse（流式逐字）', () => {
+  assert.deepEqual(classifyChatResponse(200, 'text/event-stream; charset=utf-8'), { mode: 'sse', isJson: false });
+});
+
+test('classifyChatResponse: 2xx + application/json → json（非流式正常回复，绝不误报流式异常）', () => {
+  assert.deepEqual(classifyChatResponse(201, 'application/json; charset=utf-8'), { mode: 'json', isJson: true });
+  assert.deepEqual(classifyChatResponse(200, 'application/json'), { mode: 'json', isJson: true });
+});
+
+test('classifyChatResponse: 4xx/5xx + application/json → error（解析真实 API/server 错误）', () => {
+  assert.deepEqual(classifyChatResponse(401, 'application/json'), { mode: 'error', isJson: true });
+  assert.deepEqual(classifyChatResponse(500, 'application/json; charset=utf-8'), { mode: 'error', isJson: true });
+});
+
+test('classifyChatResponse: 未知 content-type → error（不按流式或 JSON 解析）', () => {
+  assert.deepEqual(classifyChatResponse(200, 'text/html'), { mode: 'error', isJson: false });
+});
+
+test('classifyChatResponse: content-type 大小写/参数不敏感；非 2xx 即便带 SSE 头也按 error', () => {
+  assert.equal(classifyChatResponse(200, 'TEXT/EVENT-STREAM').mode, 'sse');
+  assert.equal(classifyChatResponse(200, 'Application/JSON; Charset=UTF-8').mode, 'json');
+  assert.equal(classifyChatResponse(500, 'text/event-stream').mode, 'error');
 });
