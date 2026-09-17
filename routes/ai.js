@@ -5,6 +5,7 @@ import { config } from '../lib/config.js';
 import { getState, putState, defaultPlan } from '../lib/domain.js';
 import { HttpError, ok } from '../lib/rest.js';
 import { parseExpenseText, parsePurchaseText, guessCategory, financeSummary, centsToYuan } from '../lib/finance.js';
+import { AI_PERMISSION_POLICY, USER_ONLY_EDITABLE } from '../lib/permissions.js';
 
 const router = Router();
 
@@ -21,6 +22,13 @@ async function aiCall(opts) {
     throw e;
   }
 }
+
+// GET /api/ai/permissions —— AI 权限策略只读展示（固定后端策略，前端设置页只读）
+router.get('/permissions', async (req, res, next) => {
+  try {
+    ok(res, { policy: AI_PERMISSION_POLICY, userOnlyEditable: [...USER_ONLY_EDITABLE] });
+  } catch (e) { next(e); }
+});
 
 // POST /api/ai/respond —— 用户操作事件 → AI 自行判断是否回应 + 动态生成回应（非硬编码）
 // 前端把所有「成功完成」的业务操作统一喂进来；AI 决定回不回应，回应文案完全由模型生成。
