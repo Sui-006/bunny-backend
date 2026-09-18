@@ -388,7 +388,7 @@
     .thinking-sheet-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; margin-bottom: 10px; flex-shrink: 0; }
     .thinking-sheet-head .x { background: none; border: none; font-size: 20px; color: var(--text-faint); cursor: pointer; line-height: 1; }
     .thinking-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 13.5px; line-height: 1.7; color: var(--text-soft); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
-    .chat-input-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px calc(4px + var(--chat-safe-bottom, env(safe-area-inset-bottom)) + var(--chat-keyboard-inset, 0px)); border-top: 1px solid var(--border); }
+    .chat-input-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px calc(var(--chat-safe-bottom, env(safe-area-inset-bottom)) * var(--app-font-inverse, 1)); border-top: 1px solid var(--border); }
     .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; line-height: 1.5; outline: none; max-height: 132px; min-height: 46px; background: var(--card-solid); overflow-y: auto; }
     .chat-input:focus { border-color: var(--accent-border); }
     /* composer 按钮：+ / 发送 / 停止 不重叠，等宽圆角 */
@@ -1386,6 +1386,9 @@ function viewToday() {
     (todays.length ? '<div class="muted" style="font-size:12px;margin-top:10px">' + todays.slice(0, 3).map((t) => (t.completed ? '✓ ' : '○ ') + esc(t.title)).join(' · ') + (todays.length > 3 ? ' …' : '') + '</div>' : '<div class="muted" style="font-size:12px;margin-top:10px">今天没有任务，点此安排</div>') +
     '</div>';
 
+  // 今天的祂：AI 心情 + AI 动态（真实 AI Activity，绝不显示系统/用户内容）
+  html += todayHimHtml();
+
   // 笔记预览：复用现有 DB.notes（不新建数据源），按置顶 + 最近更新取前 3 条，紧凑展示
   const recentNotes = DB.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt)).slice(0, 3);
   html += '<div class="section-head" style="margin-top:22px"><h2>笔记</h2><button class="more" onclick="OS.go(\'/notes\')">查看全部 ›</button></div>';
@@ -2344,7 +2347,7 @@ async function toggleTogether() {
       if (j && j.success) {
         DB.player.togetherListening = true;
         DB.listeningSession = (j.data && j.data.session) || DB.listeningSession;
-        toast('♥ 一起听'); aiLogActivity('music', '开启了「一起听」');
+        toast('♥ 一起听');
       } else {
         toast((j && j.error && j.error.message) || '开启失败', true);
       }
@@ -3591,7 +3594,7 @@ OS.chat.openFilePicker = function() {
   if (el) el.click();
 };
 OS.chat.pickDynamic = function() {
-  const acts = (DB.ai.activities || []).slice(0, 20);
+  const acts = (DB.ai.activities || []).filter(isAiActivity).slice(0, 20);
   if (!acts.length) { toast('暂无 AI 动态可引用', true); return; }
   drawer('<div class="sheet"><div class="sheet-grab"></div>' +
     '<div class="sheet-head"><div style="font-weight:700;font-size:16px">引用 AI 动态</div></div>' +
@@ -4331,7 +4334,6 @@ async function aiAddMemory(content, category, sourceType, sourceId, opts) {
   });
   if (!r.ok) { toast(r.message || '保存失败', true); return null; }
   await memRefresh();
-  aiLogActivity('memory', '记住了：' + String(content).trim());
   return (r.data && r.data.memory) || null;
 }
 async function memRefresh() {
@@ -4452,7 +4454,6 @@ function aiSetState(emotion, intensity, reason, triggerType, triggerEntityType, 
   (DB.ai.states || (DB.ai.states = [])).unshift(st);
   DB.ai.states = DB.ai.states.filter((s) => s.expiresAt > Date.now());
   saveDB();
-  aiLogActivity('state', st.emotion + ' · ' + aiIntensityText(st.intensity) + (st.reason ? '：' + st.reason : ''));
   return st;
 }
 function aiCurrentState() {
@@ -4496,6 +4497,21 @@ function aiTidyActivities() {
   DB.ai.activities = result;
 }
 function aiActivityIcon(type) { return { memory: '🧠', state: '💗', task: '✅', habit: '🌱', plan: '🎯', shopping: '🛒', music: '🎵', weather: '🌤', chat: '💬', journal: '📖' }[type] || '✨'; }
+// 只有「AI 自己写下的动态」才属于 AI Activity（结构化字段判断，绝不靠文字猜）。
+// 系统日志（actor=system）/ 用户内容（actor=user）/ 其他 entityType 一律不算。
+function isAiActivity(a) { return !!a && (a.entityType === 'activity' || a.actor === 'assistant'); }
+// Home「今天的祂」：AI 心情 + 最近 1-3 条 AI 动态（真实 AI Activity，绝不显示系统/用户内容）
+function todayHimHtml() {
+  const st = aiCurrentState();
+  const acts = (DB.ai.activities || []).filter(isAiActivity).slice(0, 3);
+  let html = '<div class="section-head" style="margin-top:22px"><h2>今天的祂</h2><button class="more" onclick="OS.go(\'/ai/activity\')">查看全部 ›</button></div>';
+  if (st) {
+    html += '<div class="card card-pad" style="margin-bottom:10px"><div class="row" style="gap:8px;align-items:center"><span style="font-size:16px">💗</span><div style="font-weight:700;font-size:14px">' + esc(st.emotion) + ' · ' + esc(aiIntensityText(st.intensity)) + '</div></div>' + (st.reason ? '<div class="muted" style="font-size:12.5px;margin-top:4px;line-height:1.6">' + esc(st.reason) + '</div>' : '') + '</div>';
+  }
+  if (acts.length === 0) html += '<div class="card card-pad" style="padding:16px"><div class="muted" style="font-size:13px">祂今天还没写下什么</div></div>';
+  else html += '<div class="card card-pad" style="padding:6px 8px">' + acts.map((a) => '<div class="conv-item" style="cursor:pointer" onclick="OS.go(\'/ai/activity\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:14px">' + aiActivityIcon(a.type) + ' ' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></div></div>').join('') + '</div>';
+  return html;
+}
 function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:18px">' + aiActivityIcon(a.type) + '</span><div class="grow"><div style="font-size:13.5px">' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></div><button class="mini-act" style="align-self:flex-start" onclick="OS.chat.quoteDynamic(\'' + a.id + '\')">↳ 回应</button></div></div>'; }
 
 /* ---- AI 通知引擎（非报错式） ---- */
@@ -5059,7 +5075,7 @@ function aiStateItemHtml(s) {
 }
 function viewAIActivity() {
   const states = DB.ai.states || [];
-  const acts = DB.ai.activities || [];
+  const acts = (DB.ai.activities || []).filter(isAiActivity);
   const cur = aiCurrentState();
   let html = '<div class="h1" style="margin-bottom:2px">最近的祂</div><div class="muted" style="margin-bottom:14px">AI 状态 · 祂此刻的感受</div>';
   if (cur) html += '<div class="card card-pad ai-companion" style="margin-bottom:16px"><div class="row" style="gap:10px;align-items:center"><div class="ai-heart">♥</div><div><div style="font-weight:800;font-size:16px">' + esc(cur.emotion) + ' · ' + esc(aiIntensityText(cur.intensity)) + '</div><div class="muted" style="font-size:12.5px">' + esc(cur.reason || '') + '</div></div></div></div>';
@@ -5291,7 +5307,7 @@ function aiOnEvent(ev) {
     if (ev.type === 'JOURNAL_CREATED') {
       if (!aiCan('journal')) return;
       const e = ev.payload || {};
-      aiLogActivity('journal', '写下日志：' + (e.content || '').slice(0, 24) + ((e.content || '').length > 24 ? '…' : ''));
+      // 用户写 Journal ≠ AI 写 Activity：绝不把用户日志写成「写下日志：…」动态（Journal→Activity 触发链已切断）
       aiConsiderMemory(e.content, '偏好', 'journal', ev.entityId);
       aiRespondAsync(ev);
       return;
@@ -5303,7 +5319,6 @@ function aiOnEvent(ev) {
       const t = currentTrack();
       if (t && (t.playCount || 0) >= 5 && !t.patternLogged) {
         t.patternLogged = true; saveDB();
-        aiLogActivity('music', '最近常听《' + (t.title || '') + '》' + (t.artist ? '（' + t.artist + '）' : ''));
       }
       return;
     }
@@ -5320,9 +5335,6 @@ function aiOnEvent(ev) {
       LOCATION_CHANGED: ['location', '定位到：', 'city'],
     };
     if (valuable[ev.type]) {
-      const [iconType, prefix, field] = valuable[ev.type];
-      const v = (ev.payload && ev.payload[field]) || '';
-      if (v) aiLogActivity(iconType, prefix + v);
       aiRespondAsync(ev);
       return;
     }

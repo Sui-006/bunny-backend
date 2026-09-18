@@ -378,12 +378,12 @@ test('create_ai_activity：缺 content 返回 FAILED 且不落库', async () => 
 
 // ------------------------------------------------------- 权限与领域检测
 
-test('activity 权限：可新增自己的动态，不可改写/删除历史', () => {
+test('activity 权限：AI 可新增/改写/删除自己的动态（CRUD）', () => {
   assert.equal(aiCan('activity', 'read'), true);
   assert.equal(aiCan('activity', 'create'), true);
-  assert.equal(aiCan('activity', 'write'), false);
-  assert.equal(aiCan('activity', 'delete'), false);
-  assert.equal(aiCan('activity', 'update'), false); // update 映射到 write
+  assert.equal(aiCan('activity', 'write'), true);
+  assert.equal(aiCan('activity', 'delete'), true);
+  assert.equal(aiCan('activity', 'update'), true); // update 映射到 write
 });
 
 test('「编辑一个 ai activity」能被领域检测命中，activity 在工具注入集合中', () => {

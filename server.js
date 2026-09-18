@@ -107,7 +107,8 @@ app.use((err, req, res, next) => {
   }
   // 不记录敏感信息（password/key/token 不出现在日志）
   const msg = String(err?.message || 'Internal Server Error').replace(/(password|api[_-]?key|authorization|token)[=:]\s*\S+/gi, '$1=***');
-  console.error('[error]', msg);
+  const cause = err?.cause ? String(err.cause?.message || err.cause).replace(/(password|api[_-]?key|authorization|token)[=:]\s*\S+/gi, '$1=***') : '';
+  console.error('[error]', `${req.method} ${req.originalUrl}`, msg, cause ? `cause: ${cause}` : '');
   res.status(err?.status || 500).json({ error: msg });
 });
 

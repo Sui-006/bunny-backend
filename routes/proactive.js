@@ -14,7 +14,7 @@ import { chat, normalizeProviderUsage, providerForModel } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { sendBark } from '../lib/bark.js';
 import { composeNotification, barkLevelFor } from '../lib/notify.js';
-import { getState } from '../lib/domain.js';
+import { getState, withDoc, appendAiActivity } from '../lib/domain.js';
 import { ensureOwner } from '../lib/auth.js';
 import { buildAIContext } from '../lib/context-builder.js';
 
@@ -181,6 +181,10 @@ router.get('/', async (req, res, next) => {
       },
     });
     await touchSession(sessionId);
+
+    // 主动消息属于 AI 自我表达 → 写入 AI Activity（actor=assistant / entityType=activity），
+    // 使「今天的祂」与统一 AI 上下文都能读到，主动说过的话不会从 AI 自己的世界里消失。
+    await withDoc(userId, (d) => appendAiActivity(d, { type: 'chat', text: content, source: 'proactive', reason }));
 
     // 记录本次主动消息时间 + 问候日期，防重复
     const patch = { proactive_last_at: now.toISOString() };

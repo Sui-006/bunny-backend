@@ -35,11 +35,11 @@ test('统计 / 会话历史 = 派生只读，不可写', () => {
   }
 });
 
-test('AI 动态：AI 可新增自己的动态（create），但不可改写/删除历史', () => {
+test('AI 动态：AI 可新增/改写/删除自己的动态（CRUD）', () => {
   assert.equal(aiCan('activity', 'read'), true);
   assert.equal(aiCan('activity', 'create'), true);
-  assert.equal(aiCan('activity', 'write'), false);
-  assert.equal(aiCan('activity', 'delete'), false);
+  assert.equal(aiCan('activity', 'write'), true);
+  assert.equal(aiCan('activity', 'delete'), true);
 });
 
 test('未知实体 / 未知动作默认拒绝（绝不默认放行）', () => {

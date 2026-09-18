@@ -12,7 +12,7 @@ import { McpSession, parseMcpServers } from '../lib/mcp.js';
 import { ensureOwner } from '../lib/auth.js';
 import { getState } from '../lib/domain.js';
 import { detectDomains, TOOL_DOMAIN_SET } from '../lib/aiContext.js';
-import { buildDomainTools } from '../lib/tools.js';
+import { buildDomainTools, AI_SELF_TOOL_NAMES } from '../lib/tools.js';
 import { buildAIContext } from '../lib/context-builder.js';
 import { maybeSummarize, invalidateSummary } from '../services/conversation-summary.js';
 import { attachments as attachmentsTable } from '../lib/store.js';
@@ -51,10 +51,10 @@ async function buildAssistEnv(sessionId, content, model = config.defaultModel) {
   const domain = buildDomainTools(userId, model, { sessionId });
   // 只有「可编辑领域」才注入编辑工具；只读域（life/journal/statistics/conversation）仅注入读块。
   const useDomain = domains.some((d) => TOOL_DOMAIN_SET.has(d));
-  // create_ai_activity 不依赖领域关键词：AI 可自主决定写一条动态（用户要求「AI 自己写数据」）。
-  // 无领域命中时仍注入该工具；命中领域时随完整领域工具集一起注入。
-  const activityTool = domain.tools.find((t) => t.name === 'create_ai_activity');
-  const tools = [...mcpTools, ...(useDomain ? domain.tools : (activityTool ? [activityTool] : []))];
+  // AI 自我工具（读时间 + AI 动态 CRUD）不依赖领域关键词，始终注入；命中领域时随完整领域工具集一起注入。
+  const selfSet = new Set(AI_SELF_TOOL_NAMES);
+  const selfTools = domain.tools.filter((t) => selfSet.has(t.name));
+  const tools = [...mcpTools, ...(useDomain ? domain.tools : selfTools)];
   const callTool = async (name, args) => {
     if (domain.names.includes(name)) return domain.callTool(name, args);
     if (mcp) return mcp.callTool(name, args);
