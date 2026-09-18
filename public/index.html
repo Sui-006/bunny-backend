@@ -60,7 +60,6 @@
       --dur: 0.18s;
       /* 全局字体缩放（小/标准/大/特大）：统一 typography scale，值由 applyTheme 按 DB.appearance.fontScale 设置 */
       --app-font-scale: 1;
-      --app-font-inverse: 1;
     }
     html[data-theme="dark"] {
       --bg: #0f141b;
@@ -78,9 +77,9 @@
       --accent-tint: #1c2733;
       --accent-line: #223040;
     }
-    html { font-size: 15px; zoom: var(--app-font-scale, 1); }
-    /* 图片 / 头像跟随字体反缩放，保持原尺寸不放大（字体放大只作用于文字，不作用图片/图标） */
-    img, .avatar { zoom: var(--app-font-inverse, 1); }
+    /* 根字号固定为 15px（不随字体档位缩放）；文字缩放由各 font-size 的 calc(* var(--app-font-scale)) 完成。
+       不再使用 zoom：zoom 会同时缩放布局，导致 iOS fixed/dvh/visualViewport 异常。 */
+    html { font-size: 15px; }
     body {
       font-family: 'BAUHS93', -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       background: var(--bg);
@@ -110,32 +109,32 @@
     }
     .sidebar.open { transform: translateX(0); }
     .logo {
-      font-size: 18px; font-weight: 700; letter-spacing: 1px; color: var(--accent);
+      font-size:calc(18px * var(--app-font-scale, 1)); font-weight: 700; letter-spacing: 1px; color: var(--accent);
       padding: 6px 12px 14px; display: flex; align-items: center; gap: 8px;
     }
     .logo .name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nav-new {
       display: flex; align-items: center; gap: 8px; width: 100%;
       background: var(--bg2); border: 1px solid var(--accent-line); border-radius: 14px;
-      padding: 11px 14px; font-size: 14px; color: var(--accent-strong); cursor: pointer;
+      padding: 11px 14px; font-size:calc(14px * var(--app-font-scale, 1)); color: var(--accent-strong); cursor: pointer;
       transition: background 0.15s; margin-bottom: 12px; text-align: left;
     }
     .nav-new:hover { background: var(--accent-tint); }
     .nav-section {
-      font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
+      font-size:calc(10.5px * var(--app-font-scale, 1)); letter-spacing: 1.5px; text-transform: uppercase;
       color: var(--text-faint); padding: 12px 12px 6px; font-weight: 700;
     }
     .nav-scroll { flex: 1; overflow-y: auto; }
     .nav-item {
       display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px;
-      font-size: 14px; color: var(--text-soft); cursor: pointer; transition: background 0.15s, color 0.15s;
+      font-size:calc(14px * var(--app-font-scale, 1)); color: var(--text-soft); cursor: pointer; transition: background 0.15s, color 0.15s;
       margin-bottom: 2px; border: none; background: none; width: 100%; text-align: left;
     }
     .nav-item:hover { background: var(--accent-tint); color: var(--text); }
     .nav-item.active { background: var(--accent-tint); color: var(--accent-strong); font-weight: 600; }
     .nav-item .ico { width: 20px; text-align: center; flex-shrink: 0; }
     .nav-item .lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .nav-item .badge { font-size: 11px; background: var(--accent); color: #fff; border-radius: 10px; padding: 1px 7px; }
+    .nav-item .badge { font-size:calc(11px * var(--app-font-scale, 1)); background: var(--accent); color: #fff; border-radius: 10px; padding: 1px 7px; }
     .nav-foot { border-top: 1px solid var(--accent-line); padding-top: 8px; }
 
     /* ============ Main / Topbar ============ */
@@ -148,13 +147,13 @@
       border-bottom: 1px solid var(--border);
     }
     html[data-theme="dark"] .topbar { background: rgba(18,25,34,0.55); }
-    .menu-btn { background: none; border: none; font-size: 22px; color: var(--accent); cursor: pointer; display: block; line-height: 1; }
-    .topbar-title { font-size: 17px; font-weight: 700; color: var(--accent-strong); }
-    .topbar-sub { font-size: 12px; color: var(--text-faint); }
+    .menu-btn { background: none; border: none; font-size:calc(22px * var(--app-font-scale, 1)); color: var(--accent); cursor: pointer; display: block; line-height: 1; }
+    .topbar-title { font-size:calc(17px * var(--app-font-scale, 1)); font-weight: 700; color: var(--accent-strong); }
+    .topbar-sub { font-size:calc(12px * var(--app-font-scale, 1)); color: var(--text-faint); }
     .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
     .icon-btn {
       width: 36px; height: 36px; border-radius: 12px; background: var(--card); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; font-size:calc(16px * var(--app-font-scale, 1));
       transition: background 0.15s, transform 0.1s; position: relative;
     }
     .icon-btn:hover { background: var(--accent-tint); }
@@ -173,7 +172,7 @@
     /* ============ FAB ============ */
     .fab {
       position: fixed; right: 22px; bottom: calc(24px + env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 50%;
-      background: var(--accent); color: #fff; font-size: 28px; border: none; cursor: pointer;
+      background: var(--accent); color: #fff; font-size:calc(28px * var(--app-font-scale, 1)); border: none; cursor: pointer;
       box-shadow: 0 8px 24px rgba(60,90,130,0.4); z-index: 60; display: flex; align-items: center; justify-content: center;
       transition: transform 0.15s, background 0.2s; line-height: 1;
     }
@@ -184,16 +183,16 @@
     .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); backdrop-filter: blur(6px); }
     .card-pad { padding: 18px 20px; }
     .section-head { display: flex; align-items: baseline; gap: 8px; margin: 26px 0 12px; }
-    .section-head h2 { font-size: 16px; font-weight: 700; color: var(--text); }
-    .section-head .hint { font-size: 12px; color: var(--text-faint); }
-    .section-head .more { margin-left: auto; font-size: 12px; color: var(--accent); cursor: pointer; background: none; border: none; }
+    .section-head h2 { font-size:calc(16px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text); }
+    .section-head .hint { font-size:calc(12px * var(--app-font-scale, 1)); color: var(--text-faint); }
+    .section-head .more { margin-left: auto; font-size:calc(12px * var(--app-font-scale, 1)); color: var(--accent); cursor: pointer; background: none; border: none; }
     .grid { display: grid; gap: 14px; }
     .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
     .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
     .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
-    .muted { color: var(--text-faint); font-size: 12px; }
-    .h2 { font-size: 22px; font-weight: 700; color: var(--text); }
-    .h1 { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
+    .muted { color: var(--text-faint); font-size:calc(12px * var(--app-font-scale, 1)); }
+    .h2 { font-size:calc(22px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text); }
+    .h1 { font-size:calc(26px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
     .row { display: flex; align-items: center; gap: 10px; }
     .spread { display: flex; align-items: center; justify-content: space-between; }
     .grow { flex: 1; min-width: 0; }
@@ -202,7 +201,7 @@
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       padding: 9px 16px; border-radius: 12px; border: 1px solid var(--border); cursor: pointer;
-      background: var(--card-solid); color: var(--text); font-size: 13.5px; transition: all 0.15s; white-space: nowrap;
+      background: var(--card-solid); color: var(--text); font-size:calc(13.5px * var(--app-font-scale, 1)); transition: all 0.15s; white-space: nowrap;
     }
     .btn:hover { background: var(--accent-tint); border-color: var(--accent-border); }
     .btn:active { transform: scale(0.97); }
@@ -211,23 +210,23 @@
     .btn-soft { background: var(--accent-tint); border-color: transparent; color: var(--accent-strong); }
     .btn-danger { background: #fbeaea; border-color: #f3cdcd; color: #c0392b; }
     .btn-danger:hover { background: #f6d8d8; }
-    .btn-sm { padding: 6px 11px; font-size: 12.5px; border-radius: 10px; }
+    .btn-sm { padding: 6px 11px; font-size:calc(12.5px * var(--app-font-scale, 1)); border-radius: 10px; }
     .btn-block { width: 100%; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* inputs */
     .input, .textarea, .select {
       width: 100%; padding: 10px 13px; border: 1px solid var(--border); border-radius: 12px;
-      background: var(--card-solid); font-size: 14px; color: var(--text); outline: none; transition: border 0.15s;
+      background: var(--card-solid); font-size:calc(14px * var(--app-font-scale, 1)); color: var(--text); outline: none; transition: border 0.15s;
     }
     .input:focus, .textarea:focus, .select:focus { border-color: var(--accent-border); }
     .textarea { resize: vertical; min-height: 60px; }
     .field { margin-bottom: 14px; }
-    .field label { display: block; font-size: 12.5px; color: var(--text-soft); margin-bottom: 5px; font-weight: 600; }
+    .field label { display: block; font-size:calc(12.5px * var(--app-font-scale, 1)); color: var(--text-soft); margin-bottom: 5px; font-weight: 600; }
     .field .row.gap2 { gap: 8px; }
     .search-box { position: relative; }
     .search-box input { padding-left: 38px; }
-    .search-box .sico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 15px; }
+    .search-box .sico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size:calc(15px * var(--app-font-scale, 1)); }
 
     /* progress */
     .progress { height: 7px; background: var(--accent-tint); border-radius: 10px; overflow: hidden; }
@@ -238,32 +237,32 @@
     .ring .fg { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
 
     /* chips / tags */
-    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; background: var(--accent-tint); color: var(--accent-strong); border: 1px solid var(--accent-line); }
-    .tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 8px; font-size: 11px; background: var(--accent-tint); color: var(--accent-strong); margin: 1px; }
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size:calc(11.5px * var(--app-font-scale, 1)); background: var(--accent-tint); color: var(--accent-strong); border: 1px solid var(--accent-line); }
+    .tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 8px; font-size:calc(11px * var(--app-font-scale, 1)); background: var(--accent-tint); color: var(--accent-strong); margin: 1px; }
 
     /* checkbox */
     .chk { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent-border); cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; background: var(--card-solid); }
     .chk:hover { border-color: var(--accent); }
     .chk.on { background: var(--accent); border-color: var(--accent); }
-    .chk.on::after { content: '✓'; color: #fff; font-size: 12px; font-weight: 700; }
+    .chk.on::after { content: '✓'; color: #fff; font-size:calc(12px * var(--app-font-scale, 1)); font-weight: 700; }
     .chk.sm { width: 17px; height: 17px; border-width: 1.5px; }
-    .chk.sm::after { font-size: 10px; }
+    .chk.sm::after { font-size:calc(10px * var(--app-font-scale, 1)); }
 
     /* task row */
     .task-row { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-radius: 14px; cursor: pointer; transition: background 0.15s; border: 1px solid transparent; }
     .task-row:hover { background: var(--accent-tint); border-color: var(--accent-line); }
-    .task-row .t-title { flex: 1; font-size: 14px; color: var(--text); word-break: break-word; transition: opacity 0.2s; }
+    .task-row .t-title { flex: 1; font-size:calc(14px * var(--app-font-scale, 1)); color: var(--text); word-break: break-word; transition: opacity 0.2s; }
     .task-row.done .t-title { text-decoration: line-through; opacity: 0.45; }
     .task-row .t-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 2px; }
     .prio { width: 4px; height: 18px; border-radius: 4px; flex-shrink: 0; }
     .prio.high { background: #ef5350; } .prio.med { background: #f59e0b; } .prio.low { background: #38bdf8; } .prio.none { background: transparent; }
-    .drag-hint { opacity: 0.5; cursor: grab; font-size: 13px; }
+    .drag-hint { opacity: 0.5; cursor: grab; font-size:calc(13px * var(--app-font-scale, 1)); }
 
     /* empty */
     .empty { text-align: center; padding: 46px 20px; color: var(--text-faint); }
-    .empty .eico { font-size: 44px; margin-bottom: 10px; opacity: 0.6; }
-    .empty .etitle { font-size: 15px; color: var(--text-soft); font-weight: 600; margin-bottom: 4px; }
-    .empty .esub { font-size: 12.5px; }
+    .empty .eico { font-size:calc(44px * var(--app-font-scale, 1)); margin-bottom: 10px; opacity: 0.6; }
+    .empty .etitle { font-size:calc(15px * var(--app-font-scale, 1)); color: var(--text-soft); font-weight: 600; margin-bottom: 4px; }
+    .empty .esub { font-size:calc(12.5px * var(--app-font-scale, 1)); }
 
     /* ============ Modal / drawer / toast / menu ============ */
     .overlay { position: fixed; inset: 0; background: rgba(12,20,30,0.42); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 18px; animation: fadeIn 0.18s ease; backdrop-filter: blur(3px); }
@@ -271,8 +270,8 @@
     .modal { background: var(--card-solid); border-radius: var(--radius-lg); width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: popIn 0.2s ease; border: 1px solid var(--border); }
     @keyframes popIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: none; } }
     .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 12px; }
-    .modal-head h3 { font-size: 16px; color: var(--text); }
-    .modal-head .x { background: none; border: none; font-size: 22px; color: var(--text-faint); cursor: pointer; }
+    .modal-head h3 { font-size:calc(16px * var(--app-font-scale, 1)); color: var(--text); }
+    .modal-head .x { background: none; border: none; font-size:calc(22px * var(--app-font-scale, 1)); color: var(--text-faint); cursor: pointer; }
     .modal-body { padding: 4px 20px 20px; }
     .modal-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 4px 20px 20px; }
     .drawer { position: fixed; z-index: 210; background: var(--card-solid); box-shadow: var(--shadow-md); animation: slideUp 0.25s ease; }
@@ -282,81 +281,81 @@
     @keyframes slideRight { from { transform: translateX(100%); } to { transform: none; } }
     .drawer.right { animation-name: slideRight; }
     .sheet { background: var(--card-solid); border-radius: 24px 24px 0 0; width: 100%; max-width: 460px; padding: 12px 14px 24px; animation: slideUp 0.25s ease; box-shadow: var(--shadow-md); }
-    .sheet-item { display: flex; align-items: center; gap: 14px; padding: 15px 12px; border-radius: 14px; cursor: pointer; font-size: 15px; color: var(--text); border: none; background: none; width: 100%; text-align: left; }
+    .sheet-item { display: flex; align-items: center; gap: 14px; padding: 15px 12px; border-radius: 14px; cursor: pointer; font-size:calc(15px * var(--app-font-scale, 1)); color: var(--text); border: none; background: none; width: 100%; text-align: left; }
     .sheet-item:hover { background: var(--accent-tint); }
-    .sheet-item .ico { width: 26px; text-align: center; font-size: 19px; }
+    .sheet-item .ico { width: 26px; text-align: center; font-size:calc(19px * var(--app-font-scale, 1)); }
     .sheet-grab { width: 40px; height: 4px; border-radius: 4px; background: var(--border-strong); margin: 4px auto 10px; }
     .sheet-head { margin-bottom: 12px; }
     #toastRoot { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-    .toast { background: var(--card-solid); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 14px; font-size: 13.5px; box-shadow: var(--shadow-md); animation: toastIn 0.25s ease; display: flex; align-items: center; gap: 8px; }
+    .toast { background: var(--card-solid); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 14px; font-size:calc(13.5px * var(--app-font-scale, 1)); box-shadow: var(--shadow-md); animation: toastIn 0.25s ease; display: flex; align-items: center; gap: 8px; }
     @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
     .toast.out { opacity: 0; transform: translateY(-8px); transition: 0.25s; }
     #menuRoot { position: fixed; z-index: 400; }
     .menu { position: fixed; background: var(--card-solid); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-md); padding: 5px; min-width: 150px; animation: popIn 0.14s ease; }
-    .menu button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-size: 13.5px; color: var(--text); cursor: pointer; }
+    .menu button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-size:calc(13.5px * var(--app-font-scale, 1)); color: var(--text); cursor: pointer; }
     .menu button:hover { background: var(--accent-tint); }
     .menu button.danger { color: #c0392b; }
     .menu button.danger:hover { background: #fbeaea; }
-    .menu-header { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted, #94a3b8); padding: 8px 12px 4px; }
+    .menu-header { font-size:calc(11px * var(--app-font-scale, 1)); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted, #94a3b8); padding: 8px 12px 4px; }
 
     /* color swatches */
     .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
     .sw { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.12s; }
     .sw:hover { transform: scale(1.12); }
     .sw.sel { border-color: var(--text); box-shadow: 0 0 0 3px var(--accent-tint); }
-    .sw-custom { width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--border-strong); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 15px; position: relative; overflow: hidden; }
+    .sw-custom { width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--border-strong); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size:calc(15px * var(--app-font-scale, 1)); position: relative; overflow: hidden; }
     .sw-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
     /* ============ Calendar ============ */
     .cal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-    .cal-title { font-size: 20px; font-weight: 700; color: var(--text); }
+    .cal-title { font-size:calc(20px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text); }
     .cal-nav { display: flex; gap: 6px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-    .cal-dow { text-align: center; font-size: 11px; color: var(--text-faint); font-weight: 700; padding: 6px 0; letter-spacing: 0.5px; }
+    .cal-dow { text-align: center; font-size:calc(11px * var(--app-font-scale, 1)); color: var(--text-faint); font-weight: 700; padding: 6px 0; letter-spacing: 0.5px; }
     .cal-cell { min-height: 88px; border: 1px solid var(--border); border-radius: 14px; padding: 6px; cursor: pointer; transition: all 0.15s; background: var(--card); position: relative; overflow: hidden; }
     .cal-cell:hover { border-color: var(--accent-border); }
     .cal-cell.other { opacity: 0.35; }
     .cal-cell.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-    .cal-cell .dnum { font-size: 13px; font-weight: 700; color: var(--text-soft); margin-bottom: 4px; }
+    .cal-cell .dnum { font-size:calc(13px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text-soft); margin-bottom: 4px; }
     .cal-cell.today .dnum { color: var(--accent); }
-    .cal-dot { font-size: 10.5px; line-height: 1.5; padding: 1px 5px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px; }
-    .cal-more { font-size: 10px; color: var(--text-faint); }
+    .cal-dot { font-size:calc(10.5px * var(--app-font-scale, 1)); line-height: 1.5; padding: 1px 5px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px; }
+    .cal-more { font-size:calc(10px * var(--app-font-scale, 1)); color: var(--text-faint); }
     .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
     .week-col { border: 1px solid var(--border); border-radius: 14px; min-height: 180px; padding: 8px; background: var(--card); }
     .week-col.today { border-color: var(--accent); }
-    .week-col-head { font-size: 12px; font-weight: 700; color: var(--text-soft); text-align: center; margin-bottom: 6px; }
+    .week-col-head { font-size:calc(12px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text-soft); text-align: center; margin-bottom: 6px; }
     .week-col.today .week-col-head { color: var(--accent); }
-    .week-col .dnum { text-align: center; font-size: 11px; color: var(--text-faint); margin-bottom: 6px; }
+    .week-col .dnum { text-align: center; font-size:calc(11px * var(--app-font-scale, 1)); color: var(--text-faint); margin-bottom: 6px; }
 
     /* ============ Habit / Health / Stat ============ */
     .habit-card { display: flex; align-items: center; gap: 12px; padding: 15px; }
-    .habit-ico { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; }
-    .habit-streak { font-size: 12px; color: #f59e0b; font-weight: 600; }
+    .habit-ico { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size:calc(21px * var(--app-font-scale, 1)); flex-shrink: 0; }
+    .habit-streak { font-size:calc(12px * var(--app-font-scale, 1)); color: #f59e0b; font-weight: 600; }
     .stat-card { padding: 16px; }
-    .stat-card .v { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
-    .stat-card .u { font-size: 13px; color: var(--text-faint); }
-    .stat-card .l { font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
+    .stat-card .v { font-size:calc(26px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
+    .stat-card .u { font-size:calc(13px * var(--app-font-scale, 1)); color: var(--text-faint); }
+    .stat-card .l { font-size:calc(12px * var(--app-font-scale, 1)); color: var(--text-soft); margin-bottom: 4px; }
     .chart-wrap { padding: 12px; }
     .seg { display: inline-flex; background: var(--accent-tint); border-radius: 12px; padding: 3px; gap: 2px; }
-    .seg button { border: none; background: none; padding: 6px 13px; border-radius: 9px; font-size: 12.5px; color: var(--text-soft); cursor: pointer; }
+    .seg button { border: none; background: none; padding: 6px 13px; border-radius: 9px; font-size:calc(12.5px * var(--app-font-scale, 1)); color: var(--text-soft); cursor: pointer; }
     .seg button.on { background: var(--card-solid); color: var(--accent-strong); font-weight: 600; box-shadow: var(--shadow); }
 
     /* ============ Messages / Chat ============ */
     .conv-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; cursor: pointer; transition: background 0.15s; }
     .conv-item:hover { background: var(--accent-tint); }
-    .conv-item .c-last { font-size: 12.5px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .conv-item .c-time { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
-    .unread { min-width: 18px; height: 18px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+    .conv-item .c-last { font-size:calc(12.5px * var(--app-font-scale, 1)); color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .conv-item .c-time { font-size:calc(11px * var(--app-font-scale, 1)); color: var(--text-faint); flex-shrink: 0; }
+    .unread { min-width: 18px; height: 18px; border-radius: 10px; background: var(--accent); color: #fff; font-size:calc(11px * var(--app-font-scale, 1)); display: flex; align-items: center; justify-content: center; padding: 0 5px; }
     /* 消息主列：meta 名/时间 → 引用/附件 → 气泡 → Token。左（AI）/右（用户）由 .mine 统一控制。 */
     .chat-msg-main { display: flex; flex-direction: column; max-width: 86%; min-width: 0; align-items: flex-start; }
     .chat-msg-main.mine { align-items: flex-end; }
-    .chat-meta { font-size: 10px; color: var(--text-faint); margin-bottom: 2px; line-height: 1.3; }
-    .chat-tokenline { font-size: 10.5px; color: var(--text-faint); margin-top: 3px; line-height: 1.3; user-select: none; }
+    .chat-meta { font-size:calc(10px * var(--app-font-scale, 1)); color: var(--text-faint); margin-bottom: 2px; line-height: 1.3; }
+    .chat-tokenline { font-size:calc(10.5px * var(--app-font-scale, 1)); color: var(--text-faint); margin-top: 3px; line-height: 1.3; user-select: none; }
     /* 气泡：shrink-wrap 到内容，短消息也有自然尺寸；min-width/min-height 避免「好/嗯」变成一小块；长消息自然换行，绝不撑破 */
     .bubble {
       display: inline-block; width: fit-content;
       max-width: 100%; min-width: 48px; min-height: 36px;
-      padding: 11px 15px; border-radius: 18px; font-size: 14px; line-height: 1.6;
+      padding: 11px 15px; border-radius: 18px; font-size:calc(14px * var(--app-font-scale, 1)); line-height: 1.6;
       word-break: break-word; overflow-wrap: anywhere; text-align: left;
     }
     .bubble.in { background: var(--card-solid); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
@@ -370,12 +369,12 @@
     .think-box {
       margin: -2px 0 8px; padding: 8px 10px; border-radius: 10px;
       background: rgba(0,0,0,0.04); border-left: 3px solid var(--accent-border);
-      font-size: 12.5px; color: var(--text-soft); cursor: pointer; line-height: 1.55;
+      font-size:calc(12.5px * var(--app-font-scale, 1)); color: var(--text-soft); cursor: pointer; line-height: 1.55;
     }
     html[data-theme="dark"] .think-box { background: rgba(255,255,255,0.05); }
-    .think-box .think-head { font-weight: 600; font-size: 12px; color: var(--text-faint); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+    .think-box .think-head { font-weight: 600; font-size:calc(12px * var(--app-font-scale, 1)); color: var(--text-faint); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
     .think-box .think-summary { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; overflow-wrap: anywhere; }
-    .think-box .think-more { font-size: 11.5px; color: var(--accent-strong); margin-top: 3px; }
+    .think-box .think-more { font-size:calc(11.5px * var(--app-font-scale, 1)); color: var(--accent-strong); margin-top: 3px; }
     /* 思考底部 Sheet：约 55% 高度、内部独立滚动、下拉关闭、遮罩关闭、不推挤 Chat 页面 */
     .thinking-overlay { align-items: flex-end; padding: 0; }
     .thinking-sheet {
@@ -385,14 +384,14 @@
       padding: 12px 16px calc(18px + env(safe-area-inset-bottom));
       animation: slideUp 0.25s ease; box-shadow: var(--shadow-md); position: relative;
     }
-    .thinking-sheet-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; margin-bottom: 10px; flex-shrink: 0; }
-    .thinking-sheet-head .x { background: none; border: none; font-size: 20px; color: var(--text-faint); cursor: pointer; line-height: 1; }
-    .thinking-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 13.5px; line-height: 1.7; color: var(--text-soft); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
-    .chat-input-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px calc(var(--chat-safe-bottom, env(safe-area-inset-bottom)) * var(--app-font-inverse, 1)); border-top: 1px solid var(--border); }
-    .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; line-height: 1.5; outline: none; max-height: 132px; min-height: 46px; background: var(--card-solid); overflow-y: auto; }
+    .thinking-sheet-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size:calc(15px * var(--app-font-scale, 1)); margin-bottom: 10px; flex-shrink: 0; }
+    .thinking-sheet-head .x { background: none; border: none; font-size:calc(20px * var(--app-font-scale, 1)); color: var(--text-faint); cursor: pointer; line-height: 1; }
+    .thinking-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size:calc(13.5px * var(--app-font-scale, 1)); line-height: 1.7; color: var(--text-soft); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+    .chat-input-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px calc(var(--chat-safe-bottom, env(safe-area-inset-bottom))); border-top: 1px solid var(--border); }
+    .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size:calc(14px * var(--app-font-scale, 1)); line-height: 1.5; outline: none; max-height: 132px; min-height: 46px; background: var(--card-solid); overflow-y: auto; }
     .chat-input:focus { border-color: var(--accent-border); }
     /* composer 按钮：+ / 发送 / 停止 不重叠，等宽圆角 */
-    .composer-btn { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--card-solid); cursor: pointer; font-size: 18px; color: var(--accent-strong); transition: background 0.15s, transform 0.1s; }
+    .composer-btn { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--card-solid); cursor: pointer; font-size:calc(18px * var(--app-font-scale, 1)); color: var(--accent-strong); transition: background 0.15s, transform 0.1s; }
     .composer-btn:hover { background: var(--accent-tint); }
     .composer-btn:active { transform: scale(0.94); }
     .composer-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -401,7 +400,7 @@
     .composer-btn.stop { background: #fbeaea; border-color: #f3cdcd; color: #c0392b; }
     .composer-btn.stop:hover { background: #f6d8d8; }
     /* 回到底部 */
-    .chat-scroll-top { position: absolute; bottom: 16px; right: 18px; width: 40px; height: 40px; border-radius: 50%; background: var(--card-solid); border: 1px solid var(--border); box-shadow: var(--shadow-md); color: var(--accent-strong); font-size: 18px; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 5; }
+    .chat-scroll-top { position: absolute; bottom: 16px; right: 18px; width: 40px; height: 40px; border-radius: 50%; background: var(--card-solid); border: 1px solid var(--border); box-shadow: var(--shadow-md); color: var(--accent-strong); font-size:calc(18px * var(--app-font-scale, 1)); cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 5; }
     .chat-scroll-top.show { display: flex; }
     /* 空状态建议 chips */
     .chat-suggest { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
@@ -412,9 +411,9 @@
     .chat-msg-row { position: relative; }
     .chat-actions { display: flex; gap: 2px; margin-top: 4px; opacity: 0; transition: opacity 0.15s; }
     .chat-msg-row:hover .chat-actions, .chat-msg-row:active .chat-actions { opacity: 1; }
-    .chat-actions .mini-act { border: none; background: none; color: var(--text-faint); font-size: 11px; padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+    .chat-actions .mini-act { border: none; background: none; color: var(--text-faint); font-size:calc(11px * var(--app-font-scale, 1)); padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
     .chat-actions .mini-act:hover { color: var(--accent-strong); background: var(--accent-tint); }
-    .mini-act { border: none; background: none; color: var(--text-faint); font-size: 11px; padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .mini-act { border: none; background: none; color: var(--text-faint); font-size:calc(11px * var(--app-font-scale, 1)); padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
     .mini-act:hover { color: var(--accent-strong); background: var(--accent-tint); }
 
     /* AI 后台写入成功的系统提示（时间线事件，非聊天气泡）：居中、浅灰、半透明、轻量 */
@@ -423,7 +422,7 @@
       margin: 4px auto;
       padding: 5px 13px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size:calc(12px * var(--app-font-scale, 1));
       line-height: 1.5;
       text-align: center;
       color: var(--text-faint);
@@ -434,13 +433,13 @@
     }
 
     /* 引用 AI 动态（进入对话时显示在输入框上方） */
-    .quote-card { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; margin: 0 14px 8px; border: 1px solid var(--accent-line); border-left: 3px solid #f472b6; border-radius: 12px; background: var(--accent-tint); font-size: 12.5px; color: var(--text-soft); }
+    .quote-card { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; margin: 0 14px 8px; border: 1px solid var(--accent-line); border-left: 3px solid #f472b6; border-radius: 12px; background: var(--accent-tint); font-size:calc(12.5px * var(--app-font-scale, 1)); color: var(--text-soft); }
     .quote-card .q-body { flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
-    .quote-card .q-x { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 15px; line-height: 1; padding: 2px; }
+    .quote-card .q-x { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size:calc(15px * var(--app-font-scale, 1)); line-height: 1; padding: 2px; }
 
     /* 聊天背景（用户可设默认 / 纯色 / 图片） */
     /* ChatRoot：fixed 锚定布局视口，用 top/bottom:0（inset 拉伸）撑满视口，不写 height。
-       inset 锚定的是视口边缘（0 不受 html{zoom} 放大影响），任意字体档位都正好铺满可视区，
+       inset 锚定的是视口边缘，任意字体档位都正好铺满可视区（字体档位只缩放文字、不缩放布局），
        彻底消除「大字体底部留白 / 小字体向下溢出」的根源。键盘弹出时由 JS 抬高 bottom 边。 */
     .chat-stage { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
     .chat-stage .chat-bg { position: absolute; inset: 0; background-size: cover; background-position: center; z-index: 0; }
@@ -457,11 +456,11 @@
 
     /* 会话列表（侧栏式，⋮ 菜单） */
     .session-list { display: flex; flex-direction: column; gap: 2px; }
-    .session-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; cursor: pointer; color: var(--text-soft); font-size: 13.5px; border: none; background: none; width: 100%; text-align: left; }
+    .session-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; cursor: pointer; color: var(--text-soft); font-size:calc(13.5px * var(--app-font-scale, 1)); border: none; background: none; width: 100%; text-align: left; }
     .session-item:hover { background: var(--accent-tint); color: var(--text); }
     .session-item.active { background: var(--accent-tint); color: var(--accent-strong); font-weight: 600; }
     .session-item .s-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .session-item .s-menu { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 15px; padding: 2px 5px; border-radius: 8px; flex-shrink: 0; }
+    .session-item .s-menu { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size:calc(15px * var(--app-font-scale, 1)); padding: 2px 5px; border-radius: 8px; flex-shrink: 0; }
     .session-item .s-menu:hover { color: var(--accent-strong); background: var(--accent-tint); }
 
     /* 会话列表（overlay drawer，绝不挤压气泡宽度） */
@@ -478,7 +477,7 @@
     .chat-scrim.show { opacity: 1; pointer-events: auto; }
 
     /* 播放器底部抽屉 */
-    .player-sheet-cover { width: 120px; height: 120px; border-radius: 16px; background-size: cover; background-position: center; box-shadow: 0 12px 30px rgba(0,0,0,0.25); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 44px; color: rgba(255,255,255,0.9); }
+    .player-sheet-cover { width: 120px; height: 120px; border-radius: 16px; background-size: cover; background-position: center; box-shadow: 0 12px 30px rgba(0,0,0,0.25); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size:calc(44px * var(--app-font-scale, 1)); color: rgba(255,255,255,0.9); }
     .player-sheet-list { max-height: 220px; overflow-y: auto; }
 
     /* ============ Player ============ */
@@ -487,8 +486,8 @@
     .album.playing::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 55%, rgba(0,0,0,0.18)); }
     .album .disc { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: #111; left: 50%; top: 50%; transform: translate(-50%,-50%); }
     .player-controls { display: flex; align-items: center; gap: 22px; }
-    .pctrl { background: none; border: none; font-size: 26px; cursor: pointer; color: var(--text); }
-    .pctrl.play { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+    .pctrl { background: none; border: none; font-size:calc(26px * var(--app-font-scale, 1)); cursor: pointer; color: var(--text); }
+    .pctrl.play { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: #fff; font-size:calc(26px * var(--app-font-scale, 1)); display: flex; align-items: center; justify-content: center; }
     .seek { width: 100%; height: 5px; border-radius: 5px; background: var(--accent-tint); cursor: pointer; position: relative; }
     .seek > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--accent); }
     .seek-knob { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); top: 50%; transform: translate(-50%,-50%); }
@@ -502,20 +501,20 @@
     /* ============ Notes ============ */
     .note-card { padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; height: 100%; transition: transform 0.15s, box-shadow 0.15s; }
     .note-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-    .note-title { font-size: 15px; font-weight: 700; color: var(--text); }
-    .note-body { font-size: 13px; color: var(--text-soft); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+    .note-title { font-size:calc(15px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text); }
+    .note-body { font-size:calc(13px * var(--app-font-scale, 1)); color: var(--text-soft); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
 
     /* splash */
     .splash { position: fixed; inset: 0; background: var(--bg2); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; transition: opacity 0.6s ease; }
     .splash.fade-out { opacity: 0; pointer-events: none; }
-    .splash-title { font-size: 40px; font-weight: 700; letter-spacing: 8px; color: var(--accent); opacity: 0; animation: welcomeIn 1s ease forwards; }
-    .splash-sub { margin-top: 8px; font-size: 14px; color: var(--accent-strong); opacity: 0; animation: welcomeIn 1s ease 0.4s forwards; }
+    .splash-title { font-size:calc(40px * var(--app-font-scale, 1)); font-weight: 700; letter-spacing: 8px; color: var(--accent); opacity: 0; animation: welcomeIn 1s ease forwards; }
+    .splash-sub { margin-top: 8px; font-size:calc(14px * var(--app-font-scale, 1)); color: var(--accent-strong); opacity: 0; animation: welcomeIn 1s ease 0.4s forwards; }
     @keyframes welcomeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
     /* markdown in bubbles */
     .md h1,.md h2,.md h3,.md h4,.md h5,.md h6 { margin: 8px 0 4px; font-weight: 600; line-height: 1.3; }
-    .md h1 { font-size: 18px; } .md h2 { font-size: 17px; } .md h3 { font-size: 16px; } .md h4,.md h5,.md h6 { font-size: 15px; }
-    .md code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+    .md h1 { font-size:calc(18px * var(--app-font-scale, 1)); } .md h2 { font-size:calc(17px * var(--app-font-scale, 1)); } .md h3 { font-size:calc(16px * var(--app-font-scale, 1)); } .md h4,.md h5,.md h6 { font-size:calc(15px * var(--app-font-scale, 1)); }
+    .md code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, Consolas, monospace; font-size:calc(13px * var(--app-font-scale, 1)); }
     html[data-theme="dark"] .md code { background: rgba(255,255,255,0.1); }
     .md pre { background: rgba(0,0,0,0.05); padding: 10px 12px; border-radius: 10px; overflow-x: auto; margin: 6px 0; white-space: pre-wrap; }
     html[data-theme="dark"] .md pre { background: rgba(255,255,255,0.06); }
@@ -526,53 +525,53 @@
     .md hr { border: none; border-top: 1px solid var(--accent-line); margin: 8px 0; }
 
     /* ============ 我的AI (Companion) ============ */
-    .ai-heart { display: inline-flex; align-items: center; justify-content: center; color: #f472b6; font-size: 26px; animation: aiBreath 3.2s ease-in-out infinite; transform-origin: center; }
+    .ai-heart { display: inline-flex; align-items: center; justify-content: center; color: #f472b6; font-size:calc(26px * var(--app-font-scale, 1)); animation: aiBreath 3.2s ease-in-out infinite; transform-origin: center; }
     @keyframes aiBreath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
     .ai-heart.thinking { animation: aiPulse 1s ease-in-out infinite; }
     @keyframes aiPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
     .ai-heart.responding { filter: drop-shadow(0 0 8px rgba(244,114,182,0.7)); }
     .ai-companion { background: linear-gradient(135deg, var(--accent-tint), #fdf2f8); border: 1px solid var(--accent-line); }
     html[data-theme="dark"] .ai-companion { background: linear-gradient(135deg, #1c2733, #241d28); }
-    .ai-companion .status { font-size: 13.5px; color: var(--text-soft); line-height: 1.6; }
-    .ai-state-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: #fdf2f8; color: #db2777; border: 1px solid #f9d8e6; font-size: 12.5px; white-space: nowrap; }
+    .ai-companion .status { font-size:calc(13.5px * var(--app-font-scale, 1)); color: var(--text-soft); line-height: 1.6; }
+    .ai-state-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: #fdf2f8; color: #db2777; border: 1px solid #f9d8e6; font-size:calc(12.5px * var(--app-font-scale, 1)); white-space: nowrap; }
     html[data-theme="dark"] .ai-state-pill { background: #2a1f2a; border-color: #5b3a52; color: #f9a8d4; }
     .ai-mem-item, .ai-act-item, .ai-state-item { padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; background: var(--card); }
-    .ai-state-item .emotion { font-size: 15px; font-weight: 700; }
+    .ai-state-item .emotion { font-size:calc(15px * var(--app-font-scale, 1)); font-weight: 700; }
     .intensity-dots { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
     .intensity-dots i { width: 6px; height: 6px; border-radius: 50%; background: #f472b6; opacity: .25; }
     .intensity-dots i.on { opacity: 1; }
     .shop-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--border); }
     .shop-item:last-child { border-bottom: none; }
-    .shop-cat { font-size: 10.5px; padding: 1px 7px; border-radius: 8px; background: var(--accent-tint); color: var(--accent-strong); }
-    .together-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; background: #fdf2f8; color: #db2777; border: 1px solid #f9d8e6; font-size: 12px; }
+    .shop-cat { font-size:calc(10.5px * var(--app-font-scale, 1)); padding: 1px 7px; border-radius: 8px; background: var(--accent-tint); color: var(--accent-strong); }
+    .together-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; background: #fdf2f8; color: #db2777; border: 1px solid #f9d8e6; font-size:calc(12px * var(--app-font-scale, 1)); }
     html[data-theme="dark"] .together-badge { background: #2a1f2a; color: #f9a8d4; border-color: #5b3a52; }
     .ai-notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--accent-tint); border: 1px solid var(--accent-line); margin-bottom: 10px; }
     .ai-notice .body { flex: 1; }
     .ai-notice .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     .ai-nav-group { border-left: 3px solid #f472b6; margin: 8px 0 4px; }
-    .ai-nav-group .ai-nav-title { display: flex; align-items: center; gap: 6px; color: #db2777; font-size: 11px; letter-spacing: 1px; font-weight: 700; padding: 4px 12px 2px; }
+    .ai-nav-group .ai-nav-title { display: flex; align-items: center; gap: 6px; color: #db2777; font-size:calc(11px * var(--app-font-scale, 1)); letter-spacing: 1px; font-weight: 700; padding: 4px 12px 2px; }
     html[data-theme="dark"] .ai-nav-group .ai-nav-title { color: #f9a8d4; }
 
     /* ============ 我的日志 (Journal) ============ */
     .journal { max-width: 720px; }
     .journal-hero { text-align: center; padding: 10px 0 22px; }
-    .journal-hero .j-sub { font-size: 13px; color: var(--text-faint); margin-top: 6px; letter-spacing: 1px; }
+    .journal-hero .j-sub { font-size:calc(13px * var(--app-font-scale, 1)); color: var(--text-faint); margin-top: 6px; letter-spacing: 1px; }
     .journal-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
     .journal-toolbar .seg { flex-shrink: 0; }
     .journal-mood-box { width: 64px; height: 64px; border-radius: 18px; border: 2px dashed var(--border-strong); background: var(--accent-bg); display: flex; align-items: center; justify-content: center; overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s; }
     .journal-mood-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
-    .journal-mood-box input { width: 100%; height: 100%; background: transparent; border: none; text-align: center; font-size: 28px; outline: none; color: var(--text); padding: 0; }
-    .journal-mood-box input::placeholder { font-size: 20px; color: var(--text-faint); }
+    .journal-mood-box input { width: 100%; height: 100%; background: transparent; border: none; text-align: center; font-size:calc(28px * var(--app-font-scale, 1)); outline: none; color: var(--text); padding: 0; }
+    .journal-mood-box input::placeholder { font-size:calc(20px * var(--app-font-scale, 1)); color: var(--text-faint); }
     .journal-date-head { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; }
-    .journal-date-head .j-day { font-size: 16px; font-weight: 700; color: var(--text); flex-shrink: 0; }
-    .journal-date-head .j-sub { font-size: 12px; color: var(--text-faint); flex-shrink: 0; }
+    .journal-date-head .j-day { font-size:calc(16px * var(--app-font-scale, 1)); font-weight: 700; color: var(--text); flex-shrink: 0; }
+    .journal-date-head .j-sub { font-size:calc(12px * var(--app-font-scale, 1)); color: var(--text-faint); flex-shrink: 0; }
     .journal-date-head .j-line { flex: 1; height: 1px; background: var(--accent-line); }
     .journal-entry { padding: 16px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); margin-bottom: 12px; }
     .journal-entry .j-top { display: flex; align-items: center; gap: 8px; }
-    .journal-entry .j-time { font-size: 12px; color: var(--text-faint); font-family: ui-monospace, Consolas, monospace; }
-    .journal-entry .j-symbol { font-size: 22px; line-height: 1; }
-    .journal-entry .j-content { font-size: 14.5px; color: var(--text); line-height: 1.75; margin-top: 9px; white-space: pre-wrap; word-break: break-word; }
-    .journal-entry .j-mood { font-size: 12.5px; color: var(--text-soft); margin-top: 9px; }
+    .journal-entry .j-time { font-size:calc(12px * var(--app-font-scale, 1)); color: var(--text-faint); font-family: ui-monospace, Consolas, monospace; }
+    .journal-entry .j-symbol { font-size:calc(22px * var(--app-font-scale, 1)); line-height: 1; }
+    .journal-entry .j-content { font-size:calc(14.5px * var(--app-font-scale, 1)); color: var(--text); line-height: 1.75; margin-top: 9px; white-space: pre-wrap; word-break: break-word; }
+    .journal-entry .j-mood { font-size:calc(12.5px * var(--app-font-scale, 1)); color: var(--text-soft); margin-top: 9px; }
     .journal-entry .j-tags { margin-top: 9px; display: flex; gap: 4px; flex-wrap: wrap; }
     .journal-entry .j-actions { display: flex; gap: 4px; margin-left: auto; }
 
@@ -586,20 +585,20 @@
       .cal-dot { display: none; }
     }
     @media (max-width: 520px) {
-      html { font-size: 14px; }
+      html { font-size:calc(14px * var(--app-font-scale, 1)); }
       .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: 1fr; }
       .topbar { padding: 0 12px; }
-      .h1 { font-size: 22px; }
+      .h1 { font-size:calc(22px * var(--app-font-scale, 1)); }
       .album { width: 170px; height: 170px; }
     }
     /* AI 编辑痕迹页脚（[助手] 于 … 编辑） */
-    .audit-trace { font-size: 11px; color: #8a94a6; margin-top: 3px; line-height: 1.45; opacity: .92; }
+    .audit-trace { font-size:calc(11px * var(--app-font-scale, 1)); color: #8a94a6; margin-top: 3px; line-height: 1.45; opacity: .92; }
     .audit-trace .audit-diff { display: block; margin-top: 2px; font-family: var(--mono, ui-monospace, monospace); }
     .audit-trace .audit-diff b { font-weight: 600; color: #6b7486; }
     /* AI 权限策略只读表格 */
-    .ai-policy-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .ai-policy-table { width: 100%; border-collapse: collapse; font-size:calc(12.5px * var(--app-font-scale, 1)); }
     .ai-policy-table th, .ai-policy-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
-    .ai-policy-table th { color: #8a94a6; font-weight: 600; font-size: 11px; }
+    .ai-policy-table th { color: #8a94a6; font-weight: 600; font-size:calc(11px * var(--app-font-scale, 1)); }
     .ai-policy-table td:first-child { text-align: left; }
   </style>
 </head>
@@ -969,13 +968,12 @@ function applyTheme() {
   document.title = DB.appName || "Bunny's Home";
 }
 
-/* 全局字体大小（小/标准/大/特大）：--app-font-scale 统一缩放文字，--app-font-inverse 反缩放图片/头像 */
+/* 全局字体大小（小/标准/大/特大）：--app-font-scale 统一缩放文字（各 font-size 用 calc(* var(--app-font-scale))）。
+   不再用 zoom、不再用 inverse 反缩放：图片/头像/布局尺寸保持固定 px，只随字体档位缩放文字本身。 */
 const FONT_SCALES = { small: 0.875, standard: 1, large: 1.125, xlarge: 1.25 };
 function applyFontScale(key) {
   const scale = FONT_SCALES[key] || FONT_SCALES.standard || 1;
-  const root = document.documentElement;
-  root.style.setProperty('--app-font-scale', String(scale));
-  root.style.setProperty('--app-font-inverse', String(1 / scale));
+  document.documentElement.style.setProperty('--app-font-scale', String(scale));
 }
 
 /* ---------------- toasts / modal / confirm / menu ---------------- */
@@ -996,7 +994,7 @@ function drawer(html, side) {
 }
 function closeModal() { document.getElementById('modalRoot').innerHTML = ''; }
 function confirmDialog(title, msg, onYes, dangerLabel) {
-  modal('<div class="modal-head"><h3>' + esc(title) + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><p style="font-size:14px;color:var(--text-soft);line-height:1.6">' + esc(msg) + '</p></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn ' + (dangerLabel ? 'btn-danger' : 'btn-primary') + '" id="confirmYesBtn"></button></div>');
+  modal('<div class="modal-head"><h3>' + esc(title) + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><p style="font-size:calc(14px * var(--app-font-scale, 1));color:var(--text-soft);line-height:1.6">' + esc(msg) + '</p></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn ' + (dangerLabel ? 'btn-danger' : 'btn-primary') + '" id="confirmYesBtn"></button></div>');
   const btn = document.getElementById('confirmYesBtn');
   btn.textContent = dangerLabel || '确定';
   btn.onclick = () => { closeModal(); onYes(); };
@@ -1153,7 +1151,7 @@ function openQuickCreate() {
     '</div>', 'bottom');
 }
 function newPlanSheet() {
-  drawer('<div class="sheet"><div class="sheet-grab"></div><div style="text-align:center;padding:8px 0 14px;font-size:15px;font-weight:700">选择计划类型</div>' +
+  drawer('<div class="sheet"><div class="sheet-grab"></div><div style="text-align:center;padding:8px 0 14px;font-size:calc(15px * var(--app-font-scale, 1));font-weight:700">选择计划类型</div>' +
     Object.keys(TYPE_META).map((t) => '<button class="sheet-item" onclick="OS.closeModal();openPlanCreate(\'' + t + '\')"><span class="ico">' + TYPE_META[t].ico + '</span>' + TYPE_META[t].label + '</button>').join('') +
     '</div>', 'bottom');
 }
@@ -1376,14 +1374,14 @@ function viewToday() {
   const pct = todays.length ? Math.round(done / todays.length * 100) : 0;
   let html = aiCompanionHeader() + weatherSectionHtml() +
     '<div class="row" style="margin-bottom:18px;gap:14px">' +
-    '<div class="avatar" style="width:48px;height:48px;font-size:22px;display:flex;align-items:center;justify-content:center;' + (DB.profile.avatar ? 'background-image:url(' + DB.profile.avatar + ')' : '') + '">' + (DB.profile.avatar ? '' : '🐰') + '</div>' +
+    '<div class="avatar" style="width:48px;height:48px;font-size:calc(22px * var(--app-font-scale, 1));display:flex;align-items:center;justify-content:center;' + (DB.profile.avatar ? 'background-image:url(' + DB.profile.avatar + ')' : '') + '">' + (DB.profile.avatar ? '' : '🐰') + '</div>' +
     '<div><div class="h1">' + esc(greeting()) + ', ' + esc(name) + '</div><div class="muted">' + esc(todayLong()) + '</div></div></div>';
 
   // 需求 17：首页 = Today（问候/天气）+ Task（今日任务概要）而已；其余 Task/Habit/Plan/Note 都有独立页面，不再在首页重复堆叠
   html += '<div class="card card-pad" style="margin-bottom:14px;cursor:pointer" onclick="OS.go(\'/tasks\')">' +
-    '<div class="spread" style="margin-bottom:10px"><div class="row" style="gap:8px"><span style="font-size:20px">✅</span><div style="font-size:16px;font-weight:700">今日任务</div></div><div class="muted">' + done + ' / ' + todays.length + ' 完成 ›</div></div>' +
+    '<div class="spread" style="margin-bottom:10px"><div class="row" style="gap:8px"><span style="font-size:calc(20px * var(--app-font-scale, 1))">✅</span><div style="font-size:calc(16px * var(--app-font-scale, 1));font-weight:700">今日任务</div></div><div class="muted">' + done + ' / ' + todays.length + ' 完成 ›</div></div>' +
     '<div class="progress"><span style="width:' + pct + '%"></span></div>' +
-    (todays.length ? '<div class="muted" style="font-size:12px;margin-top:10px">' + todays.slice(0, 3).map((t) => (t.completed ? '✓ ' : '○ ') + esc(t.title)).join(' · ') + (todays.length > 3 ? ' …' : '') + '</div>' : '<div class="muted" style="font-size:12px;margin-top:10px">今天没有任务，点此安排</div>') +
+    (todays.length ? '<div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1));margin-top:10px">' + todays.slice(0, 3).map((t) => (t.completed ? '✓ ' : '○ ') + esc(t.title)).join(' · ') + (todays.length > 3 ? ' …' : '') + '</div>' : '<div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1));margin-top:10px">今天没有任务，点此安排</div>') +
     '</div>';
 
   // 今天的祂：AI 心情 + AI 动态（真实 AI Activity，绝不显示系统/用户内容）
@@ -1392,16 +1390,16 @@ function viewToday() {
   // 笔记预览：复用现有 DB.notes（不新建数据源），按置顶 + 最近更新取前 3 条，紧凑展示
   const recentNotes = DB.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt)).slice(0, 3);
   html += '<div class="section-head" style="margin-top:22px"><h2>笔记</h2><button class="more" onclick="OS.go(\'/notes\')">查看全部 ›</button></div>';
-  if (recentNotes.length === 0) html += '<div class="card card-pad" style="padding:16px"><div class="muted" style="font-size:13px">还没有笔记，记一条灵感吧</div></div>';
-  else html += '<div class="card card-pad" style="padding:6px 8px">' + recentNotes.map((n) => '<div class="conv-item" onclick="editNote(\'' + n.id + '\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(n.title) + '</div><div class="c-last" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(String(n.content || '').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</div></div><span class="muted" style="font-size:11px;flex-shrink:0">' + relTime(n.updatedAt) + '</span></div>').join('') + '</div>';
+  if (recentNotes.length === 0) html += '<div class="card card-pad" style="padding:16px"><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1))">还没有笔记，记一条灵感吧</div></div>';
+  else html += '<div class="card card-pad" style="padding:6px 8px">' + recentNotes.map((n) => '<div class="conv-item" onclick="editNote(\'' + n.id + '\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(n.title) + '</div><div class="c-last" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(String(n.content || '').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</div></div><span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));flex-shrink:0">' + relTime(n.updatedAt) + '</span></div>').join('') + '</div>';
 
   // 经期模块：复用 periodPrediction()（不改周期计算），只做 Home 预览 + 导航到完整页面
   const pp = periodPrediction();
   html += '<div class="section-head" style="margin-top:22px"><h2>经期</h2><button class="more" onclick="OS.go(\'/period\')">查看全部 ›</button></div>';
   html += '<div class="card card-pad" style="cursor:pointer" onclick="OS.go(\'/period\')">';
-  if (pp.ongoing) html += '<div style="font-weight:700;font-size:15px">🌸 经期中</div><div class="muted" style="font-size:13px;margin-top:4px">开始于 ' + esc(pp.ongoing.startDate) + '，记得点「记录结束」</div>';
-  else if (pp.nextStart) html += '<div style="font-weight:700;font-size:15px">🔮 预计下次 ' + esc(pp.nextStart) + '</div><div class="muted" style="font-size:13px;margin-top:4px">平均周期 ' + pp.avgCycle + ' 天 · 预测仅供参考</div>';
-  else html += '<div style="font-weight:700;font-size:15px">📝 暂无经期记录</div><div class="muted" style="font-size:13px;margin-top:4px">记录几次后会逐步估算周期</div>';
+  if (pp.ongoing) html += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">🌸 经期中</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">开始于 ' + esc(pp.ongoing.startDate) + '，记得点「记录结束」</div>';
+  else if (pp.nextStart) html += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">🔮 预计下次 ' + esc(pp.nextStart) + '</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">平均周期 ' + pp.avgCycle + ' 天 · 预测仅供参考</div>';
+  else html += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">📝 暂无经期记录</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">记录几次后会逐步估算周期</div>';
   html += '</div>';
   return html;
 }
@@ -1435,7 +1433,7 @@ function viewTasks() {
 }
 function setTaskView(v) { OS.ui.taskView = v; render(); }
 function qa(ico, label, fn) {
-  return '<div class="card card-pad" style="text-align:center;cursor:pointer" onclick="' + fn + '"><div style="font-size:24px">' + ico + '</div><div style="font-size:12.5px;color:var(--text-soft);margin-top:4px">' + label + '</div></div>';
+  return '<div class="card card-pad" style="text-align:center;cursor:pointer" onclick="' + fn + '"><div style="font-size:calc(24px * var(--app-font-scale, 1))">' + ico + '</div><div style="font-size:calc(12.5px * var(--app-font-scale, 1));color:var(--text-soft);margin-top:4px">' + label + '</div></div>';
 }
 
 /* ================= CALENDAR ================= */
@@ -1460,7 +1458,7 @@ const DOW_FULL = ['星期一', '星期二', '星期三', '星期四', '星期五
 function viewCalendar() {
   const v = OS.ui.calView;
   let html = '<div class="row spread" style="margin-bottom:16px;flex-wrap:wrap;gap:12px">' +
-    '<div><div class="h1">Calendar</div><div class="muted" style="font-size:14px">' + esc(calTitle()) + '</div></div>' +
+    '<div><div class="h1">Calendar</div><div class="muted" style="font-size:calc(14px * var(--app-font-scale, 1))">' + esc(calTitle()) + '</div></div>' +
     '<div class="row" style="gap:8px"><div class="cal-nav"><button class="btn btn-sm" onclick="calShift(-1)">‹</button><button class="btn btn-sm" onclick="calToday()">今天</button><button class="btn btn-sm" onclick="calShift(1)">›</button></div>' +
     '<div class="seg"><button class="' + (v === 'month' ? 'on' : '') + '" onclick="calSetView(\'month\')">月</button><button class="' + (v === 'week' ? 'on' : '') + '" onclick="calSetView(\'week\')">周</button><button class="' + (v === 'day' ? 'on' : '') + '" onclick="calSetView(\'day\')">日</button></div></div></div>';
   if (v === 'month') html += monthGridHtml();
@@ -1501,7 +1499,7 @@ function weekGridHtml() {
     const today = ds === todayStr();
     html += '<div class="week-col' + (today ? ' today' : '') + '" ondragover="event.preventDefault()" ondrop="taskDropToDate(event,\'' + ds + '\')">' +
       '<div class="week-col-head">' + DOW_FULL[i] + '</div><div class="dnum">' + (d.getMonth() + 1) + '/' + d.getDate() + '</div>';
-    for (const t of tasks) html += '<div class="task-row" style="padding:6px 8px" draggable="true" ondragstart="taskDragStart(event,\'' + t.id + '\')" onclick="openTaskModal(null,\'' + t.id + '\')"><span class="chk sm' + (t.completed ? ' on' : '') + '" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></span><div class="t-title" style="font-size:12.5px">' + esc(t.title) + '</div></div>';
+    for (const t of tasks) html += '<div class="task-row" style="padding:6px 8px" draggable="true" ondragstart="taskDragStart(event,\'' + t.id + '\')" onclick="openTaskModal(null,\'' + t.id + '\')"><span class="chk sm' + (t.completed ? ' on' : '') + '" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></span><div class="t-title" style="font-size:calc(12.5px * var(--app-font-scale, 1))">' + esc(t.title) + '</div></div>';
     html += '<button class="btn btn-sm btn-soft" style="width:100%;margin-top:6px" onclick="openTaskModal(\'' + ds + '\')">＋</button>';
     html += '</div>';
   }
@@ -1519,7 +1517,7 @@ function dayViewHtml() {
 function openDayDrawer(date) {
   const tasks = tasksOn(date);
   const habits = DB.habits.filter((h) => isHabitDone(h, date));
-  drawer('<div class="drawer-head" style="padding:20px 22px 8px"><div style="font-size:18px;font-weight:700">' + esc(fmtDateHuman(date)) + '</div><div class="muted">' + esc(ymd(date) + ' ' + DOW_FULL[(parseDate(date).getDay() + 6) % 7]) + '</div></div><div class="drawer-body" style="padding:8px 22px 28px">' +
+  drawer('<div class="drawer-head" style="padding:20px 22px 8px"><div style="font-size:calc(18px * var(--app-font-scale, 1));font-weight:700">' + esc(fmtDateHuman(date)) + '</div><div class="muted">' + esc(ymd(date) + ' ' + DOW_FULL[(parseDate(date).getDay() + 6) % 7]) + '</div></div><div class="drawer-body" style="padding:8px 22px 28px">' +
     '<div class="section-head"><h2>Tasks</h2><button class="more" onclick="openTaskModal(\'' + date + '\')">＋ 添加</button></div>' +
     (tasks.length ? tasks.map((t) => taskRowHtml(t)).join('') : '<div class="empty" style="padding:16px"><div class="esub">无任务</div></div>') +
     (habits.length ? '<div class="section-head"><h2>Habits</h2></div>' + habits.map((h) => habitRowHtml(h, date)).join('') : '') +
@@ -1569,8 +1567,8 @@ function viewPlansOverview() {
     const last = plans[0] ? relTime(plans.reduce((m, p) => Math.max(m, p.updatedAt || 0), 0)) : '—';
     const avg = plans.length ? Math.round(plans.reduce((s, p) => s + planProgress(p), 0) / plans.length) : 0;
     html += '<div class="card card-pad" style="cursor:pointer" onclick="OS.go(\'/plans/' + t + '\')">' +
-      '<div class="row" style="margin-bottom:10px"><span style="font-size:26px">' + meta.ico + '</span><div class="grow"><div style="font-weight:700">' + meta.label + '</div><div class="muted">' + esc(meta.sub) + '</div></div><span class="chip">' + plans.length + ' 个</span></div>' +
-      '<div class="row" style="gap:12px"><div class="grow"><div class="muted" style="margin-bottom:5px">当前进度</div><div class="progress"><span style="width:' + avg + '%"></span></div></div><div style="text-align:right"><div style="font-weight:700;font-size:18px">' + avg + '%</div><div class="muted" style="font-size:10.5px">更新于 ' + last + '</div></div></div>' +
+      '<div class="row" style="margin-bottom:10px"><span style="font-size:calc(26px * var(--app-font-scale, 1))">' + meta.ico + '</span><div class="grow"><div style="font-weight:700">' + meta.label + '</div><div class="muted">' + esc(meta.sub) + '</div></div><span class="chip">' + plans.length + ' 个</span></div>' +
+      '<div class="row" style="gap:12px"><div class="grow"><div class="muted" style="margin-bottom:5px">当前进度</div><div class="progress"><span style="width:' + avg + '%"></span></div></div><div style="text-align:right"><div style="font-weight:700;font-size:calc(18px * var(--app-font-scale, 1))">' + avg + '%</div><div class="muted" style="font-size:calc(10.5px * var(--app-font-scale, 1))">更新于 ' + last + '</div></div></div>' +
       '</div>';
   }
   html += '</div>';
@@ -1632,7 +1630,7 @@ function globalSwatchHtml(selHex) {
 function pickGlobalAccent(hex) { DB.appearance.accent = hex; saveDB(); applyTheme(); render(); }
 function pickPlanColor(id) {
   const p = planById(id);
-  modal('<div class="modal-head"><h3>主题颜色</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' + swatchHtml(p.themeColor) + '<input type="hidden" id="swVal" value="' + p.themeColor + '"><div style="margin-top:12px;font-size:12px;color:var(--text-faint)">颜色只作用于当前计划</div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="savePlanColor(\'' + id + '\')">保存</button></div>');
+  modal('<div class="modal-head"><h3>主题颜色</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' + swatchHtml(p.themeColor) + '<input type="hidden" id="swVal" value="' + p.themeColor + '"><div style="margin-top:12px;font-size:calc(12px * var(--app-font-scale, 1));color:var(--text-faint)">颜色只作用于当前计划</div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="savePlanColor(\'' + id + '\')">保存</button></div>');
 }
 function savePlanColor(id) {
   const p = planById(id); p.themeColor = document.getElementById('swVal').value; p.updatedAt = Date.now(); saveDB(); closeModal(); render();
@@ -1708,7 +1706,7 @@ function planHeader(plan, v) {
   const pct = planProgress(plan);
   const range = plan.startDate ? (ymd(plan.startDate) + (plan.endDate ? ' — ' + ymd(plan.endDate) : '')) : '未设置周期';
   return '<div class="card card-pad" style="margin-bottom:16px;border-left:4px solid ' + v['--tc'] + '">' +
-    '<div class="spread" style="margin-bottom:8px"><div style="font-size:17px;font-weight:700;color:' + v['--tc-strong'] + '">' + esc(plan.title) + '</div><div class="chip" style="background:' + v['--tc-tint'] + ';color:' + v['--tc-strong'] + '">' + pct + '%</div></div>' +
+    '<div class="spread" style="margin-bottom:8px"><div style="font-size:calc(17px * var(--app-font-scale, 1));font-weight:700;color:' + v['--tc-strong'] + '">' + esc(plan.title) + '</div><div class="chip" style="background:' + v['--tc-tint'] + ';color:' + v['--tc-strong'] + '">' + pct + '%</div></div>' +
     '<div class="muted" style="margin-bottom:10px">📅 ' + esc(range) + '</div>' +
     '<div class="progress" style="background:' + v['--tc-tint'] + '"><span style="width:' + pct + '%;background:' + v['--tc'] + '"></span></div>' +
     auditTraceHtml('plans', plan.id) + '</div>';
@@ -1750,8 +1748,8 @@ function goalRowHtml(plan, g, v, withResult) {
     '<input class="input" style="border:none;background:transparent;font-weight:600;padding:2px" value="' + esc(g.title) + '" onchange="setGoal(\'' + plan.id + '\',\'' + g.id + '\',\'title\',this.value)">' +
     '<span class="drag-hint">⠿</span><button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="delGoal(\'' + plan.id + '\',\'' + g.id + '\')">🗑</button></div>' +
     '<div class="row" style="gap:10px"><input type="range" min="0" max="100" value="' + (g.progress || 0) + '" style="flex:1" oninput="setGoal(\'' + plan.id + '\',\'' + g.id + '\',\'progress\',this.value)"><span id="goalPct_' + g.id + '" class="chip" style="min-width:44px;justify-content:center">' + (g.progress || 0) + '%</span></div>' +
-    '<div class="row" style="gap:8px;margin-top:8px"><span class="muted">截止</span><input class="input" type="date" value="' + esc(g.dueDate || '') + '" style="padding:6px 10px;font-size:12.5px" onchange="setGoal(\'' + plan.id + '\',\'' + g.id + '\',\'dueDate\',this.value)">' +
-    (withResult ? '<span class="muted">成果</span><input class="input" value="' + esc(g.result || '') + '" placeholder="阶段性成果" style="padding:6px 10px;font-size:12.5px;flex:1" onchange="setGoal(\'' + plan.id + '\',\'' + g.id + '\',\'result\',this.value)">' : '') +
+    '<div class="row" style="gap:8px;margin-top:8px"><span class="muted">截止</span><input class="input" type="date" value="' + esc(g.dueDate || '') + '" style="padding:6px 10px;font-size:calc(12.5px * var(--app-font-scale, 1))" onchange="setGoal(\'' + plan.id + '\',\'' + g.id + '\',\'dueDate\',this.value)">' +
+    (withResult ? '<span class="muted">成果</span><input class="input" value="' + esc(g.result || '') + '" placeholder="阶段性成果" style="padding:6px 10px;font-size:calc(12.5px * var(--app-font-scale, 1));flex:1" onchange="setGoal(\'' + plan.id + '\',\'' + g.id + '\',\'result\',this.value)">' : '') +
     '</div></div>';
 }
 
@@ -1819,7 +1817,7 @@ function viewWeeklyPlan(plan, v) {
     const ds = addDays(ws, i); const d = parseDate(ds);
     const tasks = DB.tasks.filter((t) => t.weeklyPlanId === plan.id && t.date === ds);
     html += '<div class="week-col' + (ds === todayStr() ? ' today' : '') + '" ondragover="event.preventDefault()" ondrop="taskDropToPlan(event,\'' + plan.id + '\',\'' + ds + '\',\'weekly\')"><div class="week-col-head">' + DOW_FULL[i] + '</div><div class="dnum">' + (d.getMonth() + 1) + '/' + d.getDate() + '</div>';
-    for (const t of tasks) html += '<div class="task-row" style="padding:6px 8px" draggable="true" ondragstart="taskDragStart(event,\'' + t.id + '\')" onclick="openTaskModal(null,\'' + t.id + '\')"><span class="chk sm' + (t.completed ? ' on' : '') + '" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></span><div class="t-title" style="font-size:12.5px">' + esc(t.title) + '</div></div>';
+    for (const t of tasks) html += '<div class="task-row" style="padding:6px 8px" draggable="true" ondragstart="taskDragStart(event,\'' + t.id + '\')" onclick="openTaskModal(null,\'' + t.id + '\')"><span class="chk sm' + (t.completed ? ' on' : '') + '" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></span><div class="t-title" style="font-size:calc(12.5px * var(--app-font-scale, 1))">' + esc(t.title) + '</div></div>';
     html += '<button class="btn btn-sm btn-soft" style="width:100%;margin-top:6px" onclick="openTaskModal(\'' + ds + '\',null,\'' + plan.id + '\')">＋</button></div>';
   }
   html += '</div>';
@@ -1866,8 +1864,8 @@ function habitRowHtml(h, date) {
   const done = isHabitDone(h, date);
   const total = habitTotalCompletions(h);
   return '<div class="task-row" onclick="toggleHabit(\'' + h.id + '\',\'' + date + '\')">' +
-    '<span class="habit-ico" style="width:36px;height:36px;font-size:18px;background:' + hexToRgba(h.color, 0.15) + '">' + esc(h.icon) + '</span>' +
-    '<div class="grow"><div class="t-title' + (done ? ' done' : '') + '">' + esc(h.name) + '</div><div class="t-meta"><span class="chip" style="font-size:10.5px">' + (FREQ[h.frequency] || h.frequency) + (h.goal ? ' · ' + h.goal : '') + '</span>' + (h.reminderTime ? '<span class="chip" style="font-size:10.5px">⏰ ' + esc(h.reminderTime) + '</span>' : '') + (h.description ? '<span class="muted" style="font-size:11px"> · ' + esc(h.description) + '</span>' : '') + '</div>' + auditTraceHtml('habit', h.id) + '</div>' +
+    '<span class="habit-ico" style="width:36px;height:36px;font-size:calc(18px * var(--app-font-scale, 1));background:' + hexToRgba(h.color, 0.15) + '">' + esc(h.icon) + '</span>' +
+    '<div class="grow"><div class="t-title' + (done ? ' done' : '') + '">' + esc(h.name) + '</div><div class="t-meta"><span class="chip" style="font-size:calc(10.5px * var(--app-font-scale, 1))">' + (FREQ[h.frequency] || h.frequency) + (h.goal ? ' · ' + h.goal : '') + '</span>' + (h.reminderTime ? '<span class="chip" style="font-size:calc(10.5px * var(--app-font-scale, 1))">⏰ ' + esc(h.reminderTime) + '</span>' : '') + (h.description ? '<span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))"> · ' + esc(h.description) + '</span>' : '') + '</div>' + auditTraceHtml('habit', h.id) + '</div>' +
     '<span class="habit-streak">' + total + ' 次 · 🔥 ' + habitStreak(h) + ' 天</span>' +
     '<span class="chk' + (done ? ' on' : '') + '" onclick="event.stopPropagation();toggleHabit(\'' + h.id + '\',\'' + date + '\')"></span>' +
     '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();habitMenu(event,\'' + h.id + '\')">⋯</button></div>';
@@ -1943,11 +1941,11 @@ function viewHealth() {
   // 折线图
   html += '<div class="spread" style="margin-bottom:12px"><div class="seg">' + rangeBtn(7, '7 天', r) + rangeBtn(30, '30 天', r) + '</div></div>';
   html += '<div class="grid cols-2" style="margin-bottom:16px">' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">⚖️ 体重（kg）</div><div id="chWeight"></div></div>' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">🍚 摄入（千卡）</div><div id="chIn"></div></div>' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">🏃 消耗（千卡）</div><div id="chOut"></div></div>' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">💧 饮水（升）</div><div id="chWater"></div></div>' +
-    '<div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">😴 睡眠（小时）</div><div id="chSleep"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">⚖️ 体重（kg）</div><div id="chWeight"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">🍚 摄入（千卡）</div><div id="chIn"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">🏃 消耗（千卡）</div><div id="chOut"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">💧 饮水（升）</div><div id="chWater"></div></div>' +
+    '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">😴 睡眠（小时）</div><div id="chSleep"></div></div>' +
     '</div>';
   // 健康记录：各模块独立可点记录（需求 14）
   html += '<div class="section-head"><h2>健康记录</h2><div class="hint">点击各模块独立记录</div></div>';
@@ -1962,8 +1960,8 @@ function viewHealth() {
     '</div>';
   return html;
 }
-function healthModuleCard(ico, label, v, module) { return '<div class="card stat-card" style="cursor:pointer" onclick="openHealthModule(\'' + module + '\')"><div style="font-size:20px;margin-bottom:6px">' + ico + '</div><div class="v" style="font-size:19px">' + v + '</div><div class="l">' + label + '</div><div class="u">点击记录</div></div>'; }
-function statCard(ico, label, v, u) { return '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">' + ico + '</div><div class="v">' + v + '</div><div class="l">' + label + '</div><div class="u">' + u + '</div></div>'; }
+function healthModuleCard(ico, label, v, module) { return '<div class="card stat-card" style="cursor:pointer" onclick="openHealthModule(\'' + module + '\')"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">' + ico + '</div><div class="v" style="font-size:calc(19px * var(--app-font-scale, 1))">' + v + '</div><div class="l">' + label + '</div><div class="u">点击记录</div></div>'; }
+function statCard(ico, label, v, u) { return '<div class="card stat-card"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">' + ico + '</div><div class="v">' + v + '</div><div class="l">' + label + '</div><div class="u">' + u + '</div></div>'; }
 function rangeBtn(n, label, cur) { return '<button class="' + (cur === n ? 'on' : '') + '" onclick="setHealthRange(' + n + ')">' + label + '</button>'; }
 function setHealthRange(n) { OS.ui.healthRange = n; render(); }
 function setHeightInline(v) {
@@ -2044,17 +2042,17 @@ const MEDICAL_TYPES = ['过敏史', '疾病', '就诊', '检查', '手术', '用
 function medicalRecordsSection() {
   const count = (DB.medicalRecords || []).length;
   return '<div class="card card-pad" style="cursor:pointer;margin-bottom:16px;display:flex;align-items:center;gap:12px" onclick="OS.go(\'/health/medical-records\')">' +
-    '<span style="font-size:26px">🏥</span>' +
-    '<div class="grow"><div style="font-weight:700;font-size:15px">Medical Records</div><div class="muted" style="font-size:12px">' + (count ? count + ' records · ' : '') + 'View & record →</div></div>' +
-    '<span class="muted" style="font-size:20px">›</span></div>';
+    '<span style="font-size:calc(26px * var(--app-font-scale, 1))">🏥</span>' +
+    '<div class="grow"><div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">Medical Records</div><div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">' + (count ? count + ' records · ' : '') + 'View & record →</div></div>' +
+    '<span class="muted" style="font-size:calc(20px * var(--app-font-scale, 1))">›</span></div>';
 }
 // 独立「个人病历」页（需求 13）：病历 / 疾病 / 既往史 / 手术 / 过敏 / 药物 / 医疗备注 / 就诊记录
 function viewMedical() {
   const recs = DB.medicalRecords.slice().sort((a, b) => (b.date || '') < (a.date || '') ? -1 : 1);
-  let html = '<div class="spread" style="margin-bottom:16px"><div><button class="back-link" style="background:none;border:none;color:var(--accent-strong);font-size:13px;padding:0;cursor:pointer" onclick="OS.go(\'/health\')">‹ Health</button><div class="h1" style="margin-top:6px">Medical Records</div><div class="muted">Private · only you can see</div></div><button class="btn btn-primary" onclick="medicalRecordModal()">＋ Add Record</button></div>';
-  html += '<div class="muted" style="font-size:12px;margin:0 0 12px">记录病历 / 疾病 / 既往史 / 手术 / 过敏 / 药物 / 医疗备注 / 就诊记录；AI 只提供建议，不会自动写入。</div>';
+  let html = '<div class="spread" style="margin-bottom:16px"><div><button class="back-link" style="background:none;border:none;color:var(--accent-strong);font-size:calc(13px * var(--app-font-scale, 1));padding:0;cursor:pointer" onclick="OS.go(\'/health\')">‹ Health</button><div class="h1" style="margin-top:6px">Medical Records</div><div class="muted">Private · only you can see</div></div><button class="btn btn-primary" onclick="medicalRecordModal()">＋ Add Record</button></div>';
+  html += '<div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1));margin:0 0 12px">记录病历 / 疾病 / 既往史 / 手术 / 过敏 / 药物 / 医疗备注 / 就诊记录；AI 只提供建议，不会自动写入。</div>';
   if (recs.length === 0) {
-    html += '<div class="card card-pad empty" style="padding:30px"><div style="font-size:36px;margin-bottom:8px">🩺</div><div class="esub">暂无病历记录</div><div class="muted" style="font-size:12px;margin-top:6px">点击右上角「＋ 添加」记录第一条</div></div>';
+    html += '<div class="card card-pad empty" style="padding:30px"><div style="font-size:calc(36px * var(--app-font-scale, 1));margin-bottom:8px">🩺</div><div class="esub">暂无病历记录</div><div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1));margin-top:6px">点击右上角「＋ 添加」记录第一条</div></div>';
   } else {
     html += '<div class="card card-pad" style="padding:6px 8px">' + recs.map((r) => {
       const fields = [];
@@ -2063,7 +2061,7 @@ function viewMedical() {
       if (r.diagnosis) fields.push('诊断：' + r.diagnosis);
       if (r.symptoms) fields.push('症状：' + r.symptoms);
       if (r.medication) fields.push('用药：' + r.medication);
-      return '<div class="conv-item" style="cursor:pointer" onclick="medicalRecordModal(\'' + r.id + '\')"><span style="font-size:22px">🩺</span><div class="grow"><div style="font-weight:600">' + esc((r.type ? '[' + r.type + '] ' : '') + (r.title || '')) + '</div><div class="c-last">' + esc((r.date || '') + (fields.length ? ' · ' + fields.join(' · ') : '')) + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();deleteMedicalRecord(\'' + r.id + '\')">🗑</button></div>';
+      return '<div class="conv-item" style="cursor:pointer" onclick="medicalRecordModal(\'' + r.id + '\')"><span style="font-size:calc(22px * var(--app-font-scale, 1))">🩺</span><div class="grow"><div style="font-weight:600">' + esc((r.type ? '[' + r.type + '] ' : '') + (r.title || '')) + '</div><div class="c-last">' + esc((r.date || '') + (fields.length ? ' · ' + fields.join(' · ') : '')) + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();deleteMedicalRecord(\'' + r.id + '\')">🗑</button></div>';
     }).join('') + '</div>';
   }
   return html;
@@ -2127,7 +2125,7 @@ function viewStatistics() {
     '<div class="card stat-card"><div class="l">任务完成率</div><div class="v">' + taskPct + '%</div><div class="u">' + done + ' / ' + tasks.length + ' 已完成</div><div class="progress" style="margin-top:10px"><span style="width:' + taskPct + '%"></span></div></div>' +
     '<div class="card stat-card"><div class="l">习惯完成率</div><div class="v">' + habitPct + '%</div><div class="u">今日 ' + habitDone + '/' + habitTotal + '</div><div class="progress" style="margin-top:10px"><span style="width:' + habitPct + '%"></span></div></div>' +
     '<div class="card stat-card"><div class="l">计划完成率</div><div class="v">' + planPct + '%</div><div class="u">' + plans.length + ' 个计划</div><div class="progress" style="margin-top:10px"><span style="width:' + planPct + '%"></span></div></div></div>';
-  html += '<div class="grid cols-2"><div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">任务完成趋势</div><div id="stLine"></div></div><div class="card chart-wrap"><div style="font-weight:700;font-size:14px;margin-bottom:8px">各类完成度</div><div id="stDonut" style="display:flex;align-items:center;justify-content:center;gap:16px"></div></div></div>';
+  html += '<div class="grid cols-2"><div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">任务完成趋势</div><div id="stLine"></div></div><div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">各类完成度</div><div id="stDonut" style="display:flex;align-items:center;justify-content:center;gap:16px"></div></div></div>';
   return html;
 }
 function drawStatCharts() {
@@ -2139,7 +2137,7 @@ function drawStatCharts() {
     const cats = [ { label: '任务', v: DB.tasks.filter((t) => t.completed).length, total: DB.tasks.length, c: '#6b8cae' }, { label: '习惯', v: DB.habits.filter((h) => isHabitDone(h, todayStr())).length, total: DB.habits.length, c: '#10b981' }, { label: '计划', v: Math.round(DB.plans.filter((p) => !p.archived).reduce((s, p) => s + planProgress(p), 0) / 100), total: DB.plans.filter((p) => !p.archived).length, c: '#f97316' } ];
     const pcts = cats.map((c) => c.total ? c.v / c.total : 0);
     const avg = pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : 0;
-    donut.innerHTML = '<svg width="120" height="120" viewBox="0 0 120 120" class="ring"><circle class="bg" cx="60" cy="60" r="46"/><circle class="fg" cx="60" cy="60" r="46" stroke-dasharray="289" stroke-dashoffset="' + (289 * (1 - avg)).toFixed(1) + '" stroke="#6b8cae"/><text x="60" y="64" text-anchor="middle" style="font-size:22px;font-weight:700;fill:var(--text)">' + Math.round(avg * 100) + '%</text></svg>' + cats.map((c) => { const pct = c.total ? Math.round(c.v / c.total * 100) : 0; return '<div><div class="row" style="gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:' + c.c + '"></span><span style="font-size:12.5px">' + c.label + '</span></div><div style="font-weight:700;font-size:16px">' + pct + '%</div></div>'; }).join('');
+    donut.innerHTML = '<svg width="120" height="120" viewBox="0 0 120 120" class="ring"><circle class="bg" cx="60" cy="60" r="46"/><circle class="fg" cx="60" cy="60" r="46" stroke-dasharray="289" stroke-dashoffset="' + (289 * (1 - avg)).toFixed(1) + '" stroke="#6b8cae"/><text x="60" y="64" text-anchor="middle" style="font-size:calc(22px * var(--app-font-scale, 1));font-weight:700;fill:var(--text)">' + Math.round(avg * 100) + '%</text></svg>' + cats.map((c) => { const pct = c.total ? Math.round(c.v / c.total * 100) : 0; return '<div><div class="row" style="gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:' + c.c + '"></span><span style="font-size:calc(12.5px * var(--app-font-scale, 1))">' + c.label + '</span></div><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1))">' + pct + '%</div></div>'; }).join('');
   }
 }
 
@@ -2237,10 +2235,10 @@ function viewPlayer() {
   const cover = track.cover || '';
   const pct = track.duration ? (p.currentTime / track.duration * 100) : 0;
   let html = '<div class="player-stage" style="padding-top:8px">';
-  html += '<div id="playerAlbum" class="album' + (p.playing ? ' playing' : '') + '" style="' + (cover ? 'background-image:url(' + cover + ')' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6)') + '"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;color:rgba(255,255,255,0.9)">' + (cover ? '' : '🎵') + '</div></div>';
-  html += '<div style="text-align:center"><div style="font-size:20px;font-weight:700">' + esc(track.title) + '</div><div class="muted" style="margin-top:4px">' + esc(track.artist) + '</div>' +
+  html += '<div id="playerAlbum" class="album' + (p.playing ? ' playing' : '') + '" style="' + (cover ? 'background-image:url(' + cover + ')' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6)') + '"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(52px * var(--app-font-scale, 1));color:rgba(255,255,255,0.9)">' + (cover ? '' : '🎵') + '</div></div>';
+  html += '<div style="text-align:center"><div style="font-size:calc(20px * var(--app-font-scale, 1));font-weight:700">' + esc(track.title) + '</div><div class="muted" style="margin-top:4px">' + esc(track.artist) + '</div>' +
     (p.togetherListening ? '<div style="margin-top:8px"><span class="together-badge">♥ 正在和你一起听</span></div>' : '') + '</div>';
-  html += '<div style="width:100%;max-width:380px"><div class="seek" onclick="playerSeek(event)"><span style="width:' + pct + '%"></span><div class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:11px;margin-top:6px"><span id="ptCur">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>';
+  html += '<div style="width:100%;max-width:380px"><div class="seek" onclick="playerSeek(event)"><span style="width:' + pct + '%"></span><div class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:6px"><span id="ptCur">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>';
   html += '<div class="player-controls"><button class="pctrl" onclick="playerPrev()">⏮</button><button id="ptPlayBtn" class="pctrl play" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" onclick="playerNext()">⏭</button></div>';
   html += '<div class="row" style="width:100%;max-width:300px;gap:10px"><span>🔈</span><input type="range" min="0" max="1" step="0.05" value="' + p.volume + '" style="flex:1" oninput="playerVolume(this.value)"></div>';
   // 主页面保持干净：不列出全部歌曲（需求 17），通过底部抽屉 / 弹窗访问
@@ -2263,11 +2261,11 @@ function openPlayerSheet() {
     '<div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:10px auto 6px"></div>' +
     '<div style="display:flex;gap:14px;align-items:center;padding:10px 20px">' +
     '<div class="player-sheet-cover" style="' + (cover ? 'background-image:url(' + cover + ')' : 'background:linear-gradient(135deg,#6b8cae,#8b5cf6)') + '">' + (cover ? '' : '🎵') + '</div>' +
-    '<div class="grow" style="min-width:0"><div style="font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(track.title) + '</div><div class="muted" style="font-size:13px">' + esc(track.artist) + '</div>' +
-    '<div class="player-controls" style="gap:14px;margin-top:8px"><button class="pctrl" style="font-size:20px" onclick="playerPrev()">⏮</button><button class="pctrl play" id="sheetPlayBtn" style="width:44px;height:44px;font-size:20px" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" style="font-size:20px" onclick="playerNext()">⏭</button></div>' +
+    '<div class="grow" style="min-width:0"><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(track.title) + '</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1))">' + esc(track.artist) + '</div>' +
+    '<div class="player-controls" style="gap:14px;margin-top:8px"><button class="pctrl" style="font-size:calc(20px * var(--app-font-scale, 1))" onclick="playerPrev()">⏮</button><button class="pctrl play" id="sheetPlayBtn" style="width:44px;height:44px;font-size:calc(20px * var(--app-font-scale, 1))" onclick="playerPlayPause()">' + (p.playing ? '⏸' : '▶') + '</button><button class="pctrl" style="font-size:calc(20px * var(--app-font-scale, 1))" onclick="playerNext()">⏭</button></div>' +
     '</div></div>' +
-    '<div style="padding:0 20px 10px"><div class="seek" onclick="playerSeek(event)"><span id="sheetSeekFill" style="width:' + pct + '%"></span><div id="sheetSeekKnob" class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:11px;margin-top:4px"><span id="ptCur2">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>' +
-    '<div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column"><div class="section-head" style="padding:0 20px"><h2>播放列表</h2><span class="muted" style="font-size:12px">' + p.playlist.length + ' 首</span></div>' +
+    '<div style="padding:0 20px 10px"><div class="seek" onclick="playerSeek(event)"><span id="sheetSeekFill" style="width:' + pct + '%"></span><div id="sheetSeekKnob" class="seek-knob" style="left:' + pct + '%"></div></div><div class="spread muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:4px"><span id="ptCur2">' + fmtTime(p.currentTime) + '</span><span>' + fmtTime(track.duration || 0) + '</span></div></div>' +
+    '<div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column"><div class="section-head" style="padding:0 20px"><h2>播放列表</h2><span class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">' + p.playlist.length + ' 首</span></div>' +
     '<div class="player-sheet-list" style="padding:0 12px 20px">' + list + '</div></div>' +
     '</div>', 'bottom');
 }
@@ -2595,7 +2593,7 @@ function viewNotes() {
   let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Notes</div><div class="muted">灵感与记录</div></div><button class="btn btn-primary" onclick="newNoteModal()">＋ 新建笔记</button></div>';
   html += '<div class="search-box" style="margin-bottom:16px"><span class="sico">🔍</span><input class="input" placeholder="搜索笔记…" value="' + esc(OS.ui.notesQuery) + '" oninput="OS.ui.notesQuery=this.value;render()"></div>';
   if (list.length === 0) html += '<div class="empty"><div class="eico">📝</div><div class="etitle">暂无笔记</div></div>';
-  else html += '<div class="grid cols-3">' + list.map((n) => '<div class="card note-card" onclick="editNote(\'' + n.id + '\')">' + (n.pinned ? '<div style="position:absolute;top:10px;right:12px">📌</div>' : '') + '<div class="note-title">' + esc(n.title) + '</div><div class="note-body">' + esc(n.content) + '</div><div class="t-meta" style="margin-top:auto">' + (n.tags || []).map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '<span class="muted" style="margin-left:auto;font-size:10.5px">' + relTime(n.updatedAt) + '</span></div>' + auditTraceHtml('notes', n.id) + '</div>').join('') + '</div>';
+  else html += '<div class="grid cols-3">' + list.map((n) => '<div class="card note-card" onclick="editNote(\'' + n.id + '\')">' + (n.pinned ? '<div style="position:absolute;top:10px;right:12px">📌</div>' : '') + '<div class="note-title">' + esc(n.title) + '</div><div class="note-body">' + esc(n.content) + '</div><div class="t-meta" style="margin-top:auto">' + (n.tags || []).map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '<span class="muted" style="margin-left:auto;font-size:calc(10.5px * var(--app-font-scale, 1))">' + relTime(n.updatedAt) + '</span></div>' + auditTraceHtml('notes', n.id) + '</div>').join('') + '</div>';
   return html;
 }
 function newNoteModal() { noteModal(null); }
@@ -2633,7 +2631,7 @@ function viewNotifications() {
   let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Notifications</div><div class="muted">' + list.filter((n) => !n.read).length + ' 条未读</div></div><div class="row" style="gap:8px"><button class="btn btn-sm" onclick="markAllRead()">全部已读</button><button class="btn btn-sm btn-danger" onclick="confirmDialog(\'清空通知\',\'删除所有通知？\',()=>{DB.notifications=[];saveDB();render()},\'清空\')">清空</button></div></div>';
   html += '<div class="card card-pad" style="padding:6px 8px">';
   if (list.length === 0) html += '<div class="empty"><div class="eico">🔔</div><div class="etitle">暂无通知</div></div>';
-  else html += list.map((n) => '<div class="conv-item" style="' + (n.read ? 'opacity:0.55' : '') + '" onclick="markRead(\'' + n.id + '\')"><div style="width:38px;height:38px;border-radius:12px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:18px">' + notifIcon(n.type) + '</div><div class="grow"><div style="font-weight:600;font-size:14px">' + esc(n.title) + '</div><div class="c-last">' + esc(n.body) + '</div></div><div class="c-time">' + relTime(n.time) + '</div></div>').join('');
+  else html += list.map((n) => '<div class="conv-item" style="' + (n.read ? 'opacity:0.55' : '') + '" onclick="markRead(\'' + n.id + '\')"><div style="width:38px;height:38px;border-radius:12px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:calc(18px * var(--app-font-scale, 1))">' + notifIcon(n.type) + '</div><div class="grow"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))">' + esc(n.title) + '</div><div class="c-last">' + esc(n.body) + '</div></div><div class="c-time">' + relTime(n.time) + '</div></div>').join('');
   html += '</div>';
   return html;
 }
@@ -2661,10 +2659,10 @@ function alarmRowHtml(a) {
   const sub = [alarmRepeatLabel(a), a.body].filter(Boolean).join(' · ');
   const meta = [alarmDateLabel(a), bark ? '🔔 Bark 强提醒' : '仅页面提醒'].filter(Boolean).join(' · ');
   return '<div class="conv-item" style="align-items:flex-start">' +
-    '<div style="width:54px;text-align:center;font-size:20px;font-weight:800;color:var(--accent-strong);line-height:1.2">' + esc(a.time || '--:--') + '</div>' +
-    '<div class="grow"><div style="font-weight:600;font-size:14px">' + esc(a.title || '闹钟') + '</div>' +
+    '<div style="width:54px;text-align:center;font-size:calc(20px * var(--app-font-scale, 1));font-weight:800;color:var(--accent-strong);line-height:1.2">' + esc(a.time || '--:--') + '</div>' +
+    '<div class="grow"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))">' + esc(a.title || '闹钟') + '</div>' +
     (sub ? '<div class="c-last">' + esc(sub) + '</div>' : '') +
-    '<div class="muted" style="font-size:11px;margin-top:3px">' + esc(meta) + '</div></div>' +
+    '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:3px">' + esc(meta) + '</div></div>' +
     '<div class="row" style="gap:6px;align-items:center">' +
     '<button class="btn btn-sm ' + (a.enabled ? 'btn-primary' : '') + '" onclick="event.stopPropagation();toggleAlarm(\'' + a.id + '\')">' + (a.enabled ? '开' : '关') + '</button>' +
     '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();alarmModal(\'' + a.id + '\')">✎</button>' +
@@ -2677,7 +2675,7 @@ function viewAlarm() {
     '<button class="btn btn-primary" onclick="newAlarmModal()">＋ 新建闹钟</button></div>';
   html += '<div class="field" style="margin-bottom:12px"><input class="input" id="alarmText" placeholder="或直接告诉祂：如「明早 8 点叫我起床」" onkeydown="if(event.key===\'Enter\')createAlarmFromText(this.value)"><button class="btn btn-soft btn-block" style="margin-top:8px" onclick="createAlarmFromText(document.getElementById(\'alarmText\').value)">✨ 让 AI 创建</button></div>';
   html += '<div class="card card-pad" style="padding:6px 8px">' + (list.length ? list.map(alarmRowHtml).join('') : '<div class="empty"><div class="eico">⏰</div><div class="etitle">还没有闹钟</div><div class="esub">点击上方按钮，或让 AI 帮你设一个</div></div>') + '</div>';
-  html += '<div class="muted" style="font-size:11px;margin-top:12px">强提醒（闹钟）到点会以「紧急+响铃+呼叫」推送到手机；普通提醒不会这样。只有你说「设闹钟 / 叫我 / 强提醒」时才算闹钟。</div>';
+  html += '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:12px">强提醒（闹钟）到点会以「紧急+响铃+呼叫」推送到手机；普通提醒不会这样。只有你说「设闹钟 / 叫我 / 强提醒」时才算闹钟。</div>';
   return html;
 }
 let _alarmDraft = null;
@@ -2786,9 +2784,9 @@ function viewSearch() {
   const total = tasks.length + plans.length + habits.length + notes.length;
   if (total === 0) { html += '<div class="empty"><div class="eico">🔍</div><div class="etitle">没有找到「' + esc(OS.ui.search) + '」</div></div>'; return html; }
   if (tasks.length) { html += '<div class="section-head"><h2>Tasks</h2></div><div class="card card-pad" style="padding:6px 8px">' + tasks.map((t) => taskRowHtml(t)).join('') + '</div>'; }
-  if (plans.length) { html += '<div class="section-head"><h2>Plans</h2></div><div class="card card-pad" style="padding:6px 8px">' + plans.map((p) => '<div class="conv-item" onclick="OS.go(\'/plans/' + p.type + '\')"><span style="font-size:20px">' + TYPE_META[p.type].ico + '</span><div class="grow"><div style="font-weight:600">' + esc(p.title) + '</div><div class="c-last">' + esc(TYPE_META[p.type].label) + '</div></div></div>').join('') + '</div>'; }
+  if (plans.length) { html += '<div class="section-head"><h2>Plans</h2></div><div class="card card-pad" style="padding:6px 8px">' + plans.map((p) => '<div class="conv-item" onclick="OS.go(\'/plans/' + p.type + '\')"><span style="font-size:calc(20px * var(--app-font-scale, 1))">' + TYPE_META[p.type].ico + '</span><div class="grow"><div style="font-weight:600">' + esc(p.title) + '</div><div class="c-last">' + esc(TYPE_META[p.type].label) + '</div></div></div>').join('') + '</div>'; }
   if (habits.length) { html += '<div class="section-head"><h2>Habits</h2></div><div class="card card-pad" style="padding:6px 8px">' + habits.map((h) => habitRowHtml(h, todayStr())).join('') + '</div>'; }
-  if (notes.length) { html += '<div class="section-head"><h2>Notes</h2></div><div class="card card-pad" style="padding:6px 8px">' + notes.map((n) => '<div class="conv-item" onclick="editNote(\'' + n.id + '\')"><span style="font-size:18px">📝</span><div class="grow"><div style="font-weight:600">' + esc(n.title) + '</div></div></div>').join('') + '</div>'; }
+  if (notes.length) { html += '<div class="section-head"><h2>Notes</h2></div><div class="card card-pad" style="padding:6px 8px">' + notes.map((n) => '<div class="conv-item" onclick="editNote(\'' + n.id + '\')"><span style="font-size:calc(18px * var(--app-font-scale, 1))">📝</span><div class="grow"><div style="font-weight:600">' + esc(n.title) + '</div></div></div>').join('') + '</div>'; }
   return html;
 }
 
@@ -2891,7 +2889,7 @@ function openJournalEditor(id, presetDate) {
   const time = j ? j.time : nowHHMM();
   modal('<div class="modal-head"><h3>' + (j ? '编辑日志' : '写日志') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
     '<div class="field"><div class="row gap2" style="gap:8px"><div class="grow"><label>日期</label><input class="input" type="date" id="jDate" value="' + date + '"></div><div class="grow"><label>时间</label><input class="input" type="time" id="jTime" value="' + esc(time) + '"></div></div></div>' +
-    '<div class="field"><label>心情符号</label><div class="row" style="gap:12px;align-items:center"><div class="journal-mood-box"><input id="jSymbol" maxlength="4" value="' + (j ? esc(j.moodSymbol) : '') + '" placeholder="♥"></div><div class="muted" style="font-size:11px;line-height:1.6">任意 Unicode / Emoji / 自定义符号，可留空<br>例如 ♥ :) 🥺 😮 🌧️ ☁️ 🌙</div></div></div>' +
+    '<div class="field"><label>心情符号</label><div class="row" style="gap:12px;align-items:center"><div class="journal-mood-box"><input id="jSymbol" maxlength="4" value="' + (j ? esc(j.moodSymbol) : '') + '" placeholder="♥"></div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));line-height:1.6">任意 Unicode / Emoji / 自定义符号，可留空<br>例如 ♥ :) 🥺 😮 🌧️ ☁️ 🌙</div></div></div>' +
     '<div class="field"><label>心情（文字）</label><input class="input" id="jMood" value="' + (j ? esc(j.mood) : '') + '" placeholder="如：平静 / 累 / 开心"></div>' +
     '<div class="field"><label>内容</label><textarea class="textarea" id="jContent" style="min-height:140px" placeholder="今天发生了什么？">' + (j ? esc(j.content) : '') + '</textarea></div>' +
     '<div class="field"><label>标签（逗号分隔）</label><input class="input" id="jTags" value="' + (j ? esc((j.tags || []).join(', ')) : '') + '" placeholder="生活, 工作"></div>' +
@@ -2921,7 +2919,7 @@ function viewProfile() {
   const p = DB.profile;
   const maxStreak = DB.habits.reduce((m, h) => Math.max(m, habitStreak(h)), 0);
   let html = '<div class="profile-head" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:22px">' +
-    '<div class="avatar" style="width:96px;height:96px;font-size:44px;display:flex;align-items:center;justify-content:center;' + (p.avatar ? 'background-image:url(' + p.avatar + ')' : '') + '">' + (p.avatar ? '' : '🐰') + '</div>' +
+    '<div class="avatar" style="width:96px;height:96px;font-size:calc(44px * var(--app-font-scale, 1));display:flex;align-items:center;justify-content:center;' + (p.avatar ? 'background-image:url(' + p.avatar + ')' : '') + '">' + (p.avatar ? '' : '🐰') + '</div>' +
     '<div style="text-align:center"><div class="h1" style="margin-bottom:4px">' + esc(p.name || '未命名') + '</div><div class="muted">' + esc(p.signature || '这个人很懒，还没有签名') + '</div></div>' +
     '<div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" onclick="editProfile()">✎ 编辑资料</button><button class="btn btn-sm" onclick="document.getElementById(\'pfAvatar\').click()">📷 换头像</button><input type="file" id="pfAvatar" accept="image/*" style="display:none" onchange="changeProfileAvatar(this)"></div></div>';
 
@@ -2933,7 +2931,7 @@ function viewProfile() {
 
   html += '<div class="section-head" style="margin-top:22px"><h2>我的空间</h2></div><div class="grid cols-2">';
   const links = [ ['📖', '我的日志', (DB.journal || []).length + ' 条', '/journal'], ['📝', '笔记', DB.notes.length + ' 篇', '/notes'], ['💬', 'AI Chat', '与 Bunny 对话', '/chat'], ['🎵', '音乐', DB.player.playlist.length + ' 首', '/player'] ];
-  html += links.map((l) => '<div class="card card-pad" style="cursor:pointer;display:flex;align-items:center;gap:12px" onclick="OS.go(\'' + l[3] + '\')"><span style="font-size:26px">' + l[0] + '</span><div class="grow"><div style="font-weight:700">' + l[1] + '</div><div class="muted" style="font-size:12px">' + l[2] + '</div></div><span style="color:var(--text-faint)">›</span></div>').join('');
+  html += links.map((l) => '<div class="card card-pad" style="cursor:pointer;display:flex;align-items:center;gap:12px" onclick="OS.go(\'' + l[3] + '\')"><span style="font-size:calc(26px * var(--app-font-scale, 1))">' + l[0] + '</span><div class="grow"><div style="font-weight:700">' + l[1] + '</div><div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">' + l[2] + '</div></div><span style="color:var(--text-faint)">›</span></div>').join('');
   html += '</div>';
 
   // 底部：Task/Plans/Habits/Streaks 两行紧凑统计卡片（移除原「统计」区）
@@ -2955,10 +2953,10 @@ function viewSettings() {
   let html = '<div class="h1" style="margin-bottom:16px">Settings</div>';
   html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field" style="margin:0"><label>App 名称</label><div class="row" style="gap:8px"><input class="input" id="appName" value="' + esc(DB.appName) + '"><button class="btn btn-soft" onclick="saveAppName()">保存</button></div></div></div>';
   const items = [ ['/settings/appearance', '🎨', 'Appearance', '主题 / 颜色 / 壁纸 / 字体'], ['/settings/ai', '♥', '我的AI', '名字 / 人格 / 记忆 / 权限'], ['/settings/api', '🔑', 'API', 'DeepSeek / OpenAI / Claude 密钥'], ['/settings/mcp', '🔌', 'MCP', '外部工具插件'], ['/settings/notifications', '💬', 'Notifications', '主动消息 / 定时问候'] ];
-  html += '<div class="card card-pad" style="padding:6px 8px">' + items.map((i) => '<div class="conv-item" onclick="OS.go(\'' + i[0] + '\')"><span style="font-size:22px">' + i[1] + '</span><div class="grow"><div style="font-weight:600">' + i[2] + '</div><div class="c-last">' + i[3] + '</div></div><span style="color:var(--text-faint)">›</span></div>').join('') + '</div>';
+  html += '<div class="card card-pad" style="padding:6px 8px">' + items.map((i) => '<div class="conv-item" onclick="OS.go(\'' + i[0] + '\')"><span style="font-size:calc(22px * var(--app-font-scale, 1))">' + i[1] + '</span><div class="grow"><div style="font-weight:600">' + i[2] + '</div><div class="c-last">' + i[3] + '</div></div><span style="color:var(--text-faint)">›</span></div>').join('') + '</div>';
   html += '<div class="section-head"><h2>Data</h2></div><div class="card card-pad" style="padding:6px 8px">' +
-    '<div class="conv-item" onclick="exportData()"><span style="font-size:20px">📤</span><div class="grow"><div style="font-weight:600">导出数据</div><div class="c-last">下载 JSON 备份</div></div></div>' +
-    '<div class="conv-item" onclick="confirmDialog(\'清空数据\',\'将删除所有本地数据（任务/计划/习惯/笔记等），不可恢复。\',()=>clearData(),\'清空\')"><span style="font-size:20px">🗑</span><div class="grow"><div style="font-weight:600;color:#c0392b">清空数据</div><div class="c-last">重置到初始状态</div></div></div></div>';
+    '<div class="conv-item" onclick="exportData()"><span style="font-size:calc(20px * var(--app-font-scale, 1))">📤</span><div class="grow"><div style="font-weight:600">导出数据</div><div class="c-last">下载 JSON 备份</div></div></div>' +
+    '<div class="conv-item" onclick="confirmDialog(\'清空数据\',\'将删除所有本地数据（任务/计划/习惯/笔记等），不可恢复。\',()=>clearData(),\'清空\')"><span style="font-size:calc(20px * var(--app-font-scale, 1))">🗑</span><div class="grow"><div style="font-weight:600;color:#c0392b">清空数据</div><div class="c-last">重置到初始状态</div></div></div></div>';
   return html;
 }
 function saveAppName() { const v = document.getElementById('appName').value.trim(); if (v) DB.appName = v; saveDB(); applyTheme(); render(); toast('已保存 ✓'); }
@@ -2985,9 +2983,9 @@ function viewSettingsAppearance() {
   const a = DB.appearance;
   let html = '<div class="h1" style="margin-bottom:16px">Appearance</div>';
   html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field"><label>主题模式</label><div class="seg"><button class="' + (a.theme === 'light' ? 'on' : '') + '" onclick="setThemeMode(\'light\')">浅色</button><button class="' + (a.theme === 'dark' ? 'on' : '') + '" onclick="setThemeMode(\'dark\')">深色</button><button class="' + (a.theme === 'system' ? 'on' : '') + '" onclick="setThemeMode(\'system\')">跟随系统</button></div></div></div>';
-  html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field"><label>全局主题色</label>' + globalSwatchHtml(a.accent) + '<div style="margin-top:10px;font-size:12px;color:var(--text-faint)">注意：这是全局颜色，每个计划仍有自己的独立颜色</div></div></div>';
+  html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field"><label>全局主题色</label>' + globalSwatchHtml(a.accent) + '<div style="margin-top:10px;font-size:calc(12px * var(--app-font-scale, 1));color:var(--text-faint)">注意：这是全局颜色，每个计划仍有自己的独立颜色</div></div></div>';
   const fsk = a.fontScale || 'standard';
-  html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field" style="margin:0"><label>全局字体大小</label><div class="seg" style="margin-top:8px"><button class="' + (fsk === 'small' ? 'on' : '') + '" onclick="setFontScale(\'small\')">小</button><button class="' + (fsk === 'standard' ? 'on' : '') + '" onclick="setFontScale(\'standard\')">标准</button><button class="' + (fsk === 'large' ? 'on' : '') + '" onclick="setFontScale(\'large\')">大</button><button class="' + (fsk === 'xlarge' ? 'on' : '') + '" onclick="setFontScale(\'xlarge\')">特大</button></div><div style="margin-top:8px;font-size:12px;color:var(--text-faint)">影响聊天 / 日历 / 任务 / 计划 / 习惯 / 健康 / 购物 / 音乐 / 笔记 / 记忆 / 动态等全部文字</div></div></div>';
+  html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field" style="margin:0"><label>全局字体大小</label><div class="seg" style="margin-top:8px"><button class="' + (fsk === 'small' ? 'on' : '') + '" onclick="setFontScale(\'small\')">小</button><button class="' + (fsk === 'standard' ? 'on' : '') + '" onclick="setFontScale(\'standard\')">标准</button><button class="' + (fsk === 'large' ? 'on' : '') + '" onclick="setFontScale(\'large\')">大</button><button class="' + (fsk === 'xlarge' ? 'on' : '') + '" onclick="setFontScale(\'xlarge\')">特大</button></div><div style="margin-top:8px;font-size:calc(12px * var(--app-font-scale, 1));color:var(--text-faint)">影响聊天 / 日历 / 任务 / 计划 / 习惯 / 健康 / 购物 / 音乐 / 笔记 / 记忆 / 动态等全部文字</div></div></div>';
   html += '<div class="card card-pad" style="margin-bottom:14px"><div class="field" style="margin:0"><label>壁纸</label><div class="row" style="gap:8px;align-items:center"><div class="grow"><input class="input" id="wallpaperFile" type="file" accept="image/*" onchange="changeWallpaper(this)"></div>' + (a.wallpaper ? '<button class="btn btn-sm btn-danger" onclick="removeWallpaper()">移除</button>' : '') + '</div></div></div>';
   let enOpts = '';
   for (const f of ENGLISH_FONTS) enOpts += '<option value="' + "'" + f[1] + "'" + '"' + ((a.fontEn || '').includes(f[1]) ? ' selected' : '') + '>' + f[0] + '</option>';
@@ -3097,17 +3095,17 @@ function viewSettingsAI() {
   const list = ensureAssistants();
   const assistRows = list.map((a) => '<div class="row" style="gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">' +
     '<div class="avatar" style="width:32px;height:32px;flex-shrink:0;' + (a.avatar ? 'background-image:url(' + a.avatar + ')' : '') + '">' + (a.avatar ? '' : '♥') + '</div>' +
-    '<div class="grow" style="min-width:0"><div style="font-weight:600;font-size:14px">' + esc(a.name || '未命名') + (a.id === DB.activeAssistantId ? ' <span class="muted" style="font-size:11px">(当前)</span>' : '') + '</div><div class="muted" style="font-size:11px">' + esc(a.model || '') + '</div></div>' +
+    '<div class="grow" style="min-width:0"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))">' + esc(a.name || '未命名') + (a.id === DB.activeAssistantId ? ' <span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">(当前)</span>' : '') + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + esc(a.model || '') + '</div></div>' +
     '<button class="btn btn-sm btn-soft" onclick="OS.chat.switchAssistant(\'' + a.id + '\')">' + (a.id === DB.activeAssistantId ? '使用中' : '切换') + '</button>' +
     '</div>').join('');
   let html = '<div class="h1" style="margin-bottom:16px">我的AI 设置</div>' +
     '<div class="card card-pad" style="margin-bottom:14px"><div class="row" style="justify-content:space-between;align-items:center"><label style="margin:0;font-weight:700">AI 助手</label><button class="btn btn-sm" onclick="addAssistantModal()">＋ 新增</button></div>' +
-    '<div class="muted" style="font-size:11px;margin:2px 0 8px">助手和模型是两个概念：助手绑定人格/头像/默认模型；切换助手会整体切换身份。</div>' + (assistRows || '<div class="muted">暂无助手</div>') + '</div>' +
+    '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin:2px 0 8px">助手和模型是两个概念：助手绑定人格/头像/默认模型；切换助手会整体切换身份。</div>' + (assistRows || '<div class="muted">暂无助手</div>') + '</div>' +
     '<div class="card card-pad">' +
     '<div class="field"><label>AI 名字</label><input class="input" id="aiName" value="' + esc(s.aiName) + '"></div>' +
     '<div class="field"><label>系统提示词（AI 人格）</label><textarea class="textarea" id="aiPrompt">' + esc(s.systemPrompt) + '</textarea></div>' +
     '<div class="field"><label>默认模型</label><select class="select" id="aiModel"><optgroup label="DeepSeek"><option value="deepseek-chat"' + (s.model === 'deepseek-chat' ? ' selected' : '') + '>DeepSeek Chat</option><option value="deepseek-reasoner"' + (s.model === 'deepseek-reasoner' ? ' selected' : '') + '>DeepSeek Reasoner</option></optgroup><optgroup label="OpenAI"><option value="gpt-4o"' + (s.model === 'gpt-4o' ? ' selected' : '') + '>GPT-4o</option><option value="gpt-4o-mini"' + (s.model === 'gpt-4o-mini' ? ' selected' : '') + '>GPT-4o mini</option></optgroup><optgroup label="Claude"><option value="claude-sonnet-5"' + (s.model === 'claude-sonnet-5' ? ' selected' : '') + '>Claude Sonnet 5</option><option value="claude-opus-5"' + (s.model === 'claude-opus-5' ? ' selected' : '') + '>Claude Opus 5</option><option value="claude-opus-4-6"' + (s.model === 'claude-opus-4-6' ? ' selected' : '') + '>Claude Opus 4.6</option></optgroup></select></div>' +
-    '<div class="field"><label>助手头像</label><div class="row" style="gap:8px;align-items:center"><div class="grow"><input class="input" id="aiAvatarFile" type="file" accept="image/*" onchange="previewAiAvatar(this)"></div></div><div id="aiAvatarPreview" style="margin-top:8px"></div><div class="muted" style="font-size:11px;margin-top:6px">助手头像也会作为 Bark 推送通知的图标，自动同步。</div></div>' +
+    '<div class="field"><label>助手头像</label><div class="row" style="gap:8px;align-items:center"><div class="grow"><input class="input" id="aiAvatarFile" type="file" accept="image/*" onchange="previewAiAvatar(this)"></div></div><div id="aiAvatarPreview" style="margin-top:8px"></div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:6px">助手头像也会作为 Bark 推送通知的图标，自动同步。</div></div>' +
     '<div class="field"><label>聊天背景</label>' +
     '<div class="row" style="gap:8px;flex-wrap:wrap">' +
     '<button class="btn btn-sm ' + (!s.chatBackground ? 'btn-primary' : '') + '" onclick="setChatBackground(null)">默认</button>' +
@@ -3118,11 +3116,11 @@ function viewSettingsAI() {
     '<button class="btn btn-sm" onclick="useAssistantAvatarAsBg()">用头像</button>' +
     '<button class="btn btn-sm" onclick="useWallpaperAsBg()">用壁纸</button>' +
     '</div>' +
-    '<div class="muted" style="font-size:11px;margin-top:6px">默认 / 纯色 / 上传 / 已有图片（头像或壁纸），永久保存。</div></div>' +
+    '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:6px">默认 / 纯色 / 上传 / 已有图片（头像或壁纸），永久保存。</div></div>' +
     '<div class="field"><label>气泡透明度：<span id="bubVal">' + s.bubbleOpacity + '</span></label><input type="range" min="0.1" max="1" step="0.05" value="' + s.bubbleOpacity + '" style="width:100%" oninput="document.getElementById(\'bubVal\').textContent=this.value"></div>' +
     toggles() +
     '</div><div class="card card-pad" style="margin-top:14px">' + aiPermTogglesHtml() + '</div>' +
-    '<div class="card card-pad" style="margin-top:14px"><div style="font-weight:700;margin-bottom:6px">AI 权限策略（只读）</div><div class="muted" style="font-size:11px;margin-bottom:10px">固定后端策略：日志与签名仅用户本人可编辑，AI 只能读取、理解与共情，绝不修改。</div><div id="aiPolicyPanel">加载中…</div></div>' +
+    '<div class="card card-pad" style="margin-top:14px"><div style="font-weight:700;margin-bottom:6px">AI 权限策略（只读）</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-bottom:10px">固定后端策略：日志与签名仅用户本人可编辑，AI 只能读取、理解与共情，绝不修改。</div><div id="aiPolicyPanel">加载中…</div></div>' +
     '<div style="padding:16px"><button class="btn btn-primary btn-block" onclick="saveAISettings()">保存 AI 设置</button></div>';
   return html;
 }
@@ -3146,7 +3144,7 @@ async function loadAIPolicy() {
     const rows = ents.map((k) => {
       const p = policy[k];
       const isUserOnly = userOnly.has(k);
-      return '<tr><td>' + esc(NAMES[k] || k) + (isUserOnly ? ' <span class="muted" style="font-size:10px">（仅本人）</span>' : '') + '</td>' +
+      return '<tr><td>' + esc(NAMES[k] || k) + (isUserOnly ? ' <span class="muted" style="font-size:calc(10px * var(--app-font-scale, 1))">（仅本人）</span>' : '') + '</td>' +
         '<td>' + chk(p.read) + '</td><td>' + chk(p.create) + '</td><td>' + chk(p.write) + '</td><td>' + chk(p.delete) + '</td></tr>';
     }).join('');
     el.innerHTML = '<table class="ai-policy-table"><thead><tr><th>模块</th><th>读取</th><th>创建</th><th>写入</th><th>删除</th></tr></thead><tbody>' + rows + '</tbody></table>';
@@ -3203,16 +3201,16 @@ let _apiKeySet = { deepseek: false, openai: false, anthropic: false };
 
 function connStatusHtml(p) {
   const c = _apiConnections[p];
-  if (!c) return '<span class="muted" style="font-size:11px">未测试</span>';
+  if (!c) return '<span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">未测试</span>';
   const color = c.status === 'CONNECTED' ? '#2e7d32' : (c.status === 'DISCONNECTED' ? '#c0392b' : '#b9770e');
   const code = c.code && c.code !== 'OK' ? ' · ' + esc(c.code) : '';
-  return '<span style="color:' + color + ';font-weight:600;font-size:11px">● ' + esc(c.status) + code + '</span>' + (c.message ? ' <span class="muted" style="font-size:11px">' + esc(c.message) + '</span>' : '');
+  return '<span style="color:' + color + ';font-weight:600;font-size:calc(11px * var(--app-font-scale, 1))">● ' + esc(c.status) + code + '</span>' + (c.message ? ' <span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + esc(c.message) + '</span>' : '');
 }
 function renderConn(p) { const el = document.getElementById(p + 'Conn'); if (el) el.innerHTML = connStatusHtml(p); }
 function setConn(p, c) { _apiConnections[p] = c; renderConn(p); }
 
 function viewSettingsAPI() {
-  let html = '<div class="h1" style="margin-bottom:16px">API Settings</div><div class="card card-pad"><p class="muted" style="margin-bottom:14px;font-size:12px">密钥保存在服务器端并加密（AES-256-GCM），前端只显示打码，绝不回传明文。留空 = 不修改。</p>';
+  let html = '<div class="h1" style="margin-bottom:16px">API Settings</div><div class="card card-pad"><p class="muted" style="margin-bottom:14px;font-size:calc(12px * var(--app-font-scale, 1))">密钥保存在服务器端并加密（AES-256-GCM），前端只显示打码，绝不回传明文。留空 = 不修改。</p>';
   html += '<div class="field"><label>DeepSeek Key</label><input class="input" type="password" id="dsKey" placeholder="sk-..."></div><div class="field"><label>DeepSeek 中转地址</label><input class="input" id="dsBase" placeholder="https://api.deepseek.com/v1"></div><div class="row" style="gap:8px;align-items:center;margin:2px 0 14px"><button class="btn btn-sm btn-soft" onclick="testProvider(\'deepseek\')">测试连接</button><span id="deepseekConn"></span></div>';
   html += '<div class="field"><label>OpenAI Key</label><input class="input" type="password" id="oaKey" placeholder="sk-..."></div><div class="field"><label>OpenAI 中转地址</label><input class="input" id="oaBase" placeholder="https://api.openai.com/v1"></div><div class="row" style="gap:8px;align-items:center;margin:2px 0 14px"><button class="btn btn-sm btn-soft" onclick="testProvider(\'openai\')">测试连接</button><span id="openaiConn"></span></div>';
   html += '<div class="field"><label>Claude Key</label><input class="input" type="password" id="anKey" placeholder="sk-ant-..."></div><div class="field"><label>Claude 中转地址</label><input class="input" id="anBase" placeholder="https://api.anthropic.com"></div><div class="field"><label>Claude 协议</label><select class="select" id="anProto"><option value="anthropic">Anthropic 原生</option><option value="openai-compat">OpenAI 兼容中转</option></select></div><div class="row" style="gap:8px;align-items:center;margin:2px 0 14px"><button class="btn btn-sm btn-soft" onclick="testProvider(\'anthropic\')">测试连接</button><span id="anthropicConn"></span></div>';
@@ -3280,11 +3278,11 @@ async function saveApiSettings() {
 /* ================= SETTINGS / MCP ================= */
 let mcpServers = [];
 function viewSettingsMCP() {
-  let html = '<div class="h1" style="margin-bottom:16px">MCP 插件</div><div class="card card-pad" style="margin-bottom:14px" id="mcpList"><div class="muted" style="font-size:12px">加载中…</div></div><button class="btn btn-primary btn-block" onclick="showMcpForm()">＋ 新建插件</button><div id="mcpForm" style="display:none;margin-top:14px" class="card card-pad"><div class="field"><label>插件名</label><input class="input" id="mcpName" placeholder="如 filesystem"></div><div class="field"><label>启动命令</label><input class="input" id="mcpCmd" placeholder="如 npx -y @modelcontextprotocol/server-filesystem /tmp"></div><button class="btn btn-primary btn-block" onclick="addMcp()">保存插件</button></div>';
+  let html = '<div class="h1" style="margin-bottom:16px">MCP 插件</div><div class="card card-pad" style="margin-bottom:14px" id="mcpList"><div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">加载中…</div></div><button class="btn btn-primary btn-block" onclick="showMcpForm()">＋ 新建插件</button><div id="mcpForm" style="display:none;margin-top:14px" class="card card-pad"><div class="field"><label>插件名</label><input class="input" id="mcpName" placeholder="如 filesystem"></div><div class="field"><label>启动命令</label><input class="input" id="mcpCmd" placeholder="如 npx -y @modelcontextprotocol/server-filesystem /tmp"></div><button class="btn btn-primary btn-block" onclick="addMcp()">保存插件</button></div>';
   return html;
 }
 async function loadMcp() { try { const r = await fetch(API_BASE + '/api/settings'); if (r.ok) mcpServers = (await r.json()).settings?.mcp_servers || []; } catch (e) { mcpServers = []; } renderMcpList(); }
-function renderMcpList() { const el = document.getElementById('mcpList'); if (!el) return; el.innerHTML = mcpServers.length ? mcpServers.map((s, i) => '<div class="row" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div class="grow"><div style="font-weight:600">' + esc(s.name || '未命名') + '</div><div class="muted" style="font-size:11px;font-family:monospace">' + esc(s.command || '') + '</div></div><button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="removeMcp(' + i + ')">🗑</button></div>').join('') : '<div class="muted" style="font-size:12px">还没有插件</div>'; }
+function renderMcpList() { const el = document.getElementById('mcpList'); if (!el) return; el.innerHTML = mcpServers.length ? mcpServers.map((s, i) => '<div class="row" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div class="grow"><div style="font-weight:600">' + esc(s.name || '未命名') + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));font-family:monospace">' + esc(s.command || '') + '</div></div><button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="removeMcp(' + i + ')">🗑</button></div>').join('') : '<div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">还没有插件</div>'; }
 function showMcpForm() { document.getElementById('mcpForm').style.display = 'block'; document.getElementById('mcpCmd').focus(); }
 async function saveMcpServers() { try { await fetch(API_BASE + '/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mcp_servers: mcpServers }) }); } catch (e) {} }
 function addMcp() { const name = document.getElementById('mcpName').value.trim(); const command = document.getElementById('mcpCmd').value.trim(); if (!command) { toast('请填写启动命令', true); return; } mcpServers.push({ id: (name || 'plugin') + '_' + Date.now(), name: name || '未命名', command }); document.getElementById('mcpForm').style.display = 'none'; renderMcpList(); saveMcpServers(); }
@@ -3298,7 +3296,7 @@ let _barkSettings = { bark_set: false, bark_url: '' };
 function barkSettingsCardHtml() {
   return '<div class="card card-pad" style="margin-bottom:14px">' +
     '<div class="spread" style="margin-bottom:8px"><div style="font-weight:700">📱 Bark 手机推送</div><div id="barkStatus">加载中…</div></div>' +
-    '<div class="muted" style="font-size:11px;margin-bottom:12px">通知由后端 Bark Service 统一发送；密钥保存在服务端，前端只显示打码，绝不落盘到前端代码。</div>' +
+    '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-bottom:12px">通知由后端 Bark Service 统一发送；密钥保存在服务端，前端只显示打码，绝不落盘到前端代码。</div>' +
     '<div class="row" style="gap:8px"><button class="btn btn-sm btn-soft" onclick="barkConfigureModal()">配置 Bark</button><button class="btn btn-sm btn-primary" onclick="barkTest()">测试通知（普通）</button></div></div>';
 }
 async function loadBarkStatus() {
@@ -3312,13 +3310,13 @@ async function loadBarkStatus() {
 function renderBarkStatus() {
   const el = document.getElementById('barkStatus'); if (!el) return;
   el.innerHTML = _barkSettings.bark_set
-    ? '<span style="color:#2e7d32;font-weight:700">● 已连接</span> <span class="muted" style="font-size:12px;font-family:monospace">' + esc(_barkSettings.bark_url) + '</span>'
+    ? '<span style="color:#2e7d32;font-weight:700">● 已连接</span> <span class="muted" style="font-size:calc(12px * var(--app-font-scale, 1));font-family:monospace">' + esc(_barkSettings.bark_url) + '</span>'
     : '<span style="color:#c0392b;font-weight:700">● 未配置</span>';
 }
 function barkConfigureModal() {
   modal('<div class="modal-head"><h3>配置 Bark</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
     '<div class="field"><label>Bark 地址（api.day.app 完整地址）</label><input class="input" id="barkUrlInput" placeholder="https://api.day.app/你的设备Token"></div>' +
-    '<div class="muted" style="font-size:11px">' + (_barkSettings.bark_set ? '当前：' + esc(_barkSettings.bark_url) : '尚未配置') + '</div>' +
+    '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + (_barkSettings.bark_set ? '当前：' + esc(_barkSettings.bark_url) : '尚未配置') + '</div>' +
     '</div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="barkSave()">保存</button></div>');
 }
 async function barkSave() {
@@ -3343,7 +3341,7 @@ async function barkTest() {
 
 function viewSettingsNotif() {
   const s = notifSet();
-  const row = (label, key, sub) => '<div class="field"><div class="row" style="justify-content:space-between"><div><label style="margin:0">' + label + '</label><div class="muted" style="font-size:10.5px">' + sub + '</div></div><button class="btn btn-sm ' + (s[key] ? 'btn-primary' : '') + '" onclick="toggleNotif(\'' + key + '\')">' + (s[key] ? '开' : '关') + '</button></div></div>';
+  const row = (label, key, sub) => '<div class="field"><div class="row" style="justify-content:space-between"><div><label style="margin:0">' + label + '</label><div class="muted" style="font-size:calc(10.5px * var(--app-font-scale, 1))">' + sub + '</div></div><button class="btn btn-sm ' + (s[key] ? 'btn-primary' : '') + '" onclick="toggleNotif(\'' + key + '\')">' + (s[key] ? '开' : '关') + '</button></div></div>';
   let html = '<div class="h1" style="margin-bottom:16px">Notifications</div>' + barkSettingsCardHtml() + '<div class="card card-pad">' +
     row('早安问候', 'morning', '每天早上主动来一条') +
     '<div class="field"><label>早安时间</label><input class="input" type="time" id="morningTime" value="' + s.morningTime + '" onchange="notifSet().morningTime=this.value;saveDB()"></div>' +
@@ -3394,10 +3392,10 @@ function viewChat() {
     '<div class="chat-header" style="display:flex;align-items:center;gap:8px;padding:max(8px, env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--border)">' +
     '<button class="icon-btn" onclick="OS.chat.toggleSidebar()" title="会话列表">☰</button>' +
     '<div class="grow" style="min-width:0">' +
-    '<div id="chatTitle" class="chat-title" style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="OS.chat.renameSession(OS.chat.currentId)" title="点击重命名">' + esc(title) + '</div>' +
-    '<div id="chatSub" class="muted" style="font-size:11px">' + esc((a && a.name) || s.aiName || '♥ 我的AI') + ' · ' + esc((a && a.model) || s.model || '') + '</div></div>' +
+    '<div id="chatTitle" class="chat-title" style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="OS.chat.renameSession(OS.chat.currentId)" title="点击重命名">' + esc(title) + '</div>' +
+    '<div id="chatSub" class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + esc((a && a.name) || s.aiName || '♥ 我的AI') + ' · ' + esc((a && a.model) || s.model || '') + '</div></div>' +
     '<button class="icon-btn" onclick="openMiniMap()" title="地图">🗺</button>' +
-    '<div class="avatar" id="chatAssistantAvatar" style="width:32px;height:32px;font-size:15px;flex-shrink:0;' + (av ? 'background-image:url(' + av + ')' : '') + '" onclick="OS.chat.assistantPicker()" title="切换 AI 助手">' + (av ? '' : '♥') + '</div>' +
+    '<div class="avatar" id="chatAssistantAvatar" style="width:32px;height:32px;font-size:calc(15px * var(--app-font-scale, 1));flex-shrink:0;' + (av ? 'background-image:url(' + av + ')' : '') + '" onclick="OS.chat.assistantPicker()" title="切换 AI 助手">' + (av ? '' : '♥') + '</div>' +
     '<button class="icon-btn" onclick="OS.chat.topMenu(event)" title="会话 / 模型">⋯</button>' +
     '</div>' +
     // 消息区（单列，覆盖式侧栏不挤压气泡）
@@ -3492,7 +3490,7 @@ function chatBubbleHtml(msg, isLast) {
       const u = a.dataUrl || (a.fileUrl ? (String(a.fileUrl).startsWith('http') ? a.fileUrl : API_BASE + a.fileUrl) : (a.publicUrl || ''));
       const isImg = (a.mimeType || '').startsWith('image/') || !!a.dataUrl || /\.(png|jpe?g|webp|gif)$/i.test(a.fileName || '');
       if (isImg && u) return '<img src="' + u + '" onclick="OS.chat.previewImage(\'' + String(u).replace(/'/g, '\\\'') + '\')" style="width:72px;height:72px;border-radius:8px;object-fit:cover;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">';
-      return '<div onclick="OS.chat.previewFile(\'' + (u ? String(u).replace(/'/g, '\\\'') : '') + '\',\'' + esc(a.fileName || a.name || '文件') + '\')" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.5);font-size:12px;cursor:pointer;max-width:220px"><span>📄</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.fileName || a.name || '文件') + '</span></div>';
+      return '<div onclick="OS.chat.previewFile(\'' + (u ? String(u).replace(/'/g, '\\\'') : '') + '\',\'' + esc(a.fileName || a.name || '文件') + '\')" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.5);font-size:calc(12px * var(--app-font-scale, 1));cursor:pointer;max-width:220px"><span>📄</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.fileName || a.name || '文件') + '</span></div>';
     }).join('') + '</div>';
   }
   // 需求 5：点击气泡才出现轻量操作菜单（不再常驻 hover，也不改变气泡本身）
@@ -3597,8 +3595,8 @@ OS.chat.pickDynamic = function() {
   const acts = (DB.ai.activities || []).filter(isAiActivity).slice(0, 20);
   if (!acts.length) { toast('暂无 AI 动态可引用', true); return; }
   drawer('<div class="sheet"><div class="sheet-grab"></div>' +
-    '<div class="sheet-head"><div style="font-weight:700;font-size:16px">引用 AI 动态</div></div>' +
-    acts.map((a) => '<button class="sheet-item" onclick="OS.closeModal();OS.chat.quoteDynamic(\'' + a.id + '\')"><span class="ico">' + aiActivityIcon(a.type) + '</span><span class="grow" style="text-align:left;min-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></span></button>').join('') +
+    '<div class="sheet-head"><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1))">引用 AI 动态</div></div>' +
+    acts.map((a) => '<button class="sheet-item" onclick="OS.closeModal();OS.chat.quoteDynamic(\'' + a.id + '\')"><span class="ico">' + aiActivityIcon(a.type) + '</span><span class="grow" style="text-align:left;min-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.text) + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + relTime(a.time) + '</div></span></button>').join('') +
     '</div>', 'bottom');
 };
 OS.chat.conversationInfo = function() {
@@ -3606,11 +3604,11 @@ OS.chat.conversationInfo = function() {
   const a = OS.chat.currentAssistant();
   const msgs = OS.chat.messages.filter((m) => m.content);
   drawer('<div class="sheet"><div class="sheet-grab"></div>' +
-    '<div class="sheet-head"><div style="font-weight:700;font-size:16px">会话信息</div></div>' +
-    '<div class="sheet-item" style="cursor:default"><span class="ico">💬</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:11px">标题</div><div>' + esc(cur.name || '新的对话') + '</div></span></div>' +
-    '<div class="sheet-item" style="cursor:default"><span class="ico">♥</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:11px">助手</div><div>' + esc((a && a.name) || '未选择') + (a && a.model ? ' · ' + esc(a.model) : '') + '</div></span></div>' +
-    '<div class="sheet-item" style="cursor:default"><span class="ico">🗨</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:11px">消息数</div><div>' + msgs.length + ' 条</div></span></div>' +
-    '<div class="sheet-item" style="cursor:default"><span class="ico">🕐</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:11px">创建时间</div><div>' + esc(cur.created_at || '') + '</div></span></div>' +
+    '<div class="sheet-head"><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1))">会话信息</div></div>' +
+    '<div class="sheet-item" style="cursor:default"><span class="ico">💬</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">标题</div><div>' + esc(cur.name || '新的对话') + '</div></span></div>' +
+    '<div class="sheet-item" style="cursor:default"><span class="ico">♥</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">助手</div><div>' + esc((a && a.name) || '未选择') + (a && a.model ? ' · ' + esc(a.model) : '') + '</div></span></div>' +
+    '<div class="sheet-item" style="cursor:default"><span class="ico">🗨</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">消息数</div><div>' + msgs.length + ' 条</div></span></div>' +
+    '<div class="sheet-item" style="cursor:default"><span class="ico">🕐</span><span class="grow" style="text-align:left"><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">创建时间</div><div>' + esc(cur.created_at || '') + '</div></span></div>' +
     '</div>', 'bottom');
 };
 OS.chat.toggleSidebar = function(force) {
@@ -3645,7 +3643,7 @@ OS.chat.renderSessions = function() {
   sorted = sorted.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   if (OS.chat.multiSelect) {
     el.innerHTML = sorted.map((s) => '<div class="session-item' + (s.id === OS.chat.currentId ? ' active' : '') + '" onclick="OS.chat.toggleSessionSelect(\'' + s.id + '\')">' +
-      '<span style="flex-shrink:0;font-size:16px">' + (OS.chat.multiSelected[s.id] ? '☑' : '☐') + '</span>' +
+      '<span style="flex-shrink:0;font-size:calc(16px * var(--app-font-scale, 1))">' + (OS.chat.multiSelected[s.id] ? '☑' : '☐') + '</span>' +
       '<span class="s-name">' + esc(s.name || '未命名') + '</span>' +
       '</div>').join('');
     OS.chat.renderMultiBar();
@@ -3745,11 +3743,11 @@ OS.chat.assistantPicker = function() {
   const list = ensureAssistants();
   const cur = OS.chat.currentAssistant();
   drawer('<div class="sheet"><div class="sheet-grab"></div>' +
-    '<div class="sheet-head"><div style="font-weight:700;font-size:16px">选择 AI 助手</div><div class="muted" style="font-size:12px">只影响当前对话，历史消息保留</div></div>' +
+    '<div class="sheet-head"><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1))">选择 AI 助手</div><div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">只影响当前对话，历史消息保留</div></div>' +
     list.map((a) => {
       const av = a.avatar || a.avatarUrl || '';
       const ico = av ? '<span class="avatar" style="width:28px;height:28px;background-image:url(' + av + ')"></span>' : '♥';
-      return '<button class="sheet-item" onclick="OS.closeModal();OS.chat.switchConversationAssistant(\'' + a.id + '\')"><span class="ico">' + ico + '</span><span class="grow" style="text-align:left;min-width:0"><div style="font-weight:600">' + esc(a.name || '未命名') + (a.id === (cur && cur.id) ? ' <span class="muted" style="font-size:11px">(当前)</span>' : '') + '</div><div class="muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.model || '') + (a.personality ? ' · ' + esc(a.personality) : '') + '</div></span></button>';
+      return '<button class="sheet-item" onclick="OS.closeModal();OS.chat.switchConversationAssistant(\'' + a.id + '\')"><span class="ico">' + ico + '</span><span class="grow" style="text-align:left;min-width:0"><div style="font-weight:600">' + esc(a.name || '未命名') + (a.id === (cur && cur.id) ? ' <span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">(当前)</span>' : '') + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.model || '') + (a.personality ? ' · ' + esc(a.personality) : '') + '</div></span></button>';
     }).join('') +
     '<button class="sheet-item" onclick="OS.closeModal();OS.go(\'/settings/ai\')"><span class="ico">＋</span>管理助手…</button>' +
     '</div>', 'bottom');
@@ -4165,7 +4163,6 @@ function bindKeyboardViewport() {
     const stage = document.querySelector('.chat-stage');
     if (!stage) return;
     const vv = window.visualViewport;
-    const fontScale = parseFloat(getComputedStyle(root).getPropertyValue('--app-font-scale')) || 1;
     // 键盘实际占用高度 = 布局视口底边 - 视觉视口底边。
     // 视觉视口底边（相对布局视口顶）= offsetTop + height，故键盘高度 = innerHeight - offsetTop - height。
     // 无键盘时该值≈0（视觉视口底边=布局视口底边）；键盘弹出时视觉视口缩小/上移，该值即键盘高度。
@@ -4174,9 +4171,8 @@ function bindKeyboardViewport() {
     // stage 是 flex 列布局：底边抬高后 header / messages(flex:1) / composer(flex-shrink:0) 自动压缩，
     // composer 落在键盘顶、不被遮挡；不再用 transform 平移 stage，避免 iOS 上把 composer 推出可视区。
     const open = keyboardHeight > 24;
-    // bottom 是长度，会被 html{zoom} 放大（真机验证：大字体档位 composer 悬空偏高），除以 fontScale 抵消，
-    // 让 bottom 的实际渲染值 = 键盘真实高度，composer 紧贴键盘顶。
-    stage.style.bottom = open ? (keyboardHeight / fontScale + 'px') : '';
+    // 不再除以 fontScale：字体档位改用 calc 缩放文字（不用 zoom），bottom 不再被 zoom 放大，直接取键盘真实高度即可。
+    stage.style.bottom = open ? (keyboardHeight + 'px') : '';
     // 键盘弹出时视觉视口已不含底部安全区：input-bar 不再叠加 safe-area，避免输入框与键盘之间出现灰/白横条。
     root.style.setProperty('--chat-safe-bottom', open ? '0px' : 'env(safe-area-inset-bottom)');
   };
@@ -4405,7 +4401,7 @@ async function aiSaveMemory(id) {
   closeModal(); render(); toast('已更新 ✓');
 }
 function aiCandidateHtml(c) {
-  return '<div class="ai-mem-item" style="border-left:3px solid var(--accent)"><div class="spread"><div style="flex:1"><div style="font-size:14px;font-weight:600">' + esc(c.summary || c.content || '') + ' <span class="chip" style="font-size:10px">待确认</span></div><div class="muted" style="font-size:11px;margin-top:4px"><span class="shop-cat">' + memLabel(c) + '</span> · AI 提取的候选</div></div><div class="row" style="gap:4px"><button class="btn btn-sm btn-primary" onclick="aiConfirmCandidate(\'' + c.id + '\')">记住</button><button class="btn btn-sm" onclick="aiRejectCandidate(\'' + c.id + '\')">忽略</button></div></div></div>';
+  return '<div class="ai-mem-item" style="border-left:3px solid var(--accent)"><div class="spread"><div style="flex:1"><div style="font-size:calc(14px * var(--app-font-scale, 1));font-weight:600">' + esc(c.summary || c.content || '') + ' <span class="chip" style="font-size:calc(10px * var(--app-font-scale, 1))">待确认</span></div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:4px"><span class="shop-cat">' + memLabel(c) + '</span> · AI 提取的候选</div></div><div class="row" style="gap:4px"><button class="btn btn-sm btn-primary" onclick="aiConfirmCandidate(\'' + c.id + '\')">记住</button><button class="btn btn-sm" onclick="aiRejectCandidate(\'' + c.id + '\')">忽略</button></div></div></div>';
 }
 async function aiConfirmCandidate(id) {
   if (_memBusy) return;
@@ -4506,13 +4502,13 @@ function todayHimHtml() {
   const acts = (DB.ai.activities || []).filter(isAiActivity).slice(0, 3);
   let html = '<div class="section-head" style="margin-top:22px"><h2>今天的祂</h2><button class="more" onclick="OS.go(\'/ai/activity\')">查看全部 ›</button></div>';
   if (st) {
-    html += '<div class="card card-pad" style="margin-bottom:10px"><div class="row" style="gap:8px;align-items:center"><span style="font-size:16px">💗</span><div style="font-weight:700;font-size:14px">' + esc(st.emotion) + ' · ' + esc(aiIntensityText(st.intensity)) + '</div></div>' + (st.reason ? '<div class="muted" style="font-size:12.5px;margin-top:4px;line-height:1.6">' + esc(st.reason) + '</div>' : '') + '</div>';
+    html += '<div class="card card-pad" style="margin-bottom:10px"><div class="row" style="gap:8px;align-items:center"><span style="font-size:calc(16px * var(--app-font-scale, 1))">💗</span><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1))">' + esc(st.emotion) + ' · ' + esc(aiIntensityText(st.intensity)) + '</div></div>' + (st.reason ? '<div class="muted" style="font-size:calc(12.5px * var(--app-font-scale, 1));margin-top:4px;line-height:1.6">' + esc(st.reason) + '</div>' : '') + '</div>';
   }
-  if (acts.length === 0) html += '<div class="card card-pad" style="padding:16px"><div class="muted" style="font-size:13px">祂今天还没写下什么</div></div>';
-  else html += '<div class="card card-pad" style="padding:6px 8px">' + acts.map((a) => '<div class="conv-item" style="cursor:pointer" onclick="OS.go(\'/ai/activity\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:14px">' + aiActivityIcon(a.type) + ' ' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></div></div>').join('') + '</div>';
+  if (acts.length === 0) html += '<div class="card card-pad" style="padding:16px"><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1))">祂今天还没写下什么</div></div>';
+  else html += '<div class="card card-pad" style="padding:6px 8px">' + acts.map((a) => '<div class="conv-item" style="cursor:pointer" onclick="OS.go(\'/ai/activity\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))">' + aiActivityIcon(a.type) + ' ' + esc(a.text) + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + relTime(a.time) + '</div></div></div>').join('') + '</div>';
   return html;
 }
-function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:18px">' + aiActivityIcon(a.type) + '</span><div class="grow"><div style="font-size:13.5px">' + esc(a.text) + '</div><div class="muted" style="font-size:11px">' + relTime(a.time) + '</div></div><button class="mini-act" style="align-self:flex-start" onclick="OS.chat.quoteDynamic(\'' + a.id + '\')">↳ 回应</button></div></div>'; }
+function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:calc(18px * var(--app-font-scale, 1))">' + aiActivityIcon(a.type) + '</span><div class="grow"><div style="font-size:calc(13.5px * var(--app-font-scale, 1))">' + esc(a.text) + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + relTime(a.time) + '</div></div><button class="mini-act" style="align-self:flex-start" onclick="OS.chat.quoteDynamic(\'' + a.id + '\')">↳ 回应</button></div></div>'; }
 
 /* ---- AI 通知引擎（非报错式） ---- */
 const AINotify = {
@@ -4698,7 +4694,8 @@ function shoppingItemsOf(listId) {
 }
 function addShoppingItem(listId, title, opts) {
   opts = opts || {};
-  const it = { id: uid(), listId, title: String(title).trim(), note: opts.note || '', category: opts.category || '其他', priority: opts.priority || 'normal', completed: false, sourceMemoryId: opts.sourceMemoryId || null, sourceConversationId: opts.sourceConversationId || null, createdAt: Date.now(), updatedAt: Date.now() };
+  const owner = listId === 'deity' ? 'assistant' : 'user';
+  const it = { id: uid(), listId, owner, title: String(title).trim(), note: opts.note || '', category: opts.category || '其他', priority: opts.priority || 'normal', completed: false, sourceMemoryId: opts.sourceMemoryId || null, sourceConversationId: opts.sourceConversationId || null, createdAt: Date.now(), updatedAt: Date.now() };
   DB.shoppingItems.push(it); saveDB();
   AIBus.emit({ type: 'SHOPPING_ITEM_CREATED', entityType: 'shoppingItem', entityId: it.id, payload: it });
   return it;
@@ -4736,7 +4733,7 @@ function shopItemHtml(it) {
   return '<div class="shop-item"><span class="chk' + (it.completed ? ' on' : '') + '" onclick="toggleShoppingItem(\'' + it.id + '\')"></span>' +
     '<div class="grow" style="cursor:pointer" onclick="editShoppingItem(\'' + it.id + '\')">' +
     '<div style="font-weight:600;' + (it.completed ? 'text-decoration:line-through;opacity:.5' : '') + '">' + esc(it.title) + '</div>' +
-    '<div class="muted" style="font-size:11px;margin-top:2px">' + (it.category ? '<span class="shop-cat">' + esc(it.category) + '</span> ' : '') + (it.priority === 'high' ? '<span class="chip" style="font-size:10px;color:#db2777">重要</span> ' : '') + (it.note ? esc(it.note) : '') + '</div>' +
+    '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:2px">' + (it.category ? '<span class="shop-cat">' + esc(it.category) + '</span> ' : '') + (it.priority === 'high' ? '<span class="chip" style="font-size:calc(10px * var(--app-font-scale, 1));color:#db2777">重要</span> ' : '') + (it.note ? esc(it.note) : '') + '</div>' +
     auditTraceHtml('shopping', it.id) +
     '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="deleteShoppingItem(\'' + it.id + '\')">🗑</button></div>';
 }
@@ -4762,18 +4759,18 @@ function viewFinance() {
   const s = financeSummaryLocal();
   let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">记账</div><div class="muted">收支 · 预算 · 分类统计</div></div><button class="btn btn-primary" onclick="expenseModal(null)">＋ 记一笔</button></div>';
   html += '<div class="grid cols-2" style="margin-bottom:16px">' +
-    '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">📉</div><div class="v">' + fmtMoney(s.todayExpenseCents) + '</div><div class="l">今日支出</div></div>' +
-    '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">📉</div><div class="v">' + fmtMoney(s.monthExpenseCents) + '</div><div class="l">本月支出</div></div>' +
-    '<div class="card stat-card"><div style="font-size:20px;margin-bottom:6px">📈</div><div class="v">' + fmtMoney(s.monthIncomeCents) + '</div><div class="l">本月收入</div></div>' +
-    '<div class="card stat-card" style="cursor:pointer" onclick="budgetModal()"><div style="font-size:20px;margin-bottom:6px">🎯</div><div class="v">' + (s.budget ? fmtMoney(s.budget) : '—') + '</div><div class="l">本月预算</div><div class="u">点击设置</div></div>' +
+    '<div class="card stat-card"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">📉</div><div class="v">' + fmtMoney(s.todayExpenseCents) + '</div><div class="l">今日支出</div></div>' +
+    '<div class="card stat-card"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">📉</div><div class="v">' + fmtMoney(s.monthExpenseCents) + '</div><div class="l">本月支出</div></div>' +
+    '<div class="card stat-card"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">📈</div><div class="v">' + fmtMoney(s.monthIncomeCents) + '</div><div class="l">本月收入</div></div>' +
+    '<div class="card stat-card" style="cursor:pointer" onclick="budgetModal()"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">🎯</div><div class="v">' + (s.budget ? fmtMoney(s.budget) : '—') + '</div><div class="l">本月预算</div><div class="u">点击设置</div></div>' +
     '</div>';
   // AI 点评（模型生成，非硬编码）：懒加载占位，afterRender 里异步填充
-  html += '<div class="card card-pad" id="financeAiComment" style="padding:12px 14px;margin-bottom:16px;display:none"><div style="font-weight:700;font-size:13px;margin-bottom:4px">♥ AI 点评</div><div id="financeAiCommentText" class="muted" style="font-size:13px;line-height:1.5">正在生成…</div></div>';
+  html += '<div class="card card-pad" id="financeAiComment" style="padding:12px 14px;margin-bottom:16px;display:none"><div style="font-weight:700;font-size:calc(13px * var(--app-font-scale, 1));margin-bottom:4px">♥ AI 点评</div><div id="financeAiCommentText" class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));line-height:1.5">正在生成…</div></div>';
   const cats = Object.entries(s.cat).sort((a, b) => b[1] - a[1]);
   if (cats.length) {
     const max = cats[0][1];
     html += '<div class="section-head"><h2>本月分类统计</h2></div><div class="card card-pad" style="padding:14px">' +
-      cats.map(([c, v]) => '<div style="margin-bottom:10px"><div class="row" style="justify-content:space-between;font-size:13px;margin-bottom:4px"><span>' + esc(c) + '</span><span class="muted">' + fmtMoney(v) + '</span></div><div class="progress"><span style="width:' + Math.round((v / max) * 100) + '%"></span></div></div>').join('') + '</div>';
+      cats.map(([c, v]) => '<div style="margin-bottom:10px"><div class="row" style="justify-content:space-between;font-size:calc(13px * var(--app-font-scale, 1));margin-bottom:4px"><span>' + esc(c) + '</span><span class="muted">' + fmtMoney(v) + '</span></div><div class="progress"><span style="width:' + Math.round((v / max) * 100) + '%"></span></div></div>').join('') + '</div>';
   }
   const list = (DB.expenses || []).slice().sort((a, b) => (b.occurredAt || '') < (a.occurredAt || '') ? -1 : 1).slice(0, 50);
   html += '<div class="section-head"><h2>最近记录</h2></div>';
@@ -4803,7 +4800,7 @@ async function loadFinanceComment() {
 function financeRowHtml(e) {
   const income = financeIsIncome(e);
   return '<div class="task-row" style="cursor:pointer" onclick="expenseModal(\'' + e.id + '\')">' +
-    '<span style="font-size:18px">' + (income ? '💵' : '💸') + '</span>' +
+    '<span style="font-size:calc(18px * var(--app-font-scale, 1))">' + (income ? '💵' : '💸') + '</span>' +
     '<div class="grow"><div class="t-title">' + esc(e.title || '未命名') + '</div><div class="t-meta">' + esc((e.category ? e.category + ' · ' : '') + (e.occurredAt || '') + (e.note ? ' · ' + e.note : '')) + '</div></div>' +
     '<div style="text-align:right;font-weight:700;' + (income ? 'color:#16a34a' : '') + '">' + (income ? '+' : '-') + fmtMoney(e.amountCents) + '</div>' +
     '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();deleteExpense(\'' + e.id + '\')">🗑</button>' +
@@ -4844,7 +4841,7 @@ function deleteExpense(id) {
 }
 function budgetModal() {
   const b = DB.budget;
-  modal('<div class="modal-head"><h3>本月预算</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="field"><label>预算（元/月）</label><input class="input" type="number" id="bgAmount" value="' + (b && b.monthlyCents ? (b.monthlyCents / 100) : '') + '" step="100" min="0" placeholder="如：2000"></div><div class="muted" style="font-size:12px">用于「我的AI」帮你控制本月开销；留空可清除预算。</div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveBudget()">保存</button></div>');
+  modal('<div class="modal-head"><h3>本月预算</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="field"><label>预算（元/月）</label><input class="input" type="number" id="bgAmount" value="' + (b && b.monthlyCents ? (b.monthlyCents / 100) : '') + '" step="100" min="0" placeholder="如：2000"></div><div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">用于「我的AI」帮你控制本月开销；留空可清除预算。</div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveBudget()">保存</button></div>');
 }
 function saveBudget() {
   const v = parseFloat(document.getElementById('bgAmount').value);
@@ -4877,10 +4874,10 @@ function viewPeriod() {
   const sorted = periodSorted().slice().reverse();
   let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">经期</div><div class="muted">经期记录与预测 · 隐私</div></div><div class="row" style="gap:8px"><button class="btn btn-sm ' + (p.ongoing ? '' : 'btn-primary') + '" onclick="periodStartModal()">' + (p.ongoing ? '进行中' : '＋ 记录开始') + '</button>' + (p.ongoing ? '<button class="btn btn-sm" onclick="periodEndModal()">记录结束</button>' : '') + '</div></div>';
   let pred = '<div class="card card-pad" style="margin-bottom:16px">';
-  if (p.ongoing) pred += '<div style="font-weight:700;font-size:15px">🌸 经期中</div><div class="muted" style="font-size:13px;margin-top:4px">开始于 ' + esc(p.ongoing.startDate) + '，记得点「记录结束」</div>';
-  else if (p.nextStart) pred += '<div style="font-weight:700;font-size:15px">🔮 预计下次</div><div class="muted" style="font-size:13px;margin-top:4px">约 ' + esc(p.nextStart) + '（平均周期 ' + p.avgCycle + ' 天）</div>';
-  else pred += '<div style="font-weight:700;font-size:15px">📝 暂无预测</div><div class="muted" style="font-size:13px;margin-top:4px">记录几次经期后，会逐步估算你的周期</div>';
-  pred += '<div class="muted" style="font-size:11px;margin-top:8px">预测仅供参考，不构成医学诊断。</div></div>';
+  if (p.ongoing) pred += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">🌸 经期中</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">开始于 ' + esc(p.ongoing.startDate) + '，记得点「记录结束」</div>';
+  else if (p.nextStart) pred += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">🔮 预计下次</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">约 ' + esc(p.nextStart) + '（平均周期 ' + p.avgCycle + ' 天）</div>';
+  else pred += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">📝 暂无预测</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">记录几次经期后，会逐步估算你的周期</div>';
+  pred += '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:8px">预测仅供参考，不构成医学诊断。</div></div>';
   html += pred;
   html += '<div class="section-head"><h2>历史记录</h2></div>';
   html += '<div class="card card-pad" style="padding:4px 8px">' + (sorted.length ? sorted.map(periodRowHtml).join('') : '<div class="empty"><div class="eico">🌸</div><div class="etitle">还没有记录</div><div class="esub">点「记录开始」添加第一条经期</div></div>') + '</div>';
@@ -4888,7 +4885,7 @@ function viewPeriod() {
 }
 function periodRowHtml(c) {
   const dur = c.durationDays ? '持续 ' + c.durationDays + ' 天' : (c.endDate ? '' : '进行中');
-  return '<div class="task-row"><span style="font-size:18px">🌸</span><div class="grow"><div class="t-title">' + esc(c.startDate) + (c.endDate ? ' → ' + esc(c.endDate) : '') + '</div><div class="t-meta">' + esc(dur || '') + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="deleteCycle(\'' + c.id + '\')">🗑</button></div>';
+  return '<div class="task-row"><span style="font-size:calc(18px * var(--app-font-scale, 1))">🌸</span><div class="grow"><div class="t-title">' + esc(c.startDate) + (c.endDate ? ' → ' + esc(c.endDate) : '') + '</div><div class="t-meta">' + esc(dur || '') + '</div></div><button class="icon-btn" style="border:none;background:none" onclick="deleteCycle(\'' + c.id + '\')">🗑</button></div>';
 }
 function periodStartModal() {
   if (periodPrediction().ongoing) { toast('已有进行中的经期，请先记录结束', true); return; }
@@ -4934,7 +4931,7 @@ function aiMemoryItemHtml(m) {
   const inactive = !memActive(m);
   const src = m.source === 'user_explicit' ? '用户明确' : m.source === 'ai_extracted' ? 'AI 提取' : m.source === 'imported' ? '手动/导入' : m.source === 'system_config' ? '系统配置' : '对话';
   const conf = m.userConfirmed ? ' · 已确认' : '';
-  return '<div class="ai-mem-item" style="' + (inactive ? 'opacity:.5' : '') + '"><div class="spread"><div style="flex:1"><div style="font-size:14px;font-weight:600">' + esc(memText(m)) + (inactive ? ' <span class="chip" style="font-size:10px">已停用</span>' : '') + '</div><div class="muted" style="font-size:11px;margin-top:4px"><span class="shop-cat">' + memLabel(m) + '</span> · ' + src + conf + ' · ' + relTime(m.createdAt) + '</div></div>' +
+  return '<div class="ai-mem-item" style="' + (inactive ? 'opacity:.5' : '') + '"><div class="spread"><div style="flex:1"><div style="font-size:calc(14px * var(--app-font-scale, 1));font-weight:600">' + esc(memText(m)) + (inactive ? ' <span class="chip" style="font-size:calc(10px * var(--app-font-scale, 1))">已停用</span>' : '') + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:4px"><span class="shop-cat">' + memLabel(m) + '</span> · ' + src + conf + ' · ' + relTime(m.createdAt) + '</div></div>' +
     '<div class="row" style="gap:4px"><button class="icon-btn" style="border:none;background:none" title="' + (inactive ? '恢复' : '停用') + '" onclick="aiToggleMemory(\'' + m.id + '\')">' + (inactive ? '↺' : '⏸') + '</button><button class="icon-btn" style="border:none;background:none" onclick="aiEditMemory(\'' + m.id + '\')">✎</button><button class="icon-btn" style="border:none;background:none;color:#c0392b" onclick="aiDeleteMemory(\'' + m.id + '\')">🗑</button></div></div>' + auditTraceHtml('memory', m.id) + '</div>';
 }
 function aiNewMemory() {
@@ -4992,10 +4989,10 @@ function viewAIMemory() {
     '<button class="btn btn-sm ' + (ms.enabled ? 'btn-primary' : '') + '" onclick="aiToggleMemoryEnabled()">' + (ms.enabled ? '记忆：开' : '记忆：关') + '</button>' +
     '<button class="btn btn-sm ' + (ms.autoSaveEnabled ? 'btn-primary' : '') + '" onclick="aiToggleAutoSave()">' + (ms.autoSaveEnabled ? '自动记忆：开' : '自动记忆：关') + '</button></div>' +
     '<div class="row" style="gap:6px;flex-wrap:wrap">' + chips + '</div>' +
-    '<div class="row" style="gap:8px;margin-top:10px"><span class="muted" style="font-size:11px">共 ' + list.length + ' 条 · 只记长期偏好/习惯/明确「记住」请求，不记每句话</span><button class="btn btn-sm btn-soft" style="color:#c0392b;margin-left:auto" onclick="aiClearMemories()">清空全部</button></div></div>';
+    '<div class="row" style="gap:8px;margin-top:10px"><span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">共 ' + list.length + ' 条 · 只记长期偏好/习惯/明确「记住」请求，不记每句话</span><button class="btn btn-sm btn-soft" style="color:#c0392b;margin-left:auto" onclick="aiClearMemories()">清空全部</button></div></div>';
   // 待确认候选（section 七）：独立于正式记忆，需用户确认才转正
   if (_memCandidates.length) {
-    html += '<div class="card card-pad" style="margin-bottom:12px;border-left:3px solid var(--accent)"><div class="section-head" style="margin-top:0"><h2>待确认</h2><span class="muted" style="font-size:11px">AI 推断的候选，确认后才会被记住</span></div>' + _memCandidates.map(aiCandidateHtml).join('') + '</div>';
+    html += '<div class="card card-pad" style="margin-bottom:12px;border-left:3px solid var(--accent)"><div class="section-head" style="margin-top:0"><h2>待确认</h2><span class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">AI 推断的候选，确认后才会被记住</span></div>' + _memCandidates.map(aiCandidateHtml).join('') + '</div>';
   }
   html += '<div id="memList"></div>';
   setTimeout(renderMemList, 0);
@@ -5069,16 +5066,16 @@ async function aiImportToServer(items) {
 
 /* ---- AI 状态页 ---- */
 function aiStateItemHtml(s) {
-  return '<div class="ai-state-item"><div class="spread"><div class="emotion">' + esc(s.emotion) + aiStateDotsHtml(s.intensity) + '</div>' + (s.acknowledged ? '<span class="chip" style="font-size:10px">已回应</span>' : '<button class="btn btn-sm" onclick="aiAcknowledgeState(\'' + s.id + '\')">回应祂</button>') + '</div>' +
-    (s.reason ? '<div class="muted" style="font-size:12.5px;margin-top:6px;line-height:1.6">' + esc(s.reason) + '</div>' : '') +
-    '<div class="muted" style="font-size:11px;margin-top:6px">来自 · ' + esc(aiStateTriggerLabel(s)) + ' · ' + relTime(s.createdAt) + '</div></div>';
+  return '<div class="ai-state-item"><div class="spread"><div class="emotion">' + esc(s.emotion) + aiStateDotsHtml(s.intensity) + '</div>' + (s.acknowledged ? '<span class="chip" style="font-size:calc(10px * var(--app-font-scale, 1))">已回应</span>' : '<button class="btn btn-sm" onclick="aiAcknowledgeState(\'' + s.id + '\')">回应祂</button>') + '</div>' +
+    (s.reason ? '<div class="muted" style="font-size:calc(12.5px * var(--app-font-scale, 1));margin-top:6px;line-height:1.6">' + esc(s.reason) + '</div>' : '') +
+    '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:6px">来自 · ' + esc(aiStateTriggerLabel(s)) + ' · ' + relTime(s.createdAt) + '</div></div>';
 }
 function viewAIActivity() {
   const states = DB.ai.states || [];
   const acts = (DB.ai.activities || []).filter(isAiActivity);
   const cur = aiCurrentState();
   let html = '<div class="h1" style="margin-bottom:2px">最近的祂</div><div class="muted" style="margin-bottom:14px">AI 状态 · 祂此刻的感受</div>';
-  if (cur) html += '<div class="card card-pad ai-companion" style="margin-bottom:16px"><div class="row" style="gap:10px;align-items:center"><div class="ai-heart">♥</div><div><div style="font-weight:800;font-size:16px">' + esc(cur.emotion) + ' · ' + esc(aiIntensityText(cur.intensity)) + '</div><div class="muted" style="font-size:12.5px">' + esc(cur.reason || '') + '</div></div></div></div>';
+  if (cur) html += '<div class="card card-pad ai-companion" style="margin-bottom:16px"><div class="row" style="gap:10px;align-items:center"><div class="ai-heart">♥</div><div><div style="font-weight:800;font-size:calc(16px * var(--app-font-scale, 1))">' + esc(cur.emotion) + ' · ' + esc(aiIntensityText(cur.intensity)) + '</div><div class="muted" style="font-size:calc(12.5px * var(--app-font-scale, 1))">' + esc(cur.reason || '') + '</div></div></div></div>';
   const today = todayStr();
   const groups = [
     ['今天', (s) => dstr(new Date(s.createdAt)) === today],
@@ -5109,7 +5106,7 @@ function aiCompanionStatus() {
 }
 function aiNoticeHtml(n) {
   const icon = { INFO: '💡', REMINDER: '⏰', IMPORTANT: '❗', GENTLE_NUDGE: '🌿' }[n.kind] || '💡';
-  let html = '<div class="ai-notice"><div style="font-size:16px">' + icon + '</div><div class="body"><div style="font-weight:700;font-size:13.5px">' + esc(n.title) + '</div><div class="muted" style="font-size:12.5px">' + esc(n.body) + '</div>';
+  let html = '<div class="ai-notice"><div style="font-size:calc(16px * var(--app-font-scale, 1))">' + icon + '</div><div class="body"><div style="font-weight:700;font-size:calc(13.5px * var(--app-font-scale, 1))">' + esc(n.title) + '</div><div class="muted" style="font-size:calc(12.5px * var(--app-font-scale, 1))">' + esc(n.body) + '</div>';
   if (n.actions && n.actions.length) html += '<div class="actions">' + n.actions.map((a) => '<button class="btn btn-sm ' + (a.primary ? 'btn-primary' : '') + '" onclick="event.stopPropagation();aiNoticeAction(\'' + n.id + '\',\'' + a.key + '\')">' + esc(a.label) + '</button>').join('') + '</div>';
   html += '</div><button class="icon-btn" style="border:none;background:none;color:var(--text-faint)" onclick="event.preventDefault();event.stopPropagation();dismissReminder(\'' + n.id + '\')">✕</button></div>';
   return html;
@@ -5119,7 +5116,7 @@ function aiCompanionHeader() {
   const status = aiCompanionStatus();
   const unread = (DB.ai.notifications || []).filter((n) => !n.read);
   let html = '<div class="card card-pad ai-companion" style="margin-bottom:14px">';
-  html += '<div class="spread" style="align-items:flex-start"><div class="row" style="gap:10px;align-items:center"><div class="ai-heart">♥</div><div><div style="font-weight:800;font-size:16px">♥ 我的AI</div><div class="status">' + esc(status.text) + '</div></div></div>';
+  html += '<div class="spread" style="align-items:flex-start"><div class="row" style="gap:10px;align-items:center"><div class="ai-heart">♥</div><div><div style="font-weight:800;font-size:calc(16px * var(--app-font-scale, 1))">♥ 我的AI</div><div class="status">' + esc(status.text) + '</div></div></div>';
   if (st) html += '<span class="ai-state-pill" style="cursor:pointer" onclick="OS.go(\'/ai/activity\')">' + esc(aiIntensityText(st.intensity) + ' · ' + st.emotion) + '</span>';
   html += '</div>';
   html += '<div class="row" style="gap:8px;margin-top:10px"><button class="btn btn-sm btn-primary" onclick="OS.go(\'/chat\')">和我聊聊</button><button class="btn btn-sm" onclick="OS.go(\'/ai/memory\')">查看记忆</button></div>';
@@ -5154,17 +5151,17 @@ async function openMiniMap() {
     const bbox = (lng - d).toFixed(5) + '%2C' + (lat - d).toFixed(5) + '%2C' + (lng + d).toFixed(5) + '%2C' + (lat + d).toFixed(5);
     const src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox + '&layer=mapnik&marker=' + lat.toFixed(5) + '%2C' + lng.toFixed(5);
     drawer('<div class="sheet"><div class="sheet-grab"></div>' +
-      '<div class="sheet-head"><div style="font-weight:700;font-size:16px">对话地点</div>' +
-      '<div class="muted" style="font-size:12px">' + esc(loc.city || '对话定位') + '</div></div>' +
+      '<div class="sheet-head"><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1))">对话地点</div>' +
+      '<div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">' + esc(loc.city || '对话定位') + '</div></div>' +
       '<iframe src="' + src + '" style="width:100%;height:56vh;border:0;border-radius:14px;background:var(--border)" loading="lazy" title="对话地点地图"></iframe>' +
-      '<div class="muted" style="font-size:11px;padding:10px 2px 4px">地图来自 OpenStreetMap · ' + lat.toFixed(4) + ', ' + lng.toFixed(4) + '</div>' +
+      '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));padding:10px 2px 4px">地图来自 OpenStreetMap · ' + lat.toFixed(4) + ', ' + lng.toFixed(4) + '</div>' +
       '<button class="btn btn-sm" onclick="OS.closeModal();OS.chat.pinLocation()" style="margin-top:8px">📍 重新定位此对话</button>' +
       '</div>', 'bottom');
     return;
   }
   // 无地点：空状态 + 「定位此对话」入口（只有用户点击才请求定位，绝不自动弹权限框）
   drawer('<div class="sheet"><div class="sheet-grab"></div>' +
-    '<div class="sheet-head"><div style="font-weight:700;font-size:16px">对话地点</div></div>' +
+    '<div class="sheet-head"><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1))">对话地点</div></div>' +
     '<div class="empty" style="padding:24px 8px"><div class="eico">🗺</div><div class="etitle">此对话暂无定位</div>' +
     '<div class="esub">地图属于当前对话，展示对话中涉及的地点。可以手动为这条对话标一个地点。</div></div>' +
     '<button class="btn btn-primary" onclick="OS.closeModal();OS.chat.pinLocation()">📍 定位此对话</button>' +
@@ -5199,15 +5196,15 @@ async function refreshWeather() {
 /* ---- 权限开关 UI ---- */
 function aiPermTogglesHtml() {
   const p = aiPerm();
-  let html = '<div class="field" style="margin-bottom:6px"><label style="margin:0;font-weight:700">♥ 我的AI 权限</label><div class="muted" style="font-size:11px">决定祂能看见和使用什么。位置默认关闭。</div></div>';
-  for (const k in AI_PERM_DEFAULT) html += '<div class="field" style="margin-bottom:2px"><div class="row" style="justify-content:space-between"><label style="margin:0;font-size:13px">' + esc(AI_PERM_LABEL[k] || k) + '</label><button class="btn btn-sm ' + (p[k] ? 'btn-primary' : '') + '" onclick="aiTogglePerm(\'' + k + '\')">' + (p[k] ? '开' : '关') + '</button></div></div>';
+  let html = '<div class="field" style="margin-bottom:6px"><label style="margin:0;font-weight:700">♥ 我的AI 权限</label><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">决定祂能看见和使用什么。位置默认关闭。</div></div>';
+  for (const k in AI_PERM_DEFAULT) html += '<div class="field" style="margin-bottom:2px"><div class="row" style="justify-content:space-between"><label style="margin:0;font-size:calc(13px * var(--app-font-scale, 1))">' + esc(AI_PERM_LABEL[k] || k) + '</label><button class="btn btn-sm ' + (p[k] ? 'btn-primary' : '') + '" onclick="aiTogglePerm(\'' + k + '\')">' + (p[k] ? '开' : '关') + '</button></div></div>';
   return html;
 }
 
 /* ---- 位置权限 ---- */
 function aiLocationModal() {
   if (!aiCan('location')) { toast('位置权限已关闭，请先在「我的AI 设置」中打开', true); return; }
-  modal('<div class="modal-head"><h3>位置权限</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="muted" style="font-size:14px;line-height:1.7">允许我的AI使用当前位置吗？<br>用于天气提醒与问候，可随时在「我的AI 设置」中关闭。</div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">暂不</button><button class="btn btn-primary" onclick="OS.closeModal();aiLocationAllow()">允许</button></div>');
+  modal('<div class="modal-head"><h3>位置权限</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body"><div class="muted" style="font-size:calc(14px * var(--app-font-scale, 1));line-height:1.7">允许我的AI使用当前位置吗？<br>用于天气提醒与问候，可随时在「我的AI 设置」中关闭。</div></div><div class="modal-foot"><button class="btn" onclick="OS.closeModal()">暂不</button><button class="btn btn-primary" onclick="OS.closeModal();aiLocationAllow()">允许</button></div>');
 }
 function aiLocationAllow() {
   aiPerm().location = true; saveDB();
