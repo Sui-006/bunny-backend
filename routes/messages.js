@@ -11,8 +11,8 @@ import { composeNotification, barkLevelFor } from '../lib/notify.js';
 import { McpSession, parseMcpServers } from '../lib/mcp.js';
 import { ensureOwner } from '../lib/auth.js';
 import { getState } from '../lib/domain.js';
-import { detectDomains, TOOL_DOMAIN_SET } from '../lib/aiContext.js';
-import { buildDomainTools, AI_SELF_TOOL_NAMES, AI_CACHE_TOOL_NAMES, AI_NOTIFY_TOOL_NAMES } from '../lib/tools.js';
+import { detectToolDomains } from '../lib/aiContext.js';
+import { buildDomainTools, toolsForDomains } from '../lib/tools.js';
 import { buildAIContext } from '../lib/context-builder.js';
 import { maybeSummarize, invalidateSummary } from '../services/conversation-summary.js';
 import { attachments as attachmentsTable } from '../lib/store.js';
@@ -42,19 +42,15 @@ async function buildChatEnv(sessionId) {
   return { settings, app, mcp, tools };
 }
 
-// 组装会话环境 + 领域工具（财务/经期/病历按问题相关性注入）；统一上下文由 buildAIContext 组装
+// 组装会话环境 + 领域工具；统一上下文由 buildAIContext 组装。
+// 工具注入按「工具领域」裁剪：命中哪些领域就只带哪些领域的工具 + 常驻核心工具，绝不注入全部 87 个。
 async function buildAssistEnv(sessionId, content, model = config.defaultModel) {
   const { settings, app, mcp, tools: mcpTools } = await buildChatEnv(sessionId);
   const userId = (await ensureOwner()).id;
   const doc = await getState(userId);
-  const domains = detectDomains(content);
   const domain = buildDomainTools(userId, model, { sessionId });
-  // 只有「可编辑领域」才注入编辑工具；只读域（life/journal/statistics/conversation）仅注入读块。
-  const useDomain = domains.some((d) => TOOL_DOMAIN_SET.has(d));
-  // AI 自我工具（读时间 + AI 动态 CRUD）+ 对话缓存工具不依赖领域关键词，始终注入；命中领域时随完整领域工具集一起注入。
-  const selfSet = new Set([...AI_SELF_TOOL_NAMES, ...AI_CACHE_TOOL_NAMES, ...AI_NOTIFY_TOOL_NAMES]);
-  const selfTools = domain.tools.filter((t) => selfSet.has(t.name));
-  const tools = [...mcpTools, ...(useDomain ? domain.tools : selfTools)];
+  const toolDomains = detectToolDomains(content);
+  const tools = [...mcpTools, ...toolsForDomains(toolDomains)];
   const callTool = async (name, args) => {
     if (domain.names.includes(name)) return domain.callTool(name, args);
     if (mcp) return mcp.callTool(name, args);

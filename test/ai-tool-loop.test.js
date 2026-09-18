@@ -7,9 +7,9 @@ import { chat, stripInternalXml, toAnthropicMessage, toAnthropicMessages } from 
 import { config } from '../lib/config.js';
 import { createUser } from '../lib/store.js';
 import { getState } from '../lib/domain.js';
-import { buildDomainTools } from '../lib/tools.js';
+import { buildDomainTools, CORE_ALWAYS_TOOLS } from '../lib/tools.js';
 import { aiCan } from '../lib/permissions.js';
-import { detectDomains, TOOL_DOMAIN_SET } from '../lib/aiContext.js';
+import { detectDomains } from '../lib/aiContext.js';
 
 // node --test 每个测试文件独立进程，安全地改写 config 与 global.fetch。
 config.mock = false;
@@ -386,8 +386,9 @@ test('activity 权限：AI 可新增/改写/删除自己的动态（CRUD）', ()
   assert.equal(aiCan('activity', 'update'), true); // update 映射到 write
 });
 
-test('「编辑一个 ai activity」能被领域检测命中，activity 在工具注入集合中', () => {
+test('「编辑一个 ai activity」能被领域检测命中；activity 工具常驻核心工具集', () => {
   assert.ok(detectDomains('那你现在编辑一个 ai activity。').includes('activity'));
   assert.ok(detectDomains('写一条动态记录一下').includes('activity'));
-  assert.ok(TOOL_DOMAIN_SET.has('activity'));
+  assert.ok(CORE_ALWAYS_TOOLS.includes('create_ai_activity'));
+  assert.ok(CORE_ALWAYS_TOOLS.includes('get_ai_activities'));
 });
