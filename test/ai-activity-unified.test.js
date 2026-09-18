@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createUser } from '../lib/store.js';
-import { getState, appendAiActivity, isAiActivity, aiActivities } from '../lib/domain.js';
+import { getState, appendAiActivity, appendAiState, isAiActivity, aiActivities } from '../lib/domain.js';
 import { buildDomainTools, AI_SELF_TOOL_NAMES } from '../lib/tools.js';
 import { aiCan } from '../lib/permissions.js';
 import { buildAISelfContext } from '../lib/context-builder.js';
@@ -88,6 +88,7 @@ test('get_current_time 是 AI 自我工具，始终可用（不需 WRITE 权限/
   assert.ok(AI_SELF_TOOL_NAMES.includes('get_ai_activities'));
   assert.ok(AI_SELF_TOOL_NAMES.includes('update_ai_activity'));
   assert.ok(AI_SELF_TOOL_NAMES.includes('delete_ai_activity'));
+  assert.ok(AI_SELF_TOOL_NAMES.includes('set_ai_state'));
 });
 
 // ---------- 13/14/15/16：结构化过滤，绝不靠文字 ----------
@@ -193,6 +194,60 @@ test('proactive 写入的 Activity 也进入统一上下文（source=proactive�
   assert.equal(acts.length, 1);
   assert.equal(acts[0].source, 'proactive');
   assert.ok(buildAISelfContext(doc).includes('刚刚突然想找你说句话。'));
+});
+
+// ---------- 24：AI 心情状态（set_ai_state，AI 可编辑自己的心情） ----------
+
+test('set_ai_state 落库 AI 心情状态，并进入统一自我上下文', async () => {
+  const { userId, callTool } = await mkTool();
+  const r = JSON.parse(await callTool('set_ai_state', { emotion: '委屈', intensity: 2, reason: '你一直没理我' }));
+  assert.equal(r.code, 'CREATED');
+  assert.ok(r.state.id);
+  assert.equal(r.state.emotion, '委屈');
+  assert.equal(r.state.intensity, 2);
+  const doc = { ai: (await getState(userId)).ai };
+  assert.equal(doc.ai.states.length, 1);
+  assert.equal(doc.ai.states[0].emotion, '委屈');
+  assert.equal(doc.ai.states[0].acknowledged, false);
+  assert.ok(buildAISelfContext(doc).includes('委屈'));
+});
+
+test('set_ai_state 强度 clamp 到 0-5；空 emotion 失败不落库', async () => {
+  const { userId, callTool } = await mkTool();
+  const hi = JSON.parse(await callTool('set_ai_state', { emotion: '开心', intensity: 99 }));
+  assert.equal(hi.state.intensity, 5);
+  const lo = JSON.parse(await callTool('set_ai_state', { emotion: '委屈', intensity: -3 }));
+  assert.equal(lo.state.intensity, 0);
+  const bad = JSON.parse(await callTool('set_ai_state', { emotion: '   ' }));
+  assert.equal(bad.code, 'FAILED');
+  const state = await getState(userId);
+  assert.equal(state.ai.states.length, 2); // 空 emotion 不落库
+});
+
+test('set_ai_state 落 assistant 审计（entityType=aiState，label=情绪词）', async () => {
+  const { userId, callTool } = await mkTool();
+  const r = JSON.parse(await callTool('set_ai_state', { emotion: '期待', intensity: 3, reason: '想见你' }));
+  const state = await getState(userId);
+  const log = state.ai.auditLog.find((a) => a.entityType === 'aiState' && a.entityId === r.state.id);
+  assert.ok(log);
+  assert.equal(log.actor, 'assistant');
+  assert.equal(log.action, 'create');
+  assert.equal(log.entityLabel, '期待');
+});
+
+test('aiState 权限：AI 可建立自己的心情，但不可删除', () => {
+  assert.equal(aiCan('aiState', 'create'), true);
+  assert.equal(aiCan('aiState', 'write'), true);
+  assert.equal(aiCan('aiState', 'delete'), false);
+});
+
+test('appendAiState 清理过期状态，绝不无限堆积', () => {
+  const doc = { ai: { states: [
+    { id: 'old', emotion: '开心', intensity: 1, createdAt: 1, expiresAt: Date.now() - 1000, acknowledged: false },
+  ] } };
+  const s = appendAiState(doc, { emotion: '期待', intensity: 2 });
+  assert.equal(doc.ai.states.length, 1);
+  assert.equal(doc.ai.states[0].id, s.id);
 });
 
 // ---------- 23：失败不显示成功 ----------
