@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
-import { chat } from '../lib/ai.js';
+import { chat, providerForModel, resolveAssistantModel, supportsToolCalling } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { getState, putState, defaultPlan } from '../lib/domain.js';
 import { HttpError, ok } from '../lib/rest.js';
@@ -306,7 +306,11 @@ function recordSnippet(recordType, rec) {
 
 // POST /api/ai/comments/consider —— 用户新增/编辑记录后的「最小事件入口」：跑工具循环，AI 自行决定是否评论。
 // 前端 fire-and-forget 调用；只注入 comment_on_record + get_current_time，绝不全量注入 89 个工具。
+// 模型复用「用户当前助手」（与 Chat 同一套 Runtime），绝不硬编码 DeepSeek。
 router.post('/comments/consider', async (req, res, next) => {
+  // 兜底：getState 之前若抛错也能给出正确 provider；正常情况下下方会覆盖为当前助手模型。
+  let model = resolveAssistantModel(null, req.body?.model);
+  let provider = providerForModel(model);
   try {
     const recordType = String(req.body?.recordType || '').trim();
     const recordId = String(req.body?.recordId || '').trim();
@@ -318,21 +322,58 @@ router.post('/comments/consider', async (req, res, next) => {
     if (recordType === 'journal') record = doc.journal.find((x) => x.id === recordId);
     else if (recordType === 'health') record = doc.health.find((x) => x.id === recordId);
     else record = doc.expenses.find((x) => x.id === recordId) || doc.purchases.find((x) => x.id === recordId);
-    if (!record) return ok(res, { considered: false, reason: 'record_not_found' });
+    if (!record) return ok(res, { considered: false, reason: 'record_not_found', recordType, recordId });
 
-    const { tools, callTool } = buildDomainTools(req.user.id, config.defaultModel, { sessionId: null });
+    // 复用「用户当前助手」：显式传入 > 激活助手 > aiSettings > 兜底默认模型。
+    // chat() 内部再按模型路由 provider/baseUrl/credential/tool-loop/retry，与 Chat 完全同一套 Runtime。
+    model = resolveAssistantModel(doc, req.body?.model);
+    provider = providerForModel(model);
+
+    // 当前助手不支持工具调用：诚实返回 unsupported_tool_call，绝不偷偷切 DeepSeek、绝不伪造评论。
+    if (!supportsToolCalling(model)) {
+      return ok(res, { considered: true, commented: false, reason: 'unsupported_tool_call', model, provider });
+    }
+
+    const { tools, callTool } = buildDomainTools(req.user.id, model, { sessionId: null });
     const slim = tools.filter((t) => t.name === 'comment_on_record' || t.name === 'get_current_time');
     const reply = await aiCall({
-      model: config.defaultModel, temperature: 0.7, maxTokens: 500,
+      model, temperature: 0.7, maxTokens: 500,
       tools: slim, callTool,
       system: '你是 Bunny\'s Home 里的 AI 伴侣「♥ 我的AI」，温柔、体贴、有洞察。用户刚刚新增/修改了一条生活记录。请判断是否值得为它写一句「祂的评论」：只有这条记录确实有意义、能体现你对 ta 的了解与关心时才调用 comment_on_record；流水账、普通数据变化、或你没有实质感受时，绝不调用任何工具，直接不写。评论要自然、简短（1-3 句），不评判对错、不机械复述数据。',
       messages: [{ role: 'user', content: `记录类型：${recordType}\n记录内容：\n${recordSnippet(recordType, record)}` }],
     });
-    const commented = (reply.toolEvents || []).some((e) => e.name === 'comment_on_record');
-    ok(res, { considered: true, commented });
+    const toolEvents = reply.toolEvents || [];
+    const commented = toolEvents.some((e) => e.name === 'comment_on_record');
+    // 非敏感诊断：模型/厂商/注入的工具/实际执行的工具事件；commented 时读回确认已持久化（全链路可观测，绝不暴露 key/secret）
+    let persisted = false;
+    if (commented) {
+      const latest = await getState(req.user.id);
+      persisted = !!(latest.ai && Array.isArray(latest.ai.comments) && latest.ai.comments.some((c) => c.recordType === recordType && c.recordId === recordId));
+    }
+    ok(res, {
+      considered: true,
+      commented,
+      persisted,
+      model,
+      provider,
+      // 未评论的原因：mock 无工具运行时 / 模型未返回 tool_calls（主动不评 或 中转不支持工具调用）——绝不换模型、绝不伪造
+      reason: !commented ? (config.mock ? 'mock' : 'no_tool_call') : undefined,
+      toolsInjected: slim.map((t) => t.name),
+      toolEvents: toolEvents.map((e) => `${e.name}${e.code ? ':' + e.code : ''}`),
+    });
   } catch (e) {
     // 缺 Key / 后端不可达：诚实降级为「未评论」，绝不用假文案冒充
-    if (/API Key|缺少|密钥/i.test(e.message)) return ok(res, { considered: false, reason: 'no_key' });
+    if (/API Key|缺少|密钥/i.test(e.message)) {
+      return ok(res, {
+        considered: false, reason: 'no_key', model, provider,
+        // 只指出该 key 来自哪里、去哪配，绝不回显任何 key 值
+        source: provider === 'anthropic'
+          ? '网页「API 设置」→ app_settings.anthropic_api_key（加密）或环境变量 ANTHROPIC_API_KEY'
+          : provider === 'openai'
+            ? '网页「API 设置」→ app_settings.openai_api_key（加密）或环境变量 OPENAI_API_KEY'
+            : '网页「API 设置」→ app_settings.deepseek_api_key（加密）或环境变量 DEEPSEEK_API_KEY / API_KEY',
+      });
+    }
     next(e);
   }
 });

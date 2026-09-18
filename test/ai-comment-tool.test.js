@@ -7,6 +7,8 @@ import { buildDomainTools, CORE_ALWAYS_TOOLS, TOOL_DOMAIN_MAP, toolsForDomains }
 import { estimateTokens } from '../lib/tokens.js';
 import { buildAIContext } from '../lib/context-builder.js';
 import { createSession, createMessage } from '../lib/db.js';
+import { chat, providerForModel, resolveAssistantModel, supportsToolCalling } from '../lib/ai.js';
+import { config } from '../lib/config.js';
 
 const commentDef = () => buildDomainTools('x', 'test-model').tools.find((t) => t.name === 'comment_on_record');
 
@@ -191,4 +193,119 @@ test('upsertAiComment：create 后 update 覆盖、version 递增、id 不变', 
   assert.equal(b.comment.version, 2);
   assert.equal(doc.ai.comments.length, 1);
   assert.equal(doc.ai.comments[0].text, '第二句');
+});
+
+// ---- 12. 多条日志不串绑：每条日志按 (recordType, recordId) 绑定自己的评论 ----
+test('多条日志评论不串绑：每条日志绑定自己的评论', async () => {
+  const user = await createUser({ email: null, passwordHash: null, state: {
+    journal: [
+      { id: 'j1', date: '2026-09-18', time: '09:00', content: '第一条日志' },
+      { id: 'j2', date: '2026-09-18', time: '10:00', content: '第二条日志' },
+    ],
+  } });
+  const { callTool } = buildDomainTools(user.id, 'test-model');
+  await callTool('comment_on_record', { recordType: 'journal', recordId: 'j1', comment: '评论一' });
+  await callTool('comment_on_record', { recordType: 'journal', recordId: 'j2', comment: '评论二' });
+  const state = await getState(user.id);
+  assert.equal(state.ai.comments.length, 2, '两条日志各一条评论');
+  const byId = (id) => state.ai.comments.find((c) => c.recordType === 'journal' && c.recordId === id);
+  assert.equal(byId('j1').text, '评论一', 'j1 的评论不会被串到 j2');
+  assert.equal(byId('j2').text, '评论二');
+  assert.notEqual(byId('j1').id, byId('j2').id, '两条评论是独立条目');
+});
+
+// ---- 13. 多条健康记录不串绑 ----
+test('多条健康记录评论不串绑：每条健康记录绑定自己的评论', async () => {
+  const user = await createUser({ email: null, passwordHash: null, state: {
+    health: [
+      { id: 'h1', date: '2026-09-17', sleep: 6, water: 1, caloriesIn: 1600, caloriesOut: 200, weight: 55 },
+      { id: 'h2', date: '2026-09-18', sleep: 8, water: 2, caloriesIn: 2000, caloriesOut: 500, weight: 55 },
+    ],
+  } });
+  const { callTool } = buildDomainTools(user.id, 'test-model');
+  await callTool('comment_on_record', { recordType: 'health', recordId: 'h1', comment: '昨天睡得少了点' });
+  await callTool('comment_on_record', { recordType: 'health', recordId: 'h2', comment: '今天睡得很好' });
+  const state = await getState(user.id);
+  assert.equal(state.ai.comments.length, 2);
+  const byId = (id) => state.ai.comments.find((c) => c.recordType === 'health' && c.recordId === id);
+  assert.equal(byId('h1').text, '昨天睡得少了点', 'h1 的评论不会被串到 h2');
+  assert.equal(byId('h2').text, '今天睡得很好');
+});
+
+// ---- 14. 缺 Key 诚实降级：chat() 抛「缺少 … API Key」，绝不返回假评论 ----
+// 仅当测试环境未配置任何 provider key / 非 mock 时运行；有 key 时跳过（否则会真发网络请求）。
+test('no_key：未配置 provider key 时 chat() 抛「缺少 … API Key」', { skip: Boolean(config.mock || config.deepseekApiKey || config.openaiApiKey || config.anthropicApiKey) }, async () => {
+  await assert.rejects(
+    () => chat({ model: 'deepseek-chat', messages: [{ role: 'user', content: '你好' }] }),
+    /API Key/,
+  );
+});
+
+// ---- 15. mock 模式：chat() 返回无 toolEvents，commented 恒为 false（绝不假装跑过工具循环） ----
+test('mock 模式：chat() 返回无 toolEvents（不产生评论）', async () => {
+  const prev = config.mock;
+  config.mock = true;
+  try {
+    const r = await chat({ model: 'deepseek-chat', messages: [{ role: 'user', content: '你好' }], tools: [], callTool: null });
+    assert.ok(!r.toolEvents, 'mock 模式没有 toolEvents，commented 恒为 false');
+  } finally {
+    config.mock = prev;
+  }
+});
+
+// ---- 16-20. 助手 Runtime 复用：评论使用「用户当前助手」，绝不硬编码 DeepSeek ----
+
+// A/B：评论模型解析跟随激活助手（Claude→anthropic / GPT→openai），绝不 fallback deepseek
+test('A/B：评论模型解析跟随激活助手（Claude→anthropic / GPT→openai），绝不 fallback deepseek', () => {
+  const doc = { activeAssistantId: 'a2', aiSettings: { model: 'deepseek-chat' }, assistants: [{ id: 'a1', model: 'deepseek-chat' }, { id: 'a2', model: 'claude-sonnet-5' }] };
+  assert.equal(resolveAssistantModel(doc), 'claude-sonnet-5');
+  assert.equal(providerForModel(resolveAssistantModel(doc)), 'anthropic');
+  assert.notEqual(providerForModel(resolveAssistantModel(doc)), 'deepseek', '绝不偷偷用 deepseek');
+
+  const doc2 = { activeAssistantId: 'a2', assistants: [{ id: 'a1', model: 'deepseek-chat' }, { id: 'a2', model: 'gpt-4o' }] };
+  assert.equal(providerForModel(resolveAssistantModel(doc2)), 'openai');
+});
+
+// C：助手=Claude 时 provider=anthropic，评论无需 DeepSeek Key
+test('C：助手=Claude 时 provider=anthropic，评论无需 DeepSeek Key', () => {
+  const doc = { activeAssistantId: 'c1', assistants: [{ id: 'c1', model: 'claude-opus-5' }] };
+  const model = resolveAssistantModel(doc);
+  assert.equal(model, 'claude-opus-5');
+  assert.equal(providerForModel(model), 'anthropic');
+  assert.notEqual(model, 'deepseek-chat', '模型绝不退回 deepseek，因此不会去要 DeepSeek Key');
+});
+
+// D：supportsToolCalling 只认工具可用模型族；未知模型诚实 false（不静默当 DeepSeek）
+test('D：supportsToolCalling 只认工具可用模型族；未知模型诚实 false（不静默当 DeepSeek）', () => {
+  assert.equal(supportsToolCalling('claude-sonnet-5'), true);
+  assert.equal(supportsToolCalling('gpt-4o'), true);
+  assert.equal(supportsToolCalling('deepseek-chat'), true);
+  assert.equal(supportsToolCalling('qwen-max'), false, '未知模型 → unsupported_tool_call，绝不静默切 DeepSeek');
+  assert.equal(supportsToolCalling(''), false);
+});
+
+// D：助手 tool loop 无 tool_calls → 不切换模型、不伪造评论
+test('D：助手 tool loop 无 tool_calls → 不切换模型、不伪造评论', async () => {
+  const prev = config.mock;
+  config.mock = true; // mock 运行时不会产生任何 tool_calls（等价于「该助手不支持/未返回工具调用」）
+  try {
+    const { tools, callTool } = buildDomainTools('x', 'claude-sonnet-5');
+    const slim = tools.filter((t) => t.name === 'comment_on_record');
+    const r = await chat({ model: 'claude-sonnet-5', messages: [{ role: 'user', content: '记录内容：今天散步了。' }], tools: slim, callTool });
+    assert.ok(!r.toolEvents || r.toolEvents.length === 0, '无 tool 调用 → commented=false');
+    assert.equal(providerForModel('claude-sonnet-5'), 'anthropic', '模型仍是 Claude，绝不切 DeepSeek');
+  } finally {
+    config.mock = prev;
+  }
+});
+
+// E：评论真实执行后，读回 doc.ai.comments 可确认 persisted=true
+test('E：评论真实执行后，读回 doc.ai.comments 可确认 persisted=true', async () => {
+  const user = await createUser({ email: null, passwordHash: null, state: { journal: [{ id: 'j1', date: '2026-09-18', content: '今天和年糕散步。' }] } });
+  const { callTool } = buildDomainTools(user.id, 'claude-sonnet-5');
+  const r = JSON.parse(await callTool('comment_on_record', { recordType: 'journal', recordId: 'j1', comment: '散步真好，记得喝水。' }));
+  assert.equal(r.code, 'CREATED');
+  const latest = await getState(user.id);
+  const persisted = !!(latest.ai && Array.isArray(latest.ai.comments) && latest.ai.comments.some((c) => c.recordType === 'journal' && c.recordId === 'j1'));
+  assert.equal(persisted, true, '评论已落库并可从 state 读回');
 });

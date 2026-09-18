@@ -5521,7 +5521,7 @@ function aiConsiderComment(recordType, recordId) {
     _aiLastComment = Date.now();
     const last = batch[batch.length - 1];
     try {
-      const resp = await fetch(API_BASE + '/api/ai/comments/consider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recordType: last.recordType, recordId: last.recordId }) });
+      const resp = await fetch(API_BASE + '/api/ai/comments/consider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recordType: last.recordType, recordId: last.recordId, model: aiSet().model }) });
       const data = await resp.json().catch(() => ({}));
       if (data && data.considered && data.commented) await SYNC.bootstrap(); // 后端已写 doc.ai.comments，拉回并刷新
     } catch (e) { /* 后端不可达 / 缺 Key：静默降级，绝不假装评论成功 */ }
