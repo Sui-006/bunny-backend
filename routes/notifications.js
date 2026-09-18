@@ -1,19 +1,10 @@
 import { Router } from 'express';
 import { getState, putState } from '../lib/domain.js';
-import { getAppSettings } from '../lib/db.js';
-import { config } from '../lib/config.js';
 import { HttpError, ok } from '../lib/rest.js';
-import { sendBark } from '../lib/bark.js';
 import { composeNotification, toBarkArgs } from '../lib/notify.js';
+import { sendNotification, resolveBarkUrl, diagnoseNotification } from '../lib/notification-engine.js';
 
 const router = Router();
-
-// 读取 Bark 地址（网页配置优先，环境变量兜底）
-async function resolveBarkUrl() {
-  const app = await getAppSettings();
-  // 优先 Render 环境变量 BARK_URL；数据库 bark_url 仅作兜底（避免旧短值抢占）
-  return config.barkUrl || app?.bark_url || '';
-}
 
 // 通知类型归一化；ALARM 必须显式携带 alarmIntent=true 才放行（强提醒安全闸）
 function normalizeLevel(type) {
@@ -52,7 +43,7 @@ router.post('/read-all', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// POST /api/notifications/send —— 立即发送一条 Bark 通知。
+// POST /api/notifications/send —— 立即发送一条 Bark 通知（经统一 NotificationEngine）。
 // body: { title, body, type }。type=alarm（critical）仅在 alarmIntent=true 时放行。
 router.post('/send', async (req, res, next) => {
   try {
@@ -61,35 +52,49 @@ router.post('/send', async (req, res, next) => {
     if (level === 'alarm' && !req.body?.alarmIntent) {
       throw new HttpError(400, 'NOT_ALARM', '强提醒（critical）仅限用户明确设置的闹钟，需 alarmIntent=true');
     }
-    const barkUrl = await resolveBarkUrl();
-    const result = await sendBark({
-      barkUrl,
+    const result = await sendNotification({
       title: String(title || '').slice(0, 120) || '提醒',
       body: String(body || '').slice(0, 500),
       level,
       sound,
+      source: 'manual',
     });
-    ok(res, { sent: result.sent, level, reason: result.reason });
+    ok(res, { ...result, sent: result.status === 'SUCCESS', level });
   } catch (e) { next(e); }
 });
 
 // POST /api/notifications/test —— 发送普通测试通知（永远 NORMAL，绝不 critical/call）。
-// 标题/正文由 AI 生成，避免硬编码文案。
+// 标题/正文由 AI 生成，避免硬编码文案。返回真实状态（含 NOT_CONFIGURED，不假装成功）。
 router.post('/test', async (req, res, next) => {
   try {
     const barkUrl = await resolveBarkUrl();
-    if (!barkUrl) throw new HttpError(400, 'NO_BARK_URL', '尚未配置 Bark，请先在设置里填写 Bark 地址');
+    if (!barkUrl) {
+      return ok(res, { provider: 'bark', status: 'NOT_CONFIGURED', sent: false });
+    }
     const composed = await composeNotification({
       context: '这是一条测试通知。请用自然亲切的中文写一句简短的测试提醒，说明 Bark 通知已连接成功。type=NORMAL。',
     });
     const args = toBarkArgs(composed, { allowAlarm: false });
-    const result = await sendBark({
+    const result = await sendNotification({
       barkUrl,
       title: args.title || 'Bark 测试',
       body: args.body || 'Bunny’s Home 通知已连接 ✓',
       level: 'normal',
+      source: 'test',
     });
-    ok(res, { sent: result.sent, title: args.title, body: args.body, reason: result.reason });
+    ok(res, { ...result, sent: result.status === 'SUCCESS', title: args.title, body: args.body });
+  } catch (e) { next(e); }
+});
+
+// GET /api/notifications/diagnose —— 通知链路诊断（不打码字段之外绝不暴露 Bark key）
+router.get('/diagnose', async (req, res, next) => {
+  try {
+    const diag = await diagnoseNotification();
+    ok(res, {
+      ...diag,
+      scheduler: 'external-cron', // 主动消息/闹钟由外部心跳 + 前端轮询触发，非进程内 setInterval
+      schedulerNote: '触发依赖 GitHub Actions 心跳（server/.github/workflows/heartbeat.yml）+ 前端 checkProactive/tick 轮询；去重状态存 DB，重启不丢',
+    });
   } catch (e) { next(e); }
 });
 
@@ -164,8 +169,8 @@ router.get('/tick', async (req, res, next) => {
           body = composed.body || body;
         }
       }
-      const result = await sendBark({ barkUrl, title, body, level: 'alarm' });
-      if (result.sent) {
+      const result = await sendNotification({ barkUrl, title, body, level: 'alarm', source: 'alarm' });
+      if (result.status === 'SUCCESS') {
         a.lastFired = a.lastFired || {};
         a.lastFired[today] = Date.now();
         if (a.repeat === 'once') a.enabled = false;

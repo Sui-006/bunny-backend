@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import {
-  getSettings, getAppSettings, DEFAULT_SETTINGS,
+  getSettings, getAppSettings, DEFAULT_SETTINGS, effectiveAppSettings,
   createMessage, listMessages, deleteMessage, getLastAssistantMessage, touchSession,
   updateMessage, markMessagesAfterInvisible,
 } from '../lib/db.js';
 import { chat, chatStream, normalizeProviderUsage, providerForModel } from '../lib/ai.js';
 import { config } from '../lib/config.js';
-import { sendBark } from '../lib/bark.js';
+import { sendNotification, resolveBarkUrl } from '../lib/notification-engine.js';
 import { composeNotification, barkLevelFor } from '../lib/notify.js';
 import { McpSession, parseMcpServers } from '../lib/mcp.js';
 import { ensureOwner } from '../lib/auth.js';
@@ -91,19 +91,22 @@ async function augmentLastUserMessage(messages, rows) {
   return messages;
 }
 
-// 回复通知：标题/正文由 AI 生成（普通通知，绝不 critical/call）
-async function notifyReply(barkUrl, model, content) {
+// 回复通知：标题/正文由 AI 生成（普通通知，绝不 critical/call），经统一 NotificationEngine 发送。
+async function notifyReply(model, content) {
   try {
+    const barkUrl = await resolveBarkUrl();
+    if (!barkUrl) return; // 未配置 Bark：静默跳过（不算错误，也不假装成功）
     const composed = await composeNotification({
       model,
       context: `AI 刚回复了用户一条消息。请生成一条简短的手机通知（标题+正文），概括或自然引出这条回复。type=NORMAL。回复内容：${content}`,
     });
     const lvl = composed && composed.type === 'ALARM' ? 'normal' : barkLevelFor(composed?.type);
-    await sendBark({
+    await sendNotification({
       barkUrl,
       title: composed?.title || '新的回复',
       body: composed?.body || content,
       level: lvl,
+      source: 'reply',
     });
   } catch (e) {
     // 通知失败不阻断主流程
@@ -149,8 +152,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     await augmentLastUserMessage(built.messages, attachmentRows);
 
     const stream = settings.stream && tools.length === 0;
-    const barkUrl = config.barkUrl || app?.bark_url;
-    const notify = app?.reply_notify_enabled && barkUrl && req.body?.notify;
+    const notify = effectiveAppSettings(app).reply_notify_enabled && req.body?.notify;
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -182,7 +184,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       });
       await touchSession(sessionId);
       maybeSummarize(sessionId, { userId, settings, model }).catch(() => {});
-      if (notify) await notifyReply(barkUrl, model, full);
+      if (notify) await notifyReply(model, full);
 
       send({ done: true, userMessage, assistantMessage, compressed: false });
       res.end();
@@ -204,7 +206,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     });
     await touchSession(sessionId);
     maybeSummarize(sessionId, { userId, settings, model }).catch(() => {});
-    if (notify) await notifyReply(barkUrl, model, reply.content);
+    if (notify) await notifyReply(model, reply.content);
 
     await mcp?.close();
     res.status(201).json({ userMessage, assistantMessage, compressed: false, toolEvents: reply.toolEvents || [] });

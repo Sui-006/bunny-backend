@@ -1237,7 +1237,7 @@ function afterRender(r, routeChanged) {
   if (r === '/finance') { loadFinanceComment(); }
   if (r === '/settings/mcp') { loadMcp(); }
   if (r === '/settings/api') { openApiFill(); }
-  if (r === '/settings/notifications') { loadBarkStatus(); }
+  if (r === '/settings/notifications') { loadBarkStatus(); loadNotifSettings(); }
   if (r === '/settings/ai') { loadAIPolicy(); }
 }
 
@@ -3289,7 +3289,32 @@ function addMcp() { const name = document.getElementById('mcpName').value.trim()
 function removeMcp(i) { mcpServers.splice(i, 1); renderMcpList(); saveMcpServers(); }
 
 /* ================= SETTINGS / NOTIFICATIONS (proactive) ================= */
-function notifSet() { if (!DB.notifSettings) DB.notifSettings = { morning: true, morningTime: '08:00', noon: false, noonTime: '12:00', night: true, nightTime: '22:00', idle: false, idleHours: 6, replyNotify: true }; return DB.notifSettings; }
+/* ---- 主动消息/通知设置：单一来源 = 后端 app_settings（/api/settings），前端只读写、不另存 localStorage 副本 ---- */
+const NOTIF_APP_KEYS = { morning: 'proactive_morning_enabled', morningTime: 'proactive_morning_time', noon: 'proactive_noon_enabled', noonTime: 'proactive_noon_time', night: 'proactive_night_enabled', nightTime: 'proactive_night_time', idle: 'proactive_idle_enabled', idleHours: 'proactive_idle_hours', replyNotify: 'reply_notify_enabled' };
+let _notifApp = { morning: true, morningTime: '08:00', noon: false, noonTime: '12:00', night: true, nightTime: '22:00', idle: false, idleHours: 6, replyNotify: true };
+let _notifLoading = false;
+async function loadNotifSettings() {
+  if (_notifLoading) return; _notifLoading = true;
+  try {
+    const r = await fetch(API_BASE + '/api/settings'); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const s = (await r.json()).settings || {};
+    _notifApp = {
+      morning: s.proactive_morning_enabled !== false, morningTime: s.proactive_morning_time || '08:00',
+      noon: Boolean(s.proactive_noon_enabled), noonTime: s.proactive_noon_time || '12:00',
+      night: s.proactive_night_enabled !== false, nightTime: s.proactive_night_time || '22:00',
+      idle: Boolean(s.proactive_idle_enabled), idleHours: Number(s.proactive_idle_hours) || 6,
+      replyNotify: s.reply_notify_enabled !== false,
+    };
+    if (OS.route === '/settings/notifications') render();
+  } catch (e) {}
+  finally { _notifLoading = false; }
+}
+async function saveNotifApp(k, v) {
+  const key = NOTIF_APP_KEYS[k]; if (!key) return;
+  _notifApp[k] = v;
+  try { await fetch(API_BASE + '/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: v }) }); }
+  catch (e) { toast('保存失败（后端未连接）', true); }
+}
 
 /* ---- Bark 配置（服务端发送，密钥不进前端） ---- */
 let _barkSettings = { bark_set: false, bark_url: '' };
@@ -3335,27 +3360,29 @@ async function barkTest() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
     const d = j.data || {};
-    toast(d.sent ? '已发送普通测试通知 ✓' : ('未发送：' + (d.reason || '未知')));
+    if (d.status === 'SUCCESS') toast('已发送普通测试通知 ✓');
+    else if (d.status === 'NOT_CONFIGURED') toast('尚未配置 Bark，请先点击「配置 Bark」', true);
+    else toast('发送失败：' + (d.errorCode || d.status || '未知'), true);
   } catch (e) { toast('测试失败：' + e.message + '（请先配置 Bark）', true); }
 }
 
 function viewSettingsNotif() {
-  const s = notifSet();
+  const s = _notifApp;
   const row = (label, key, sub) => '<div class="field"><div class="row" style="justify-content:space-between"><div><label style="margin:0">' + label + '</label><div class="muted" style="font-size:calc(10.5px * var(--app-font-scale, 1))">' + sub + '</div></div><button class="btn btn-sm ' + (s[key] ? 'btn-primary' : '') + '" onclick="toggleNotif(\'' + key + '\')">' + (s[key] ? '开' : '关') + '</button></div></div>';
   let html = '<div class="h1" style="margin-bottom:16px">Notifications</div>' + barkSettingsCardHtml() + '<div class="card card-pad">' +
     row('早安问候', 'morning', '每天早上主动来一条') +
-    '<div class="field"><label>早安时间</label><input class="input" type="time" id="morningTime" value="' + s.morningTime + '" onchange="notifSet().morningTime=this.value;saveDB()"></div>' +
+    '<div class="field"><label>早安时间</label><input class="input" type="time" id="morningTime" value="' + s.morningTime + '" onchange="_notifApp.morningTime=this.value;saveNotifApp(\'morningTime\', this.value)"></div>' +
     row('午安问候', 'noon', '中午主动来一条') +
-    '<div class="field"><label>午安时间</label><input class="input" type="time" id="noonTime" value="' + s.noonTime + '" onchange="notifSet().noonTime=this.value;saveDB()"></div>' +
+    '<div class="field"><label>午安时间</label><input class="input" type="time" id="noonTime" value="' + s.noonTime + '" onchange="_notifApp.noonTime=this.value;saveNotifApp(\'noonTime\', this.value)"></div>' +
     row('晚安问候', 'night', '晚上主动来一条') +
-    '<div class="field"><label>晚安时间</label><input class="input" type="time" id="nightTime" value="' + s.nightTime + '" onchange="notifSet().nightTime=this.value;saveDB()"></div>' +
+    '<div class="field"><label>晚安时间</label><input class="input" type="time" id="nightTime" value="' + s.nightTime + '" onchange="_notifApp.nightTime=this.value;saveNotifApp(\'nightTime\', this.value)"></div>' +
     row('空闲提醒', 'idle', '长时间不说话提醒你') +
-    '<div class="field"><label>空闲小时数</label><input class="input" type="number" id="idleHours" value="' + s.idleHours + '" onchange="notifSet().idleHours=+this.value;saveDB()"></div>' +
+    '<div class="field"><label>空闲小时数</label><input class="input" type="number" id="idleHours" value="' + s.idleHours + '" onchange="_notifApp.idleHours=+this.value;saveNotifApp(\'idleHours\', +this.value)"></div>' +
     row('回复通知', 'replyNotify', 'AI 回复时推送到手机') +
     '</div>';
   return html;
 }
-function toggleNotif(k) { const s = notifSet(); s[k] = !s[k]; saveDB(); render(); }
+function toggleNotif(k) { const s = _notifApp; s[k] = !s[k]; saveNotifApp(k, s[k]); render(); }
 
 /* ================= AI CHAT (backend sessions/messages, ported) ================= */
 function newTaskModal() { openTaskModal(); }

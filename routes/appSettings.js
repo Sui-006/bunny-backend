@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAppSettings, saveAppSettings } from '../lib/db.js';
+import { getAppSettings, saveAppSettings, effectiveAppSettings } from '../lib/db.js';
 import { EncryptionService } from '../lib/crypto.js';
 import { HttpError } from '../lib/rest.js';
 import { ProviderConnectionService, readCachedConnection, PROVIDERS } from '../lib/providers.js';
@@ -52,6 +52,7 @@ function maskBarkUrl(u) {
 router.get('/', async (req, res, next) => {
   try {
     const s = (await getAppSettings()) || {};
+    const eff = effectiveAppSettings(s);
     const connections = {};
     for (const p of PROVIDERS) connections[p] = readCachedConnection(s, p);
     res.json({
@@ -61,17 +62,17 @@ router.get('/', async (req, res, next) => {
         openai_base_url: s.openai_base_url || '',
         anthropic_base_url: s.anthropic_base_url || '',
         anthropic_protocol: s.anthropic_protocol || 'anthropic',
-        proactive_morning_enabled: s.proactive_morning_enabled !== false,
-        proactive_morning_time: s.proactive_morning_time || '08:00',
-        proactive_noon_enabled: s.proactive_noon_enabled !== false,
-        proactive_noon_time: s.proactive_noon_time || '12:00',
-        proactive_night_enabled: s.proactive_night_enabled !== false,
-        proactive_night_time: s.proactive_night_time || '22:00',
-        proactive_idle_enabled: Boolean(s.proactive_idle_enabled),
-        proactive_idle_hours: s.proactive_idle_hours ?? null,
+        proactive_morning_enabled: eff.proactive_morning_enabled,
+        proactive_morning_time: eff.proactive_morning_time,
+        proactive_noon_enabled: eff.proactive_noon_enabled,
+        proactive_noon_time: eff.proactive_noon_time,
+        proactive_night_enabled: eff.proactive_night_enabled,
+        proactive_night_time: eff.proactive_night_time,
+        proactive_idle_enabled: eff.proactive_idle_enabled,
+        proactive_idle_hours: eff.proactive_idle_hours,
         bark_set: Boolean(s.bark_url),
         bark_url: maskBarkUrl(s.bark_url),
-        reply_notify_enabled: s.reply_notify_enabled !== false,
+        reply_notify_enabled: eff.reply_notify_enabled,
         mcp_servers: (() => { try { return JSON.parse(s.mcp_servers || '[]'); } catch { return []; } })(),
         deepseek_api_key: maskKey(EncryptionService.decrypt(s.deepseek_api_key)),
         openai_api_key: maskKey(EncryptionService.decrypt(s.openai_api_key)),
