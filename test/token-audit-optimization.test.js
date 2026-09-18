@@ -8,7 +8,6 @@ import { buildDomainTools, CORE_ALWAYS_TOOLS, TOOL_DOMAIN_MAP, toolsForDomains }
 import { buildAIContext } from '../lib/context-builder.js';
 import { defaultState } from '../lib/domain.js';
 import { createSession, createMessage } from '../lib/db.js';
-import { createUser } from '../lib/store.js';
 
 // ---------------- 领域检测收紧 ----------------
 
@@ -46,9 +45,9 @@ test('life 是只读上下文领域，绝不触发工具注入', () => {
 
 // ---------------- Tool→Domain 映射完整性 ----------------
 
-test('每个工具要么在 CORE_ALWAYS_TOOLS，要么在 TOOL_DOMAIN_MAP 有归属（共 89 个）', () => {
+test('每个工具要么在 CORE_ALWAYS_TOOLS，要么在 TOOL_DOMAIN_MAP 有归属（共 88 个）', () => {
   const { names } = buildDomainTools('x', 'test-model');
-  assert.equal(names.length, 89);
+  assert.equal(names.length, 88);
   const core = new Set(CORE_ALWAYS_TOOLS);
   for (const n of names) {
     assert.ok(core.has(n) || TOOL_DOMAIN_MAP[n], `工具 ${n} 缺少领域映射`);
@@ -63,7 +62,7 @@ test('TOOL_DOMAIN_MAP / CORE_ALWAYS_TOOLS 里没有幽灵工具名（全为真�
 
 // ---------------- 按领域裁剪工具注入 ----------------
 
-test('普通聊天只注入核心工具（9 个），远小于全量 89', () => {
+test('普通聊天只注入核心工具（9 个），远小于全量 88', () => {
   const full = buildDomainTools('x', 'test-model').tools;
   const core = toolsForDomains([]);
   assert.equal(core.length, CORE_ALWAYS_TOOLS.length);
@@ -118,22 +117,4 @@ test('不带工具时 toolTokens 为 0，且不破坏既有字段', async () => 
   const built = await buildAIContext({ sessionId: s.id, doc: defaultState(), settings: {}, content: '你好', model: 'deepseek-chat' });
   assert.equal(built.stats.toolTokens, 0);
   assert.equal(built.stats.toolCount, 0);
-});
-
-// ---------------- 音乐 search_song：补齐「播放」链路，绝不常驻核心 ----------------
-
-test('search_song 属 music 领域：音乐对话才注入，绝不进核心常驻', () => {
-  assert.ok(TOOL_DOMAIN_MAP.search_song.includes('music'));
-  assert.ok(!CORE_ALWAYS_TOOLS.includes('search_song'));
-  const names = toolsForDomains(detectToolDomains('播放周杰伦的晴天')).map((t) => t.name);
-  assert.ok(names.includes('search_song'));
-  assert.ok(names.includes('queue_song'));
-  assert.ok(names.includes('play_song'));
-});
-
-test('search_song 空关键词 → FAILED（不触网、不假成功）', async () => {
-  const user = await createUser({ email: null, passwordHash: null });
-  const { callTool } = buildDomainTools(user.id, 'test-model');
-  const r = JSON.parse(await callTool('search_song', { query: '   ' }));
-  assert.equal(r.code, 'FAILED');
 });
