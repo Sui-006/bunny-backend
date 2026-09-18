@@ -440,7 +440,9 @@
 
     /* 聊天背景（用户可设默认 / 纯色 / 图片） */
     /* ChatRoot：fixed 锚定视觉视口，高度跟随 --chat-vh（visualViewport），键盘弹出只改高度、不平移整页 */
-    .chat-stage { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: var(--chat-vh, 100dvh); display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
+    /* 字体放大用 html{zoom} 实现：zoom 会把固定高度一并放大、超出真实可视视口，导致底部 composer 被裁掉。
+       用 --app-font-inverse(=1/scale) 反缩放 --chat-vh/100dvh，让 stage 渲染高度始终等于可视视口高度。 */
+    .chat-stage { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: calc(var(--chat-vh, 100dvh) * var(--app-font-inverse, 1)); display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
     .chat-stage .chat-bg { position: absolute; inset: 0; background-size: cover; background-position: center; z-index: 0; }
     .chat-stage .chat-bg-overlay { position: absolute; inset: 0; background: var(--card-solid); opacity: 0.72; z-index: 1; }
     html[data-theme="dark"] .chat-stage .chat-bg-overlay { opacity: 0.82; }
@@ -4166,7 +4168,9 @@ function bindKeyboardViewport() {
     const keyboardOpen = vv.offsetTop > 1 || vv.height < (window.innerHeight - 1);
     root.style.setProperty('--chat-safe-bottom', keyboardOpen ? '0px' : 'env(safe-area-inset-bottom)');
     // iOS：fixed 元素锚定布局视口，键盘弹出触发视口滚动时用 offsetTop 补偿，只平移聊天页
-    stage.style.transform = vv.offsetTop ? ('translateY(' + vv.offsetTop + 'px)') : '';
+    // 字体 zoom 会放大 transform 位移，按当前 scale 反除，避免键盘弹出时 composer 被推偏/推出可视区
+    const fontScale = parseFloat(getComputedStyle(root).getPropertyValue('--app-font-scale')) || 1;
+    stage.style.transform = vv.offsetTop ? ('translateY(' + (vv.offsetTop / fontScale) + 'px)') : '';
   };
   window.visualViewport.addEventListener('resize', apply);
   window.visualViewport.addEventListener('scroll', apply);
