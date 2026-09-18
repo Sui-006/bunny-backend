@@ -432,6 +432,34 @@
       -webkit-backdrop-filter: blur(8px);
     }
 
+    /* AI 工具工作状态（与「编写动态」同一视觉体系）：居中胶囊、轻量、短暂。
+       由 OS.chat.setToolStatus 直接局部更新，绝不触发整页 render / scrollToBottom。 */
+    .tool-status {
+      align-self: center;
+      display: flex; align-items: center; gap: 7px;
+      margin: 2px auto;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: calc(12px * var(--app-font-scale, 1));
+      line-height: 1.5;
+      color: var(--text-faint);
+      background: color-mix(in srgb, var(--text) 7%, transparent);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .tool-status-spin {
+      width: 9px; height: 9px; border-radius: 50%;
+      border: 2px solid var(--accent-border);
+      border-top-color: var(--accent-strong);
+      animation: tool-status-spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    .tool-status-done { color: var(--accent-strong); }
+    .tool-status-done .tool-status-spin { display: none; }
+    .tool-status-error { color: #c0392b; }
+    .tool-status-error .tool-status-spin { display: none; }
+    @keyframes tool-status-spin { to { transform: rotate(360deg); } }
+
     /* 引用 AI 动态（进入对话时显示在输入框上方） */
     .quote-card { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; margin: 0 14px 8px; border: 1px solid var(--accent-line); border-left: 3px solid #f472b6; border-radius: 12px; background: var(--accent-tint); font-size:calc(12.5px * var(--app-font-scale, 1)); color: var(--text-soft); }
     .quote-card .q-body { flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
@@ -3484,21 +3512,74 @@ function chatThinkingHtml(msg) {
     '<div class="think-more">查看完整思考</div>' +
     '</div>';
 }
-// 后端工具执行事件 → 系统提示。只有「真正成功写入（CREATED）」才提示；失败/DENIED/未知工具一律不提示，绝不假装成功。
-// create_ai_activity → 写了一条动态；save_memory / remember_user_preference / save_important_conversation → 写了一条记忆。
-function aiActionNoticeFor(ev) {
-  if (!ev || ev.code !== 'CREATED') return null;
-  const text = {
-    create_ai_activity: '[助手] 写了一条动态',
-    save_memory: '[助手] 写了一条记忆',
-    remember_user_preference: '[助手] 写了一条记忆',
-    save_important_conversation: '[助手] 写了一条记忆',
-  }[ev.name];
-  if (!text) return null;
-  return { type: 'ai_action_notice', action: ev.name, text, timestamp: Date.now() };
+// ============================================================
+// AI 工具工作状态（与 server/lib/frontend-logic.js 保持一致）
+// 核心原则：只展示可展示的「工作状态」，绝不把 raw tool name / result JSON / XML / 内部协议透出给用户。
+// value 绝不硬编码助手名（助手名由 currentAssistantName() 前置，AI 换名后自动更新）。
+// ============================================================
+const AI_TOOL_STATUS_LABELS = {
+  create_ai_activity: '正在写入动态……', get_ai_activities: '正在读取动态……',
+  update_ai_activity: '正在更新动态……', delete_ai_activity: '正在删除动态……',
+  save_memory: '正在记录记忆……', update_memory: '正在更新记忆……', delete_memory: '正在整理记忆……',
+  forget_memory: '正在整理记忆……', list_memories: '正在读取记忆……', get_memory_context: '正在读取记忆……',
+  remember_user_preference: '正在记录偏好……', save_important_conversation: '正在记录重要对话……',
+  create_task: '正在创建任务……', update_task: '正在更新任务……', complete_task: '正在完成任务……',
+  delete_task: '正在删除任务……', list_tasks: '正在读取任务……',
+  create_plan: '正在创建计划……', update_plan: '正在更新计划……', delete_plan: '正在删除计划……',
+  add_plan_goal: '正在更新计划……', update_plan_goal: '正在更新计划……', list_plans: '正在读取计划……',
+  create_calendar_event: '正在创建日历事件……', update_calendar_event: '正在更新日历……',
+  delete_calendar_event: '正在删除日历……', get_calendar: '正在读取日历……',
+  create_habit: '正在创建习惯……', update_habit: '正在更新习惯……', complete_habit: '正在打卡习惯……',
+  delete_habit: '正在删除习惯……', list_habits: '正在读取习惯……',
+  add_shopping_item: '正在更新清单……', update_shopping_item: '正在更新清单……',
+  complete_shopping_item: '正在更新清单……', delete_shopping_item: '正在更新清单……', list_shopping: '正在读取清单……',
+  create_note: '正在创建笔记……', update_note: '正在更新笔记……', delete_note: '正在删除笔记……', list_notes: '正在读取笔记……',
+  add_expense: '正在更新账单……', update_expense: '正在更新账单……', delete_expense: '正在更新账单……', get_expenses: '正在读取账单……',
+  add_purchase: '正在更新清单……', update_purchase: '正在更新清单……', delete_purchase: '正在更新清单……', get_recent_purchases: '正在读取清单……',
+  get_budget: '正在读取预算……', set_monthly_budget: '正在更新预算……', get_budget_summary: '正在读取预算……',
+  add_health_record: '正在更新健康记录……', record_calories_in: '正在更新健康记录……', record_calories_out: '正在更新健康记录……',
+  get_health_records: '正在读取健康记录……', add_medical_record: '正在更新健康记录……', update_medical_record: '正在更新健康记录……',
+  delete_medical_record: '正在更新健康记录……', get_medical_records: '正在读取健康记录……',
+  add_period_start: '正在更新健康记录……', add_period_end: '正在更新健康记录……',
+  get_menstrual_cycles: '正在读取健康记录……', get_period_prediction: '正在读取健康记录……',
+  get_current_music: '正在读取音乐……', get_song_detail: '正在读取音乐……', get_song_comments: '正在读取音乐……',
+  get_song_lyrics: '正在读取音乐……', get_recent_music: '正在读取音乐……',
+  get_listening_context: '正在读取陪听……', start_listening_session: '正在更新陪听……', end_listening_session: '正在更新陪听……',
+  recommend_next_song: '正在挑选下一首……', queue_song: '正在更新播放……', play_song: '正在更新播放……',
+  pause_music: '正在更新播放……', resume_music: '正在更新播放……', skip_song: '正在更新播放……',
+  like_song: '正在更新播放……', dislike_song: '正在更新播放……',
+  get_journal: '正在读取日志……', get_statistics: '正在读取统计……', get_conversation_history: '正在读取历史……',
+  save_conversation_cache: '正在整理对话……', update_conversation_cache: '正在整理对话……',
+  get_current_time: '正在确认时间……', send_bark_notification: '正在发送 Bark 通知……',
+};
+// 视为「成功完成」的工具 result code（其余 code 一律按失败/异常处理，绝不假装成功）
+const TOOL_SUCCESS_CODES = new Set(['OK', 'CREATED', 'UPDATED', 'DELETED', 'SUCCESS', 'CANDIDATE', 'IGNORED', 'AUTO_SAVE_DISABLED']);
+// 当前 AI 助手显示名（唯一来源 = aiSettings.aiName，与 Chat 气泡完全一致；绝不出现「[助手]」或第二套名字）
+function currentAssistantName() { return aiSet().aiName || 'Bunny'; }
+// 从工作文案提取「动作短语」：'正在发送 Bark 通知……' → '发送 Bark 通知'；未知工具 → '处理'
+function toolStatusAction(name) {
+  const label = AI_TOOL_STATUS_LABELS[name] || '正在处理……';
+  return label.replace(/^正在/, '').replace(/……$/, '').trim();
+}
+// 工作状态文案（含助手名）。绝不把 raw tool name 直接透出。
+function toolWorkingText(name) { return currentAssistantName() + (AI_TOOL_STATUS_LABELS[name] || '正在处理……'); }
+// 工具结果 → 状态文案 + UI 状态（'done' | 'error'）。成功短暂显示「已…」，失败/拒绝/未配置/超时显示真实失败态。
+function toolResultStatus(name, code) {
+  const n = currentAssistantName();
+  const action = toolStatusAction(name);
+  if (code == null || TOOL_SUCCESS_CODES.has(code)) return { text: n + '已' + action, state: 'done' };
+  if (name === 'send_bark_notification') {
+    if (code === 'DENIED') return { text: n + '没有获得发送通知的权限', state: 'error' };
+    if (code === 'NOT_CONFIGURED') return { text: n + '发现 Bark 还没有配置', state: 'error' };
+    if (code === 'TIMEOUT') return { text: n + '发送通知超时', state: 'error' };
+  }
+  if (code === 'DENIED') return { text: n + '没有获得权限', state: 'error' };
+  if (code === 'NOT_CONFIGURED') return { text: n + '发现还没有配置', state: 'error' };
+  if (code === 'TIMEOUT') return { text: n + '操作超时', state: 'error' };
+  if (code === 'NOT_FOUND') return { text: n + '没有找到相关内容', state: 'error' };
+  return { text: n + action + '失败', state: 'error' };
 }
 function chatBubbleHtml(msg, isLast) {
-  if (msg.type === 'ai_action_notice') return '<div class="ai-action-notice">' + esc(msg.text || '') + '</div>';
   const s = aiSet();
   const isUser = msg.role === 'user';
   const name = isUser ? (DB.profile.name || '我') : (s.aiName || 'Bunny');
@@ -3991,7 +4072,6 @@ OS.chat.send = async function() {
       if (data.compressed) { await OS.chat.loadMessages(); OS.chat.messages.push({ role: 'assistant', content: '（已自动整理历史记忆）', time: now, note: true }); }
       else {
         OS.chat.messages.push(chatMapMessage(data.userMessage));
-        for (const ev of (data.toolEvents || [])) { const n = aiActionNoticeFor(ev); if (n) OS.chat.messages.push(n); }
         OS.chat.messages.push(chatMapMessage(data.assistantMessage));
       }
     }
@@ -4006,11 +4086,50 @@ OS.chat.send = async function() {
     chatSyncBootstrap(); // AI 可能已落库编辑（任务/计划/习惯/购物/笔记/记忆）+ 审计日志，拉回 DB 并刷新
   }
 };
+// 工具工作状态胶囊：直接局部更新 #chatMsgs 内的 #chatToolStatus 元素，绝不触发整页 render / scrollToBottom。
+// 状态在「正在… → 已…/失败…」之间流动；最终 assistant 消息到达时由 clearToolStatus 移除。
+OS.chat.setToolStatus = function(text, state) {
+  const msgs = document.getElementById('chatMsgs');
+  if (!msgs) return;
+  let el = document.getElementById('chatToolStatus');
+  if (!el) { el = document.createElement('div'); el.id = 'chatToolStatus'; msgs.appendChild(el); }
+  el.className = 'tool-status' + (state ? ' tool-status-' + state : '');
+  el.innerHTML = '<span class="tool-status-spin"></span><span>' + esc(text) + '</span>';
+};
+OS.chat.clearToolStatus = function() { const el = document.getElementById('chatToolStatus'); if (el) el.remove(); };
+// 后端 toolEvent → UI：tool_start 显示「正在…」；tool_result 显示「已…/失败…」。只更新当前 active tool，不堆叠。
+OS.chat.applyToolEvent = function(ev) {
+  if (!ev || !ev.name) return;
+  if (ev.type === 'tool_start') OS.chat.setToolStatus(toolWorkingText(ev.name), 'working');
+  else if (ev.type === 'tool_result') { const r = toolResultStatus(ev.name, ev.code); OS.chat.setToolStatus(r.text, r.state); }
+};
 OS.chat.sendStreaming = async function(resp, thinking) {
   const reader = resp.body.getReader(); const decoder = new TextDecoder(); let buf = '', full = '', lastRender = 0;
   const apply = (text) => { text = stripInternalXml(text); thinking.content = text; thinking.thinking = false; const bubbles = document.querySelectorAll('#chatMsgs .bubble'); const el = bubbles[bubbles.length - 1]; if (el) el.innerHTML = '<div class="md">' + renderMarkdown(text) + '</div>'; };
-  while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); let idx; while ((idx = buf.indexOf('\n\n')) >= 0) { const block = buf.slice(0, idx).trim(); buf = buf.slice(idx + 2); if (!block.startsWith('data:')) continue; const payload = block.slice(5).trim(); if (payload === '[DONE]') continue; let obj; try { obj = JSON.parse(payload); } catch (e) { continue; } if (obj.error) throw new Error(obj.error); if (obj.delta) { full += obj.delta; const t = Date.now(); if (t - lastRender >= 40) { lastRender = t; apply(full); } } if (obj.done) { if (obj.compressed) await OS.chat.loadMessages(); else { if (obj.userMessage) { const ui = OS.chat.messages.findIndex((m) => m.pendingUser); if (ui >= 0) OS.chat.messages[ui] = chatMapMessage(obj.userMessage); } if (obj.assistantMessage) { const i = OS.chat.messages.indexOf(thinking); if (i >= 0) OS.chat.messages[i] = chatMapMessage(obj.assistantMessage); } } apply(full); return; } } }
-  apply(full);
+  while (true) {
+    const { done, value } = await reader.read(); if (done) break;
+    buf += decoder.decode(value, { stream: true }); let idx;
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, idx).trim(); buf = buf.slice(idx + 2);
+      if (!block.startsWith('data:')) continue;
+      const payload = block.slice(5).trim(); if (payload === '[DONE]') continue;
+      let obj; try { obj = JSON.parse(payload); } catch (e) { continue; }
+      if (obj.error) throw new Error(obj.error);
+      if (obj.delta) { full += obj.delta; const t = Date.now(); if (t - lastRender >= 40) { lastRender = t; apply(full); } }
+      if (obj.toolEvent) OS.chat.applyToolEvent(obj.toolEvent);
+      if (obj.done) {
+        OS.chat.clearToolStatus();
+        if (obj.compressed) await OS.chat.loadMessages();
+        else {
+          if (obj.userMessage) { const ui = OS.chat.messages.findIndex((m) => m.pendingUser); if (ui >= 0) OS.chat.messages[ui] = chatMapMessage(obj.userMessage); }
+          if (obj.assistantMessage) { const i = OS.chat.messages.indexOf(thinking); if (i >= 0) OS.chat.messages[i] = chatMapMessage(obj.assistantMessage); }
+        }
+        if (full) apply(full);
+        return;
+      }
+    }
+  }
+  if (full) apply(full);
 };
 OS.chat.copyMsg = async function(btn, id) { const m = OS.chat.messages.find((x) => x.id === id); if (!m) return; try { await navigator.clipboard.writeText(m.content); } catch (e) { const ta = document.createElement('textarea'); ta.value = m.content; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) {} ta.remove(); } btn.textContent = '已复制'; setTimeout(() => { btn.textContent = '复制'; }, 1500); };
 OS.chat.copyMsgById = async function(id) {

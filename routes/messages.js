@@ -12,7 +12,7 @@ import { McpSession, parseMcpServers } from '../lib/mcp.js';
 import { ensureOwner } from '../lib/auth.js';
 import { getState } from '../lib/domain.js';
 import { detectDomains, TOOL_DOMAIN_SET } from '../lib/aiContext.js';
-import { buildDomainTools, AI_SELF_TOOL_NAMES, AI_CACHE_TOOL_NAMES } from '../lib/tools.js';
+import { buildDomainTools, AI_SELF_TOOL_NAMES, AI_CACHE_TOOL_NAMES, AI_NOTIFY_TOOL_NAMES } from '../lib/tools.js';
 import { buildAIContext } from '../lib/context-builder.js';
 import { maybeSummarize, invalidateSummary } from '../services/conversation-summary.js';
 import { attachments as attachmentsTable } from '../lib/store.js';
@@ -52,7 +52,7 @@ async function buildAssistEnv(sessionId, content, model = config.defaultModel) {
   // 只有「可编辑领域」才注入编辑工具；只读域（life/journal/statistics/conversation）仅注入读块。
   const useDomain = domains.some((d) => TOOL_DOMAIN_SET.has(d));
   // AI 自我工具（读时间 + AI 动态 CRUD）+ 对话缓存工具不依赖领域关键词，始终注入；命中领域时随完整领域工具集一起注入。
-  const selfSet = new Set([...AI_SELF_TOOL_NAMES, ...AI_CACHE_TOOL_NAMES]);
+  const selfSet = new Set([...AI_SELF_TOOL_NAMES, ...AI_CACHE_TOOL_NAMES, ...AI_NOTIFY_TOOL_NAMES]);
   const selfTools = domain.tools.filter((t) => selfSet.has(t.name));
   const tools = [...mcpTools, ...(useDomain ? domain.tools : selfTools)];
   const callTool = async (name, args) => {
@@ -192,12 +192,49 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       return;
     }
 
-    // 非流式（含 MCP + 领域工具循环）
+    // 工具循环路径（MCP + 领域工具）：SSE 流式下发 tool 工作状态 + 最终 assistant 消息。
+    // 前端据此在 AI 调用工具的当下就显示「小澄正在…」，而不是等整段跑完才一次性回传，避免 Chat 空白等待。
+    if (tools.length > 0) {
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders?.();
+      const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+      let reply;
+      try {
+        reply = await chat({
+          model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
+          temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
+          tools, callTool,
+          onToolEvent: (ev) => send({ toolEvent: ev }),
+        });
+      } catch (e) {
+        send({ error: e.message });
+        send({ done: true });
+        res.end();
+        await mcp?.close();
+        return;
+      }
+
+      const assistantMessage = await createMessage(sessionId, {
+        role: 'assistant', content: reply.content, reasoningContent: reply.reasoningContent,
+        metadata: { usage: reply.usage, model, contextStats: withProviderUsage(built.stats, reply.usage, model) },
+      });
+      await touchSession(sessionId);
+      maybeSummarize(sessionId, { userId, settings, model }).catch(() => {});
+      if (notify) await notifyReply(model, reply.content);
+
+      send({ done: true, userMessage, assistantMessage, compressed: false });
+      res.end();
+      await mcp?.close();
+      return;
+    }
+
+    // 无工具的非流式（普通 JSON 回复；toolEvents 恒为空）
     const reply = await chat({
       model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,
-      tools,
-      callTool: tools.length ? callTool : null,
     });
 
     const assistantMessage = await createMessage(sessionId, {
