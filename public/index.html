@@ -387,7 +387,7 @@
     .thinking-sheet-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size:calc(15px * var(--app-font-scale, 1)); margin-bottom: 10px; flex-shrink: 0; }
     .thinking-sheet-head .x { background: none; border: none; font-size:calc(20px * var(--app-font-scale, 1)); color: var(--text-faint); cursor: pointer; line-height: 1; }
     .thinking-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size:calc(13.5px * var(--app-font-scale, 1)); line-height: 1.7; color: var(--text-soft); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
-    .chat-input-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px calc(var(--chat-safe-bottom, env(safe-area-inset-bottom))); border-top: 1px solid var(--border); }
+    .chat-input-bar { display: flex; flex-shrink: 0; gap: 8px; align-items: center; padding: 10px 14px calc(var(--chat-safe-bottom, env(safe-area-inset-bottom))); border-top: 1px solid var(--border); }
     .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size:calc(14px * var(--app-font-scale, 1)); line-height: 1.5; outline: none; max-height: 132px; min-height: 46px; background: var(--card-solid); overflow-y: auto; }
     .chat-input:focus { border-color: var(--accent-border); }
     /* composer 按钮：+ / 发送 / 停止 不重叠，等宽圆角 */
@@ -3461,8 +3461,8 @@ function viewChat() {
     '<button class="chat-scroll-top" id="chatScrollTop" onclick="OS.chat.scrollToBottom(true)">↓</button>' +
     '</div>' +
     '</div>' +
-    // 引用动态卡片 + 编辑提示条 + composer
-    '<div style="flex-shrink:0">' +
+    // 引用动态卡片 + 编辑提示条 + composer（flex:0 0 auto —— 绝不随 AI 状态增长）
+    '<div style="flex:0 0 auto">' +
     '<div id="chatEditBar" style="padding:0 14px"></div>' +
     OS.chat.quoteCardHtml() +
     '<div class="chat-input-bar">' +
@@ -4045,7 +4045,7 @@ OS.chat.send = async function() {
   const quoted = OS.chat.quotedDynamic || null;
   OS.chat.quotedDynamic = null;
   const qc = document.querySelector('.quote-card'); if (qc) qc.remove();
-  if (editingId) { input.value = ''; OS.chat.attachments = []; OS.chat.renderAttach(); OS.chat.resend(editingId, text); return; }
+  if (editingId) { input.value = ''; OS.chat.autoGrow(input); OS.chat.attachments = []; OS.chat.renderAttach(); OS.chat.resend(editingId, text); return; }
   const now = new Date().toLocaleString();
   const content = text; // 附件走独立 attachmentIds，绝不拼进正文（不污染消息原文）
   const attachmentIds = OS.chat.attachments.filter((a) => a.id).map((a) => a.id);
@@ -4053,7 +4053,7 @@ OS.chat.send = async function() {
   const userMsg = { role: 'user', content, time: now, pendingUser: true, quotedDynamic: quoted, attachments: attachMeta };
   const thinking = { role: 'assistant', content: '', time: now, thinking: true };
   OS.chat.messages.push(userMsg, thinking);
-  input.value = ''; OS.chat.attachments = []; OS.chat.renderAttach();
+  input.value = ''; OS.chat.autoGrow(input); OS.chat.attachments = []; OS.chat.renderAttach();
   OS.chat.clearDraft(OS.chat.currentId);
   OS.chat.isGenerating = true; OS.chat.abortCtrl = new AbortController(); OS.chat.syncSendButton();
   OS.chat.renderMessages(); OS.chat.scrollToBottom(true);
@@ -4254,7 +4254,7 @@ OS.chat.editMessage = function(id) {
 OS.chat.cancelEdit = function() {
   OS.chat.editingId = null;
   const input = document.getElementById('chatInput');
-  if (input) { input.value = ''; input.focus(); }
+  if (input) { input.value = ''; OS.chat.autoGrow(input); input.focus(); }
   OS.chat.renderEditBar();
 };
 OS.chat.renderEditBar = function() {
