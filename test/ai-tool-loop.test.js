@@ -3,7 +3,7 @@
 //       普通聊天不触发工具、OpenAI 兼容协议回归、create_ai_activity 真实落库 + 审计 + 权限 + 领域检测。
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { chat, stripInternalXml, toAnthropicMessage, toAnthropicMessages } from '../lib/ai.js';
+import { chat, chatStream, stripInternalXml, toAnthropicMessage, toAnthropicMessages } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { createUser } from '../lib/store.js';
 import { getState } from '../lib/domain.js';
@@ -391,4 +391,118 @@ test('「编辑一个 ai activity」能被领域检测命中；activity 工具�
   assert.ok(detectDomains('写一条动态记录一下').includes('activity'));
   assert.ok(CORE_ALWAYS_TOOLS.includes('create_ai_activity'));
   assert.ok(CORE_ALWAYS_TOOLS.includes('get_ai_activities'));
+});
+
+// ------------------------------------------------ set_ai_state 工具循环 → 最终文字（Bug 1）
+
+// 生产根因：模型调用 set_ai_state 后，第二轮只返回空 content（usage 里只有几个 token），
+// 旧实现把这个空回复当成最终 assistant 消息保存 → 前端出现「空白气泡 + 2 tokens」。
+// 修复后：工具执行成功但没有最终文字时，注入「请继续」提示，强制模型产出最终自然语言回复。
+test('set_ai_state 执行后：模型第二轮空回复被注入提示，最终拿到正常 assistant text', async () => {
+  const user = await createUser({ email: null, passwordHash: null, state: {} });
+  const { callTool } = buildDomainTools(user.id, 'deepseek-chat', { sessionId: 'sess-1' });
+  const calls = fetchStub([
+    // 第一轮：模型只想调用工具（content=null，只有 tool_calls）
+    { choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'set_ai_state', arguments: '{"emotion":"认真","intensity":4,"reason":"被问了两个很重的问题"}' } }] } }], usage: {} },
+    // 第二轮：模型返回空 content + 2 tokens（生产 bug 现场），没有 tool_calls
+    { choices: [{ message: { role: 'assistant', content: '' } }], usage: { total_tokens: 2 } },
+    // 第三轮（注入「请继续」后）：模型给出最终自然语言回复
+    { choices: [{ message: { role: 'assistant', content: '我刚才很认真地想了这两个问题，也认真回答了。' } }], usage: {} },
+  ]);
+
+  const reply = await chat({
+    model: 'deepseek-chat',
+    messages: [{ role: 'user', content: '问你两个很重的问题' }],
+    tools: [{ name: 'set_ai_state', description: '设置心情', parameters: { type: 'object', properties: { emotion: { type: 'string' } }, required: ['emotion'] } }],
+    callTool,
+  });
+
+  assert.equal(reply.content, '我刚才很认真地想了这两个问题，也认真回答了。');
+  assert.equal(calls.length, 3); // 工具轮 + 空回复轮 + 提示后的最终轮
+  const state = await getState(user.id);
+  assert.equal(state.ai.states.length, 1); // 工具真实落库且只落库一次
+  assert.equal(state.ai.states[0].emotion, '认真');
+});
+
+// 同样场景的 Anthropic 原生协议：tool_result 与「请继续」提示合并进同一条 user 消息（角色不交替报错）。
+test('Anthropic 原生：tool-only 空回复后注入提示，且 tool_result 与提示合并在一条 user 消息', async () => {
+  const calls = fetchStub([
+    { content: [{ type: 'tool_use', id: 'toolu_1', name: 'set_ai_state', input: { emotion: '认真', intensity: 4 } }], usage: { input_tokens: 10, output_tokens: 6 } },
+    { content: [{ type: 'text', text: '' }], usage: { input_tokens: 15, output_tokens: 1 } },
+    { content: [{ type: 'text', text: '好的，我记下此刻的心情了。' }], usage: { input_tokens: 20, output_tokens: 8 } },
+  ]);
+  const reply = await chat({
+    model: 'claude-sonnet-5',
+    messages: [{ role: 'user', content: '记一下心情' }],
+    tools: [{ name: 'set_ai_state', description: '', parameters: { type: 'object', properties: { emotion: { type: 'string' } } } }],
+    callTool: async () => JSON.stringify({ code: 'CREATED' }),
+  });
+  assert.equal(reply.content, '好的，我记下此刻的心情了。');
+  // 第三轮请求（注入提示后）的最后一条消息：tool_result + 提示文本合并成同一条 user 消息
+  const lastReq = calls[2];
+  const lastMsg = lastReq.messages[lastReq.messages.length - 1];
+  assert.equal(lastMsg.role, 'user');
+  assert.equal(lastMsg.content.length, 2);
+  assert.equal(lastMsg.content[0].type, 'tool_result');
+  assert.equal(lastMsg.content[1].type, 'text');
+});
+
+// tool-only 回复（只有 tool_calls、没有正文）绝不被当成最终回答；8 轮仍未产出文字时兜底返回非空占位。
+test('工具循环 8 轮仍无最终文字：兜底返回非空占位，绝不产生空白气泡', async () => {
+  const executed = [];
+  const calls = fetchStub([
+    { choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'set_ai_state', arguments: '{"emotion":"认真"}' } }] } }], usage: {} },
+  ]);
+  const reply = await chat({
+    model: 'deepseek-chat',
+    messages: [{ role: 'user', content: '设置心情' }],
+    tools: [{ name: 'set_ai_state', description: '', parameters: { type: 'object', properties: { emotion: { type: 'string' } } } }],
+    callTool: async () => { executed.push(1); return JSON.stringify({ code: 'CREATED' }); },
+  });
+  assert.ok(reply.content && reply.content.trim().length > 0, '最终 content 必须非空，绝不能是空白气泡');
+  assert.equal(executed.length, 8); // 8 轮共享循环的上限，绝不无限循环
+});
+
+// streaming 模式（chatStream，无工具）仍能拿到 final assistant text（回归，不被工具循环改动影响）。
+test('streaming 模式（chatStream）拿到完整 final assistant text', async () => {
+  const encoder = new TextEncoder();
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    headers: { get: (k) => (String(k).toLowerCase() === 'content-type' ? 'text/event-stream' : null) },
+    body: new ReadableStream({
+      start(controller) {
+        for (const d of ['你', '好', '呀', '！']) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: d } }] })}\n\n`));
+        }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    }),
+  });
+  let full = '';
+  const result = await chatStream({
+    model: 'deepseek-chat',
+    messages: [{ role: 'user', content: '你好' }],
+    onDelta: (d) => { full += d; },
+  });
+  assert.equal(result.content, '你好呀！');
+  assert.equal(full, '你好呀！');
+});
+
+// toAnthropicMessages：工具结果后紧跟的 user 文本（「请继续」提示）合并进同一条 user 消息，绝不产生连续 user 消息。
+test('toAnthropicMessages：tool_result 后紧跟的 user 文本合并进同一条 user 消息', () => {
+  const msgs = [
+    { role: 'assistant', content: '', toolCalls: [{ id: 't1', name: 'x', input: {} }] },
+    { role: 'tool', tool_call_id: 't1', content: '{"code":"CREATED"}' },
+    { role: 'user', content: '请直接面向用户用自然语言继续回复。' },
+  ];
+  const out = toAnthropicMessages(msgs);
+  assert.equal(out.length, 2);
+  const last = out[1];
+  assert.equal(last.role, 'user');
+  assert.equal(last.content.length, 2);
+  assert.equal(last.content[0].type, 'tool_result');
+  assert.equal(last.content[1].type, 'text');
+  assert.ok(last.content[1].text.includes('自然语言'));
 });
