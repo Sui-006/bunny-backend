@@ -45,9 +45,9 @@ test('life 是只读上下文领域，绝不触发工具注入', () => {
 
 // ---------------- Tool→Domain 映射完整性 ----------------
 
-test('每个工具要么在 CORE_ALWAYS_TOOLS，要么在 TOOL_DOMAIN_MAP 有归属（共 88 个）', () => {
+test('每个工具要么在 CORE_ALWAYS_TOOLS，要么在 TOOL_DOMAIN_MAP 有归属（共 89 个）', () => {
   const { names } = buildDomainTools('x', 'test-model');
-  assert.equal(names.length, 88);
+  assert.equal(names.length, 89);
   const core = new Set(CORE_ALWAYS_TOOLS);
   for (const n of names) {
     assert.ok(core.has(n) || TOOL_DOMAIN_MAP[n], `工具 ${n} 缺少领域映射`);

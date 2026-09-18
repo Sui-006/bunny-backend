@@ -6,6 +6,7 @@ import { getState, putState, defaultPlan } from '../lib/domain.js';
 import { HttpError, ok } from '../lib/rest.js';
 import { parseExpenseText, parsePurchaseText, guessCategory, financeSummary, centsToYuan } from '../lib/finance.js';
 import { AI_PERMISSION_POLICY, USER_ONLY_EDITABLE } from '../lib/permissions.js';
+import { buildDomainTools } from '../lib/tools.js';
 
 const router = Router();
 
@@ -290,6 +291,48 @@ router.post('/finance/comment', async (req, res, next) => {
   } catch (e) {
     // 缺 Key / 后端不可达：诚实降级为空点评，绝不用硬编码文案冒充 AI
     if (/API Key|缺少|密钥/i.test(e.message)) return ok(res, { comment: '' });
+    next(e);
+  }
+});
+
+// 记录 → 可读摘要（供 comment_on_record 的事件入口把记录内容喂给 AI；不返回任何敏感字段）
+function recordSnippet(recordType, rec) {
+  if (recordType === 'journal') return `日期 ${rec.date || ''} ${rec.time || ''} · 心情 ${rec.mood || '—'}\n${rec.content || ''}`;
+  if (recordType === 'health') return `日期 ${rec.date || ''} · 睡眠 ${rec.sleep ?? 0}h · 饮水 ${rec.water ?? 0}L · 摄入 ${rec.caloriesIn ?? 0}千卡 · 消耗 ${rec.caloriesOut ?? 0}千卡 · 体重 ${rec.weight ?? '—'}kg`;
+  if (rec.kind === 'income') return `收入 ${rec.title || '未命名'} ${centsToYuan(rec.amountCents)}元 (${rec.category || '其他'}) ${rec.occurredAt || ''}`;
+  if (rec.itemName) return `购买 ${rec.itemName} ×${rec.quantity ?? 1} 共 ${centsToYuan(rec.totalAmountCents)}元 (${rec.category || '其他'}) ${rec.purchasedAt || ''}`;
+  return `支出 ${rec.title || '未命名'} ${centsToYuan(rec.amountCents)}元 (${rec.category || '其他'}) ${rec.occurredAt || ''}`;
+}
+
+// POST /api/ai/comments/consider —— 用户新增/编辑记录后的「最小事件入口」：跑工具循环，AI 自行决定是否评论。
+// 前端 fire-and-forget 调用；只注入 comment_on_record + get_current_time，绝不全量注入 89 个工具。
+router.post('/comments/consider', async (req, res, next) => {
+  try {
+    const recordType = String(req.body?.recordType || '').trim();
+    const recordId = String(req.body?.recordId || '').trim();
+    if (!['journal', 'health', 'finance'].includes(recordType) || !recordId) {
+      throw new HttpError(400, 'INVALID', 'recordType/recordId 非法');
+    }
+    const doc = await getState(req.user.id);
+    let record = null;
+    if (recordType === 'journal') record = doc.journal.find((x) => x.id === recordId);
+    else if (recordType === 'health') record = doc.health.find((x) => x.id === recordId);
+    else record = doc.expenses.find((x) => x.id === recordId) || doc.purchases.find((x) => x.id === recordId);
+    if (!record) return ok(res, { considered: false, reason: 'record_not_found' });
+
+    const { tools, callTool } = buildDomainTools(req.user.id, config.defaultModel, { sessionId: null });
+    const slim = tools.filter((t) => t.name === 'comment_on_record' || t.name === 'get_current_time');
+    const reply = await aiCall({
+      model: config.defaultModel, temperature: 0.7, maxTokens: 500,
+      tools: slim, callTool,
+      system: '你是 Bunny\'s Home 里的 AI 伴侣「♥ 我的AI」，温柔、体贴、有洞察。用户刚刚新增/修改了一条生活记录。请判断是否值得为它写一句「祂的评论」：只有这条记录确实有意义、能体现你对 ta 的了解与关心时才调用 comment_on_record；流水账、普通数据变化、或你没有实质感受时，绝不调用任何工具，直接不写。评论要自然、简短（1-3 句），不评判对错、不机械复述数据。',
+      messages: [{ role: 'user', content: `记录类型：${recordType}\n记录内容：\n${recordSnippet(recordType, record)}` }],
+    });
+    const commented = (reply.toolEvents || []).some((e) => e.name === 'comment_on_record');
+    ok(res, { considered: true, commented });
+  } catch (e) {
+    // 缺 Key / 后端不可达：诚实降级为「未评论」，绝不用假文案冒充
+    if (/API Key|缺少|密钥/i.test(e.message)) return ok(res, { considered: false, reason: 'no_key' });
     next(e);
   }
 });

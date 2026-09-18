@@ -133,6 +133,11 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     // 引用 AI 动态（需求 33）：{ id, type:'ai_dynamic', content, createdAt }，仅作为上下文注入，不写入长期记忆
     const qd = req.body?.quotedDynamic;
     const quotedDynamic = (qd && qd.content) ? { id: qd.id, type: 'ai_dynamic', content: String(qd.content), createdAt: qd.createdAt } : null;
+    // 引用记录评论：{ type:'record_comment', recordType, recordId, recordContent, aiComment, createdAt }，仅注入上下文
+    const qr = req.body?.quotedRecord;
+    const quotedRecord = (qr && (qr.recordContent || qr.aiComment))
+      ? { type: 'record_comment', recordType: String(qr.recordType || ''), recordId: String(qr.recordId || ''), recordContent: String(qr.recordContent || ''), aiComment: String(qr.aiComment || ''), createdAt: qr.createdAt }
+      : null;
 
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
     const { settings, app, mcp, tools, callTool, doc, userId } = await buildAssistEnv(sessionId, content, model);
@@ -142,13 +147,14 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     const attachmentMeta = attachmentRows.map((r) => attachmentRow(r, ''));
     const metadata = {};
     if (quotedDynamic) metadata.quotedDynamic = quotedDynamic;
+    if (quotedRecord) metadata.quotedRecord = quotedRecord;
     if (attachmentMeta.length) metadata.attachments = attachmentMeta;
 
     const userMessage = await createMessage(sessionId, { role: 'user', content, ...(Object.keys(metadata).length ? { metadata } : {}) });
     // 风格学习（user-level，确定性、纯检测先行，命中才碰数据库）：
     // 明确偏好→立即更新画像；重复行为→计数达阈值才更新；其它消息→完全不写库。绝不每轮重建画像。
     try { await maybeLearnStyle(userId, content); } catch (e) { console.warn('[messages] 风格学习失败（不阻断对话）：', e.message); }
-    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic });
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic, quotedRecord });
     await augmentLastUserMessage(built.messages, attachmentRows);
 
     const stream = settings.stream && tools.length === 0;

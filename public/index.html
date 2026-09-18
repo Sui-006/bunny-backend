@@ -603,6 +603,15 @@
     .journal-entry .j-tags { margin-top: 9px; display: flex; gap: 4px; flex-wrap: wrap; }
     .journal-entry .j-actions { display: flex; gap: 4px; margin-left: auto; }
 
+    /* 「祂的评论」（日志/健康/财务记录下 AI 的评论） */
+    .deity-comment { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--accent-line); border-left: 3px solid #6b8cae; border-radius: 12px; background: var(--accent-tint); }
+    .deity-comment .dc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .deity-comment .dc-title { font-weight: 700; font-size: calc(12px * var(--app-font-scale, 1)); color: var(--text-soft); }
+    .deity-comment .dc-time { font-size: calc(11px * var(--app-font-scale, 1)); color: var(--text-faint); margin-left: auto; }
+    .deity-comment .dc-body { font-size: calc(13px * var(--app-font-scale, 1)); color: var(--text); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .deity-comment .dc-quote { margin-top: 6px; border: none; background: none; color: var(--accent-strong); cursor: pointer; font-size: calc(12px * var(--app-font-scale, 1)); padding: 0; }
+    .deity-comment.dc-pending { color: var(--text-faint); font-size: calc(12px * var(--app-font-scale, 1)); font-style: italic; }
+
     /* responsive */
     @media (max-width: 900px) {
       .fab { bottom: calc(24px + env(safe-area-inset-bottom)); }
@@ -710,6 +719,43 @@ function auditTraceHtml(entityType, entityId) {
   }
   const tip = (a.reason ? a.reason + (a.aiAction ? '（' + a.aiAction + '）' : '') : (a.aiAction || ''));
   return '<div class="audit-trace"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + head + diff + '</div>';
+}
+
+/* ---- 「祂的评论」（AI 对日志/健康/财务记录的评论；只读展示 + 引用到聊天） ---- */
+let _commentPending = new Set(); // 正在等 AI 考虑的 (recordType:recordId)，用于「生成中」占位
+function aiCommentFor(recordType, recordId) {
+  return (DB.ai.comments || []).find((c) => c.recordType === recordType && c.recordId === recordId) || null;
+}
+function recordContentForQuote(recordType, recordId) {
+  if (recordType === 'journal') {
+    const j = (DB.journal || []).find((x) => x.id === recordId);
+    return j ? ((j.date ? j.date + ' ' : '') + (j.time || '') + ' · ' + (j.content || '')).trim() : '';
+  }
+  if (recordType === 'health') {
+    const h = (DB.health || []).find((x) => x.id === recordId);
+    return h ? ('日期 ' + (h.date || '') + ' · 睡眠 ' + (h.sleep ?? 0) + 'h · 饮水 ' + (h.water ?? 0) + 'L · 摄入 ' + (h.caloriesIn ?? 0) + '千卡 · 消耗 ' + (h.caloriesOut ?? 0) + '千卡 · 体重 ' + (h.weight ?? '—') + 'kg') : '';
+  }
+  const e = (DB.expenses || []).find((x) => x.id === recordId);
+  if (e) return ((e.kind === 'income' ? '收入 ' : '支出 ') + (e.title || '') + ' ' + fmtMoney(e.amountCents) + (e.category ? ' (' + e.category + ')' : ''));
+  const p = (DB.purchases || []).find((x) => x.id === recordId);
+  if (p) return ('购买 ' + (p.itemName || '') + ' ×' + (p.quantity ?? 1) + ' 共 ' + fmtMoney(p.totalAmountCents));
+  return '';
+}
+function commentSectionHtml(recordType, recordId) {
+  const c = aiCommentFor(recordType, recordId);
+  if (c) {
+    return '<div class="deity-comment"><div class="dc-head"><span class="dc-title">♥ 祂的评论</span><span class="dc-time">' + relTime(c.updatedAt || c.createdAt) + '</span></div>' +
+      '<div class="dc-body">' + esc(c.text) + '</div>' +
+      '<button class="dc-quote" onclick="event.stopPropagation();quoteRecordComment(\'' + recordType + '\',\'' + recordId + '\')">↳ 引用到聊天</button></div>';
+  }
+  if (_commentPending.has(recordType + ':' + recordId)) return '<div class="deity-comment dc-pending">♥ 祂正在想…</div>';
+  return '';
+}
+function quoteRecordComment(recordType, recordId) {
+  const c = aiCommentFor(recordType, recordId);
+  if (!c) { toast('这条评论已不存在', true); return; }
+  OS.chat.quotedRecord = { type: 'record_comment', recordType, recordId, recordContent: recordContentForQuote(recordType, recordId), aiComment: c.text, createdAt: c.createdAt };
+  OS.go('/chat');
 }
 function greeting() { const h = new Date().getHours(); if (h < 5) return '夜深了'; if (h < 12) return '早上好'; if (h < 14) return '中午好'; if (h < 18) return '下午好'; return '晚上好'; }
 function todayLong() { const d = new Date(); const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']; const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']; return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
@@ -890,6 +936,7 @@ function loadDB() {
   if (!db.ai.memories || !Array.isArray(db.ai.memories)) db.ai.memories = [];
   if (!Array.isArray(db.ai.states)) db.ai.states = [];
   if (!Array.isArray(db.ai.activities)) db.ai.activities = [];
+  if (!Array.isArray(db.ai.comments)) db.ai.comments = [];
   if (!Array.isArray(db.ai.notifications)) db.ai.notifications = [];
   if (!db.ai.permissions) db.ai.permissions = def.ai.permissions;
   if (!db.ai._asked) db.ai._asked = {};
@@ -1986,6 +2033,8 @@ function viewHealth() {
   html += '<div class="grid cols-2" style="grid-template-columns:repeat(4,1fr)">' +
     healthModuleCard('🏃', '消耗', fmtVal(t.caloriesOut, ' 千卡'), 'exercise') +
     '</div>';
+  // 今日健康记录的「祂的评论」（仅当日已有记录时显示）
+  if (t.id) html += commentSectionHtml('health', t.id);
   return html;
 }
 function healthModuleCard(ico, label, v, module) { return '<div class="card stat-card" style="cursor:pointer" onclick="openHealthModule(\'' + module + '\')"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">' + ico + '</div><div class="v" style="font-size:calc(19px * var(--app-font-scale, 1))">' + v + '</div><div class="l">' + label + '</div><div class="u">点击记录</div></div>'; }
@@ -2888,6 +2937,7 @@ function journalEntryHtml(j) {
     (j.mood ? '<div class="j-mood">♥ 心情：' + esc(j.mood) + '</div>' : '') +
     (tags ? '<div class="j-tags">' + tags + '</div>' : '') +
     auditTraceHtml('journal', j.id) +
+    commentSectionHtml('journal', j.id) +
     '</div>';
 }
 function viewJournal() {
@@ -3620,6 +3670,7 @@ function chatBubbleHtml(msg, isLast) {
 OS.chat.loaded = false;
 OS.chat.attachments = []; // 待发送附件（上传状态：uploading / done / error）
 OS.chat.quotedDynamic = null; // 引用 AI 动态（需求 33）：{ id, type:'ai_dynamic', content, createdAt }
+OS.chat.quotedRecord = null; // 引用记录评论：{ type:'record_comment', recordType, recordId, recordContent, aiComment, createdAt }
 OS.chat.editingId = null; // 正在编辑的用户消息 id（内容已回填到输入框，发送时走编辑接口，需求 3）
 OS.chat.multiSelect = false; // 会话多选模式（需求 1）
 OS.chat.multiSelected = {};
@@ -3732,15 +3783,18 @@ OS.chat.syncSidebar = function() {
 // 引用动态卡片（显示在输入框上方，× 取消）
 OS.chat.quoteCardHtml = function() {
   const q = OS.chat.quotedDynamic;
-  if (!q) return '';
-  return '<div class="quote-card"><span style="flex-shrink:0">↳</span><div class="q-body">引用 AI 动态 · ' + esc(String(q.content || '')) + '</div><button class="q-x" onclick="OS.chat.clearQuote()">✕</button></div>';
+  if (q) return '<div class="quote-card"><span style="flex-shrink:0">↳</span><div class="q-body">引用 AI 动态 · ' + esc(String(q.content || '')) + '</div><button class="q-x" onclick="OS.chat.clearQuote()">✕</button></div>';
+  const r = OS.chat.quotedRecord;
+  if (r) return '<div class="quote-card"><span style="flex-shrink:0">↳</span><div class="q-body">引用「祂的评论」 · ' + esc(String(r.aiComment || '')) + '</div><button class="q-x" onclick="OS.chat.clearQuote()">✕</button></div>';
+  return '';
 };
-OS.chat.clearQuote = function() { OS.chat.quotedDynamic = null; const el = document.getElementById('chatInput'); const qc = document.querySelector('.quote-card'); if (qc) qc.remove(); if (el) el.focus(); };
+OS.chat.clearQuote = function() { OS.chat.quotedDynamic = null; OS.chat.quotedRecord = null; const el = document.getElementById('chatInput'); const qc = document.querySelector('.quote-card'); if (qc) qc.remove(); if (el) el.focus(); };
 // 需求 33：点击动态「回应」→ 引用该动态进入对话（不自动发送）
 OS.chat.quoteDynamic = function(id) {
   const a = (DB.ai.activities || []).find((x) => x.id === id);
   if (!a) { toast('这条动态已不存在', true); return; }
   OS.chat.quotedDynamic = { id: a.id, type: 'ai_dynamic', content: a.text, createdAt: a.time };
+  OS.chat.quotedRecord = null;
   OS.go('/chat');
 };
 OS.chat.renderSessions = function() {
@@ -4041,16 +4095,18 @@ OS.chat.send = async function() {
   // 编辑模式：改的是已存在的用户消息，走编辑接口（需求 3），不产生重复消息、不丢历史
   const editingId = OS.chat.editingId;
   OS.chat.editingId = null; OS.chat.renderEditBar();
-  // 取出引用动态并清空（需求 33）：用户自己发送时才携带，绝不自动发送
+  // 取出引用动态/评论并清空（需求 33）：用户自己发送时才携带，绝不自动发送
   const quoted = OS.chat.quotedDynamic || null;
   OS.chat.quotedDynamic = null;
+  const quotedRec = OS.chat.quotedRecord || null;
+  OS.chat.quotedRecord = null;
   const qc = document.querySelector('.quote-card'); if (qc) qc.remove();
   if (editingId) { input.value = ''; OS.chat.autoGrow(input); OS.chat.attachments = []; OS.chat.renderAttach(); OS.chat.resend(editingId, text); return; }
   const now = new Date().toLocaleString();
   const content = text; // 附件走独立 attachmentIds，绝不拼进正文（不污染消息原文）
   const attachmentIds = OS.chat.attachments.filter((a) => a.id).map((a) => a.id);
   const attachMeta = OS.chat.attachments.map((a) => ({ id: a.id, fileName: a.name, mimeType: a.type, size: a.size, fileUrl: a.fileUrl, dataUrl: a.dataUrl || null }));
-  const userMsg = { role: 'user', content, time: now, pendingUser: true, quotedDynamic: quoted, attachments: attachMeta };
+  const userMsg = { role: 'user', content, time: now, pendingUser: true, quotedDynamic: quoted, quotedRecord: quotedRec, attachments: attachMeta };
   const thinking = { role: 'assistant', content: '', time: now, thinking: true };
   OS.chat.messages.push(userMsg, thinking);
   input.value = ''; OS.chat.autoGrow(input); OS.chat.attachments = []; OS.chat.renderAttach();
@@ -4059,7 +4115,7 @@ OS.chat.send = async function() {
   OS.chat.renderMessages(); OS.chat.scrollToBottom(true);
   const s = aiSet();
   try {
-    const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: OS.chat.abortCtrl.signal, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted, attachmentIds }) });
+    const resp = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: OS.chat.abortCtrl.signal, body: JSON.stringify({ content, model: s.model, notify: !(document.visibilityState === 'visible' && document.hasFocus()), quotedDynamic: quoted, quotedRecord: quotedRec, attachmentIds }) });
     const mode = classifyChatResponse(resp.status, resp.headers.get('content-type') || '');
     if (mode.mode === 'sse') {
       await OS.chat.sendStreaming(resp, thinking);
@@ -4950,7 +5006,8 @@ function financeRowHtml(e) {
     '<div class="grow"><div class="t-title">' + esc(e.title || '未命名') + '</div><div class="t-meta">' + esc((e.category ? e.category + ' · ' : '') + (e.occurredAt || '') + (e.note ? ' · ' + e.note : '')) + '</div></div>' +
     '<div style="text-align:right;font-weight:700;' + (income ? 'color:#16a34a' : '') + '">' + (income ? '+' : '-') + fmtMoney(e.amountCents) + '</div>' +
     '<button class="icon-btn" style="border:none;background:none" onclick="event.stopPropagation();deleteExpense(\'' + e.id + '\')">🗑</button>' +
-    '</div>';
+    '</div>' +
+    commentSectionHtml('finance', e.id);
 }
 function expenseModal(id) {
   const e = id ? (DB.expenses || []).find((x) => x.id === id) : null;
@@ -4978,9 +5035,11 @@ function saveExpense(id) {
   if (!title) { toast('请输入条目', true); return; }
   if (!Number.isFinite(amount) || amount <= 0) { toast('请输入有效金额', true); return; }
   const data = { title, amountCents: Math.round(amount * 100), category: document.getElementById('exCat').value, occurredAt: document.getElementById('exDate').value || todayStr(), note: document.getElementById('exNote').value.trim(), kind: _exKind ? 'income' : 'expense', currency: 'CNY' };
+  let savedId = id;
   if (id) { const e = DB.expenses.find((x) => x.id === id); Object.assign(e, data, { updatedAt: Date.now() }); }
-  else DB.expenses.push({ id: uid(), createdAt: Date.now(), updatedAt: Date.now(), ...data });
+  else { const rec = { id: uid(), createdAt: Date.now(), updatedAt: Date.now(), ...data }; DB.expenses.push(rec); savedId = rec.id; }
   saveDB(); closeModal(); render(); toast('已保存 ✓');
+  aiConsiderComment('finance', savedId);
 }
 function deleteExpense(id) {
   confirmDialog('删除记录', '删除这条收支记录？', () => { DB.expenses = DB.expenses.filter((x) => x.id !== id); saveDB(); render(); }, '删除');
@@ -5441,6 +5500,35 @@ function aiRespondAsync(ev) {
     } catch (e) { /* 后端不可达 / 缺 Key：静默降级，绝不用假文案冒充 */ }
   }, 1200);
 }
+
+/* ---- 评论事件入口：用户新增/编辑日志/健康/财务 → 后端跑工具循环，AI 自行决定是否评论 ----
+   复用 AIBus（绝不新建第二套事件机制）；debounce 1200ms 保证先于 SYNC.push(800ms) 之后触发，
+   独立节流（不占用 /api/ai/respond 的节流额度）；fire-and-forget，绝不阻塞保存。 */
+let _commentQueue = [];
+let _commentTimer = null;
+let _aiLastComment = 0;
+function aiConsiderComment(recordType, recordId) {
+  if (!recordId || !['journal', 'health', 'finance'].includes(recordType)) return;
+  if (!aiCan(recordType)) return; // 前端权限：该领域被禁用时绝不触发
+  _commentPending.add(recordType + ':' + recordId);
+  _commentQueue.push({ recordType, recordId });
+  render(); // 立即显示「祂正在想…」占位
+  if (_commentTimer) return;
+  _commentTimer = setTimeout(async () => {
+    _commentTimer = null;
+    const batch = _commentQueue.splice(0, 4);
+    if (Date.now() - _aiLastComment < 30000) { batch.forEach((b) => _commentPending.delete(b.recordType + ':' + b.recordId)); render(); return; }
+    _aiLastComment = Date.now();
+    const last = batch[batch.length - 1];
+    try {
+      const resp = await fetch(API_BASE + '/api/ai/comments/consider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recordType: last.recordType, recordId: last.recordId }) });
+      const data = await resp.json().catch(() => ({}));
+      if (data && data.considered && data.commented) await SYNC.bootstrap(); // 后端已写 doc.ai.comments，拉回并刷新
+    } catch (e) { /* 后端不可达 / 缺 Key：静默降级，绝不假装评论成功 */ }
+    batch.forEach((b) => _commentPending.delete(b.recordType + ':' + b.recordId));
+    render();
+  }, 1200);
+}
 function aiOnEvent(ev) {
   try {
     if (ev.type === 'PAGE_CHANGED') return;
@@ -5453,9 +5541,17 @@ function aiOnEvent(ev) {
       // 用户写 Journal ≠ AI 写 Activity：绝不把用户日志写成「写下日志：…」动态（Journal→Activity 触发链已切断）
       aiConsiderMemory(e.content, '偏好', 'journal', ev.entityId);
       aiRespondAsync(ev);
+      aiConsiderComment('journal', ev.entityId);
       return;
     }
-    if (ev.type === 'JOURNAL_UPDATED' || ev.type === 'JOURNAL_DELETED') return;
+    if (ev.type === 'JOURNAL_UPDATED') { aiConsiderComment('journal', ev.entityId); return; }
+    if (ev.type === 'JOURNAL_DELETED') return;
+
+    // 健康：新增/编辑健康记录后给 AI 评论机会（身高/体重 profile 更新不评论）
+    if (ev.type === 'HEALTH_UPDATED') {
+      if (ev.entityId && ev.entityId !== 'profile') aiConsiderComment('health', ev.entityId);
+      return;
+    }
 
     // 音乐：绝不写“正在听 XXX”流水动态；仅长期收听模式记一次
     if (ev.type === 'MUSIC_PLAY' || ev.type === 'MUSIC_CHANGED' || ev.type === 'MUSIC_PAUSE') {
