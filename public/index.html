@@ -388,8 +388,8 @@
     .thinking-sheet-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; margin-bottom: 10px; flex-shrink: 0; }
     .thinking-sheet-head .x { background: none; border: none; font-size: 20px; color: var(--text-faint); cursor: pointer; line-height: 1; }
     .thinking-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 13.5px; line-height: 1.7; color: var(--text-soft); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
-    .chat-input-bar { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px calc(10px + var(--chat-safe-bottom, env(safe-area-inset-bottom)) + var(--chat-keyboard-inset, 0px)); border-top: 1px solid var(--border); }
-    .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; line-height: 1.5; outline: none; max-height: 132px; min-height: 42px; background: var(--card-solid); overflow-y: auto; }
+    .chat-input-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px calc(4px + var(--chat-safe-bottom, env(safe-area-inset-bottom)) + var(--chat-keyboard-inset, 0px)); border-top: 1px solid var(--border); }
+    .chat-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; line-height: 1.5; outline: none; max-height: 132px; min-height: 46px; background: var(--card-solid); overflow-y: auto; }
     .chat-input:focus { border-color: var(--accent-border); }
     /* composer 按钮：+ / 发送 / 停止 不重叠，等宽圆角 */
     .composer-btn { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--card-solid); cursor: pointer; font-size: 18px; color: var(--accent-strong); transition: background 0.15s, transform 0.1s; }
