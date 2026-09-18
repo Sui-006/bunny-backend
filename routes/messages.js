@@ -15,6 +15,7 @@ import { detectToolDomains } from '../lib/aiContext.js';
 import { buildDomainTools, toolsForDomains } from '../lib/tools.js';
 import { buildAIContext } from '../lib/context-builder.js';
 import { maybeSummarize, invalidateSummary } from '../services/conversation-summary.js';
+import { maybeLearnStyle } from '../services/style-profile.js';
 import { attachments as attachmentsTable } from '../lib/store.js';
 import { prepareAttachmentsForAI, attachmentRow } from '../lib/attachments.js';
 
@@ -144,6 +145,9 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     if (attachmentMeta.length) metadata.attachments = attachmentMeta;
 
     const userMessage = await createMessage(sessionId, { role: 'user', content, ...(Object.keys(metadata).length ? { metadata } : {}) });
+    // 风格学习（user-level，确定性、纯检测先行，命中才碰数据库）：
+    // 明确偏好→立即更新画像；重复行为→计数达阈值才更新；其它消息→完全不写库。绝不每轮重建画像。
+    try { await maybeLearnStyle(userId, content); } catch (e) { console.warn('[messages] 风格学习失败（不阻断对话）：', e.message); }
     const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic });
     await augmentLastUserMessage(built.messages, attachmentRows);
 
