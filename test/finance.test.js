@@ -4,6 +4,7 @@ import {
   yuanToCents, centsToYuan, fmtCents,
   parseAmountCents, parseQuantity, parseExpenseText, parsePurchaseText,
   guessCategory, monthKey, daysRemainingInMonth, financeSummary,
+  compareExpenseDesc, sortExpensesDesc, comparePurchasesDesc, sortPurchasesDesc,
 } from '../lib/finance.js';
 
 test('金额：整数分存储，杜绝浮点误差（CNY）', () => {
@@ -113,4 +114,90 @@ test('financeSummary：未设预算', () => {
   assert.equal(s.hasBudget, false);
   assert.equal(s.monthlyBudgetCents, 0);
   assert.equal(s.remainingCents, 0);
+});
+
+// ---- 排序（本次需求：所有账单按真实账单时间倒序，最新在最上面）----
+test('排序 1：多条不同日期倒序，最新在最上面', () => {
+  const list = [
+    { id: 'a', occurredAt: '2026-09-01' },
+    { id: 'b', occurredAt: '2026-09-15' },
+    { id: 'c', occurredAt: '2026-09-10' },
+  ];
+  assert.deepEqual(sortExpensesDesc(list).map((e) => e.id), ['b', 'c', 'a']);
+});
+
+test('排序 2：新建账单立即在顶部（createdAt 最新）', () => {
+  // 同一天，无 occurredTime：按 createdAt 倒序 → 最新创建在最上面
+  const list = [
+    { id: 'old', occurredAt: '2026-09-15', createdAt: 1000 },
+    { id: 'new', occurredAt: '2026-09-15', createdAt: 3000 },
+    { id: 'mid', occurredAt: '2026-09-15', createdAt: 2000 },
+  ];
+  assert.deepEqual(sortExpensesDesc(list).map((e) => e.id), ['new', 'mid', 'old']);
+});
+
+test('排序 3：occurredTime 倒序（同日按真实发生时间）', () => {
+  const list = [
+    { id: 'morning', occurredAt: '2026-09-15', occurredTime: '08:30' },
+    { id: 'night', occurredAt: '2026-09-15', occurredTime: '23:10' },
+    { id: 'noon', occurredAt: '2026-09-15', occurredTime: '12:00' },
+  ];
+  assert.deepEqual(sortExpensesDesc(list).map((e) => e.id), ['night', 'noon', 'morning']);
+});
+
+test('排序 4：同时间稳定（occurredAt/occurredTime/createdAt 全同，按 id 稳定）', () => {
+  const list = [
+    { id: 'c', occurredAt: '2026-09-15', occurredTime: '12:00', createdAt: 1000 },
+    { id: 'a', occurredAt: '2026-09-15', occurredTime: '12:00', createdAt: 1000 },
+    { id: 'b', occurredAt: '2026-09-15', occurredTime: '12:00', createdAt: 1000 },
+  ];
+  // 比较器是对称/传递的：同键时按 id 升序稳定，多次排序结果一致
+  const once = sortExpensesDesc(list).map((e) => e.id);
+  const twice = sortExpensesDesc(sortExpensesDesc(list)).map((e) => e.id);
+  assert.deepEqual(once, ['a', 'b', 'c']);
+  assert.deepEqual(twice, once); // 幂等稳定
+});
+
+test('排序 5：编辑金额/分类/备注不改变位置（只改 updatedAt）', () => {
+  const list = [
+    { id: 'a', occurredAt: '2026-09-15', createdAt: 1000, amountCents: 100 },
+    { id: 'b', occurredAt: '2026-09-15', createdAt: 2000, amountCents: 100 },
+  ];
+  // 修改金额 / 分类 / 备注 → 只改 updatedAt / 其它字段，排序键（occurredAt/occurredTime/createdAt）不变
+  const edited = [
+    { ...list[0], amountCents: 999999, category: '吃饭', note: '改了备注', updatedAt: 9999 },
+    { ...list[1], amountCents: 1, category: '学习', note: 'x', updatedAt: 9999 },
+  ];
+  // 原始顺序 b 在前（createdAt 大），编辑后顺序不变
+  assert.deepEqual(sortExpensesDesc(edited).map((e) => e.id), ['b', 'a']);
+});
+
+test('排序 6：修改账单日期后正确重排', () => {
+  const list = [
+    { id: 'a', occurredAt: '2026-09-01', createdAt: 1000 },
+    { id: 'b', occurredAt: '2026-09-15', createdAt: 2000 },
+    { id: 'c', occurredAt: '2026-09-10', createdAt: 3000 },
+  ];
+  assert.deepEqual(sortExpensesDesc(list).map((e) => e.id), ['b', 'c', 'a']);
+  // 把 b 的日期改成 09-05（早于 c 的 09-10），应重排：c 顶、b 在 c 后
+  const changed = [{ ...list[0] }, { ...list[1], occurredAt: '2026-09-05' }, { ...list[2] }];
+  assert.deepEqual(sortExpensesDesc(changed).map((e) => e.id), ['c', 'b', 'a']);
+});
+
+test('排序 7：compareExpenseDesc 空日期/空时间不抛异常且一致', () => {
+  const a = { id: 'x', occurredAt: '' };
+  const b = { id: 'y', occurredAt: '2026-09-15' };
+  assert.equal(compareExpenseDesc(a, b), 1); // 空日期排最后
+  assert.equal(compareExpenseDesc(b, a), -1);
+  assert.equal(compareExpenseDesc(a, a), 0);
+});
+
+test('排序 8：purchases 按 purchasedAt 倒序，同日期按 createdAt 稳定', () => {
+  const list = [
+    { id: 'p1', purchasedAt: '2026-09-01', createdAt: 100 },
+    { id: 'p3', purchasedAt: '2026-09-15', createdAt: 300 },
+    { id: 'p2', purchasedAt: '2026-09-15', createdAt: 200 },
+  ];
+  assert.deepEqual(sortPurchasesDesc(list).map((p) => p.id), ['p3', 'p2', 'p1']);
+  assert.equal(comparePurchasesDesc({ purchasedAt: '' }, { purchasedAt: '2026-09-01' }), 1);
 });

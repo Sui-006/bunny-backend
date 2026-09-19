@@ -7,6 +7,7 @@ import { HttpError, ok, pick } from '../lib/rest.js';
 import {
   todayStr, yuanToCents, centsToYuan,
   parseExpenseText, parsePurchaseText, guessCategory, financeSummary, EXPENSE_CATEGORIES,
+  sortExpensesDesc, sortPurchasesDesc,
 } from '../lib/finance.js';
 
 const router = Router();
@@ -20,7 +21,7 @@ function normDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? v : 
 router.get('/purchases', async (req, res, next) => {
   try {
     const doc = await getState(req.user.id);
-    const list = doc.purchases.slice().sort((a, b) => (b.purchasedAt || '') < (a.purchasedAt || '') ? -1 : 1);
+    const list = sortPurchasesDesc(doc.purchases);
     ok(res, list);
   } catch (e) { next(e); }
 });
@@ -104,7 +105,7 @@ router.delete('/purchases/:id', async (req, res, next) => {
 router.get('/expenses', async (req, res, next) => {
   try {
     const doc = await getState(req.user.id);
-    let list = doc.expenses.slice().sort((a, b) => (b.occurredAt || '') < (a.occurredAt || '') ? -1 : 1);
+    let list = sortExpensesDesc(doc.expenses);
     if (req.query.month) list = list.filter((e) => String(e.occurredAt || '').startsWith(String(req.query.month).slice(0, 7)));
     ok(res, list);
   } catch (e) { next(e); }

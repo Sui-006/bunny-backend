@@ -320,6 +320,14 @@
     .cal-cell.today .dnum { color: var(--accent); }
     .cal-dot { font-size:calc(10.5px * var(--app-font-scale, 1)); line-height: 1.5; padding: 1px 5px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px; }
     .cal-more { font-size:calc(10px * var(--app-font-scale, 1)); color: var(--text-faint); }
+    .mt-dots { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+    .mt-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .mt-more { font-size: calc(9px * var(--app-font-scale, 1)); color: var(--text-faint); line-height: 1; }
+    .mt-color-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+    .cal-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-tint); }
+    .pd-marks { display: flex; gap: 3px; align-items: center; margin-top: 2px; }
+    .pd-period { width: 8px; height: 8px; border-radius: 50%; background: #ec4899; display: inline-block; }
+    .pd-info { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); display: inline-block; }
     .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
     .week-col { border: 1px solid var(--border); border-radius: 14px; min-height: 180px; padding: 8px; background: var(--card); }
     .week-col.today { border-color: var(--accent); }
@@ -840,7 +848,7 @@ function defaultDB() {
   const now = new Date();
   const thisMonth = now.getFullYear() + '-' + pad(now.getMonth() + 1);
   const weekStart = startOfWeek(todayStr());
-  const mk = (t) => ({ id: uid(), type: t, title: (t === 'monthly' ? monthTitle(now.getFullYear(), now.getMonth()) : t === 'weekly' ? weekTitle(todayStr()) : TYPE_META[t].def), description: '', startDate: t === 'long-term' ? todayStr() : t === 'stage' ? todayStr() : t === 'monthly' ? thisMonth + '-01' : weekStart, endDate: t === 'monthly' ? thisMonth + '-28' : t === 'weekly' ? addDays(weekStart, 6) : '', themeColor: TYPE_META[t].color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [] });
+  const mk = (t) => ({ id: uid(), type: t, title: (t === 'monthly' ? monthTitle(now.getFullYear(), now.getMonth()) : t === 'weekly' ? weekTitle(todayStr()) : TYPE_META[t].def), description: '', startDate: t === 'long-term' ? todayStr() : t === 'stage' ? todayStr() : t === 'monthly' ? thisMonth + '-01' : weekStart, endDate: t === 'monthly' ? thisMonth + '-28' : t === 'weekly' ? addDays(weekStart, 6) : '', themeColor: TYPE_META[t].color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [], monthlyTasks: [] });
   const longTerm = mk('long-term'); const stage = mk('stage');
   stage.parentPlanId = longTerm.id;
   const seedTasks = [
@@ -892,6 +900,7 @@ function defaultDB() {
     budget: { monthlyCents: null, currency: 'CNY' },
     // 健康隐私
     menstrualCycles: [],
+    menstrualDays: [],
     medicalRecords: [],
     notes: [ { id: uid(), title: '欢迎使用 Bunny\'s Home', content: '这是一个属于你的个人数字空间。\n\n· 点击右下角 + 快速创建任务 / 计划 / 习惯\n· 我的AI 可以帮你安排今天\n· 所有数据都保存在本地', tags: ['欢迎'], pinned: true, createdAt: Date.now(), updatedAt: Date.now() } ],
     player: { playlist: [ { title: 'Turning Page', artist: 'Sleeping At Last', cover: '', duration: 255 } ], current: 0, playing: false, currentTime: 0, volume: 0.8, togetherListening: false, autoNext: false },
@@ -951,6 +960,7 @@ function loadDB() {
   if (!Array.isArray(db.purchases)) db.purchases = [];
   if (!db.budget) db.budget = def.budget;
   if (!Array.isArray(db.menstrualCycles)) db.menstrualCycles = [];
+  if (!Array.isArray(db.menstrualDays)) db.menstrualDays = [];
   if (!Array.isArray(db.medicalRecords)) db.medicalRecords = [];
   if (!db.healthProfile) db.healthProfile = def.healthProfile;
   // 老数据清洗：健康记录里的 steps/heartRate/calories 字段（旧模型）一并剔除
@@ -970,6 +980,8 @@ function loadDB() {
     const arr = db.plans.filter((p) => p.type === t);
     if (arr.length === 0) db.plans.push(defaultPlan(t));
   }
+  // 月度任务（打卡/进度/颜色）挂在 monthly 计划上：老计划对象补齐 monthlyTasks，绝不丢已存数据
+  for (const p of db.plans) if (!Array.isArray(p.monthlyTasks)) p.monthlyTasks = [];
   return db;
 }
 function saveDB() { try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) { OS.toast('存储失败（空间不足？）', true); } scheduleSync(); }
@@ -1012,7 +1024,7 @@ function defaultPlan(type) {
   else if (type === 'stage') { title = meta.def; startDate = todayStr(); endDate = ''; }
   else if (type === 'monthly') { title = monthTitle(now.getFullYear(), now.getMonth()); startDate = thisMonth + '-01'; endDate = thisMonth + '-28'; }
   else { title = weekTitle(todayStr()); startDate = ws; endDate = addDays(ws, 6); }
-  return { id: uid(), type, title, description: '', startDate, endDate, themeColor: meta.color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [] };
+  return { id: uid(), type, title, description: '', startDate, endDate, themeColor: meta.color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [], monthlyTasks: [] };
 }
 
 /* ---------------- theme + appearance ---------------- */
@@ -1133,7 +1145,7 @@ function parseHash() {
 
 const OS = {
   route: parseHash(),
-  ui: { search: '', calView: 'month', viewDate: todayStr(), statRange: 7, healthRange: 7, healthDate: todayStr(), notesQuery: '', convId: null, taskView: 'today' },
+  ui: { search: '', calView: 'month', viewDate: todayStr(), statRange: 7, healthRange: 7, healthDate: todayStr(), notesQuery: '', convId: null, taskView: 'today', periodDate: todayStr() },
   chat: { sessions: [], currentId: null, messages: [], attachments: [], sessionSettings: {}, loading: false },
 
   // 需求 10/12：用 replaceState 改 hash，不推入历史记录，避免「页面层叠 + 右滑返回上一页」。
@@ -1161,7 +1173,7 @@ function navGroups() {
   const n = (route, ico, label, badge) => ({ route, ico, label, badge });
   const PLAN_EN = { 'weekly': 'Weekly Plan', 'monthly': 'Monthly Plan', 'stage': 'Stage Plan', 'long-term': 'Long-term Plan' };
   return [
-    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/tasks', '✅', 'Tasks'), n('/calendar', '📅', 'Calendar'), n('/alarm', '⏰', 'Alarms') ] },
+    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/tasks', '✅', 'Tasks'), n('/period', '🌸', '经期记录'), n('/alarm', '⏰', 'Alarms') ] },
     { title: '♥ 我的AI', ai: true, items: [ n('/chat', '💬', 'AI Chat'), n('/ai/memory', '🧠', 'AI Memory'), n('/ai/activity', '💗', 'AI Activity') ] },
     { title: 'PLANS', items: PLAN_ORDER.map((t) => n('/plans/' + t, TYPE_META[t].ico, PLAN_EN[t])) },
     { title: 'LIFE', items: [ n('/habit', '🌱', 'Habits'), n('/health', '❤️', 'Health'), n('/statistics', '📊', 'Statistics'), n('/shopping', '🛒', 'Shopping'), n('/finance', '💰', 'Finance'), n('/player', '🎵', 'Music') ] },
@@ -1232,7 +1244,7 @@ function newPlanSheet() {
 }
 function newEventModal() { newTaskModal(true); }
 function openMoreNav() {
-  const items = [ ['/calendar', '📅', 'Calendar'], ['/chat', '💬', 'AI Chat'], ['/ai/memory', '🧠', 'AI Memory'], ['/ai/activity', '💗', 'AI Activity'], ['/player', '🎵', 'Music'], ['/notes', '📝', 'Notes'], ['/statistics', '📊', 'Statistics'], ['/notifications', '🔔', 'Notifications'], ['/profile', '👤', 'Profile'], ['/settings', '⚙️', 'Settings'] ];
+  const items = [ ['/period', '🌸', '经期记录'], ['/chat', '💬', 'AI Chat'], ['/ai/memory', '🧠', 'AI Memory'], ['/ai/activity', '💗', 'AI Activity'], ['/player', '🎵', 'Music'], ['/notes', '📝', 'Notes'], ['/statistics', '📊', 'Statistics'], ['/notifications', '🔔', 'Notifications'], ['/profile', '👤', 'Profile'], ['/settings', '⚙️', 'Settings'] ];
   drawer('<div class="sheet"><div class="sheet-grab"></div>' + items.map((i) => '<button class="sheet-item" onclick="OS.closeModal();OS.go(\'' + i[0] + '\')"><span class="ico">' + i[1] + '</span>' + i[2] + '</button>').join('') + '</div>', 'bottom');
 }
 
@@ -1258,7 +1270,8 @@ function render() {
   // AI Chat 独占整屏：隐藏全局顶栏 + 全局 FAB（FAB 会与聊天发送按钮重叠），view 去掉内边距
   if (topbar) topbar.style.display = isChat ? 'none' : 'flex';
   const fab = document.getElementById('fab');
-  if (fab) fab.style.display = isChat ? 'none' : 'flex';
+  // Health 页（含病历子页）不再需要右下角 +（需求：删除 Health FAB），AI Chat 独占整屏时也隐藏
+  if (fab) fab.style.display = (isChat || r === '/health' || r === '/health/medical-records') ? 'none' : 'flex';
   view.classList.toggle('view-chat', isChat);
   const routeChanged = _lastRoute !== r;
   if (routeChanged) { viewScrollPos[_lastRoute] = view.scrollTop; _lastRoute = r; }
@@ -1627,8 +1640,12 @@ function planProgress(plan) {
   const goals = plan.stageGoals || [];
   if (goals.length === 0) {
     const range = plan.type === 'monthly' || plan.type === 'weekly' ? [] : [];
-    // for monthly/weekly, progress from linked tasks
-    if (plan.type === 'monthly') { const t = DB.tasks.filter((x) => x.monthlyPlanId === plan.id); return t.length ? Math.round(t.filter((x) => x.completed).length / t.length * 100) : 0; }
+    // for monthly/weekly, progress from their own tasks（月度任务用打卡数据，绝不从 DB.tasks 反推）
+    if (plan.type === 'monthly') {
+      const mt = plan.monthlyTasks || [];
+      if (mt.length === 0) return 0;
+      return Math.round(mt.reduce((s, t) => s + monthlyTaskProgress(t), 0) / mt.length);
+    }
     if (plan.type === 'weekly') { const t = DB.tasks.filter((x) => x.weeklyPlanId === plan.id); return t.length ? Math.round(t.filter((x) => x.completed).length / t.length * 100) : 0; }
     return 0;
   }
@@ -1749,12 +1766,12 @@ function submitPlanCreate(type) {
   if (type === 'monthly') {
     const m = document.getElementById('pcMonth').value; if (!m) { toast('请选择月份', true); return; }
     const y = +m.slice(0, 4), mo = +m.slice(5, 7);
-    plan = { id: uid(), type, title: name || monthTitle(y, mo - 1), description: '', startDate: m + '-01', endDate: m + '-28', themeColor: color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [] };
+    plan = { id: uid(), type, title: name || monthTitle(y, mo - 1), description: '', startDate: m + '-01', endDate: m + '-28', themeColor: color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [], monthlyTasks: [] };
   } else if (type === 'weekly') {
     const ws = document.getElementById('pcWeek').value || startOfWeek(todayStr());
-    plan = { id: uid(), type, title: name || weekTitle(ws), description: '', startDate: ws, endDate: addDays(ws, 6), themeColor: color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [] };
+    plan = { id: uid(), type, title: name || weekTitle(ws), description: '', startDate: ws, endDate: addDays(ws, 6), themeColor: color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [], monthlyTasks: [] };
   } else {
-    plan = { id: uid(), type, title: name || TYPE_META[type].def, description: '', startDate: document.getElementById('pcStart').value, endDate: document.getElementById('pcEnd').value, themeColor: color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [] };
+    plan = { id: uid(), type, title: name || TYPE_META[type].def, description: '', startDate: document.getElementById('pcStart').value, endDate: document.getElementById('pcEnd').value, themeColor: color, parentPlanId: null, archived: false, createdAt: Date.now(), updatedAt: Date.now(), longGoal: '', stageGoals: [], results: [], monthlyTasks: [] };
   }
   DB.plans.push(plan); saveDB(); closeModal();
   if (!OS.ui.planSel) OS.ui.planSel = {}; OS.ui.planSel[type] = plan.id;
@@ -1863,24 +1880,121 @@ function resultRowHtml(plan, r, v) {
     '<div class="row" style="gap:10px"><input type="range" min="0" max="100" value="' + (r.progress || 0) + '" style="flex:1" oninput="setResult(\'' + plan.id + '\',\'' + r.id + '\',\'progress\',this.value)"><span id="resPct_' + r.id + '" class="chip" style="min-width:44px;justify-content:center">' + (r.progress || 0) + '%</span></div></div>';
 }
 
-/* --- monthly --- */
+/* --- monthly：月份标题 → 月历（任务颜色点）→ 月度任务卡片（名称 + 进度 + 打卡） --- */
+// 月度任务进度：真实数据（checkIns.length / target），绝不画死视觉效果
+function monthlyTaskProgress(t) {
+  const checkIns = Array.isArray(t.checkIns) ? t.checkIns : [];
+  const target = Math.max(1, Math.round(Number(t.target) || 0));
+  return Math.min(100, Math.round(checkIns.length / target * 100));
+}
+// 按日期聚合「当天哪些任务打了卡」→ { 'YYYY-MM-DD': [taskId, ...] }，只来自真实 check-ins
+function monthlyTaskCheckinsByDate(tasks) {
+  const map = {};
+  for (const t of (tasks || [])) {
+    for (const d of (Array.isArray(t.checkIns) ? t.checkIns : [])) {
+      const key = String(d || '').trim(); if (!key) continue;
+      (map[key] = map[key] || []).push(t.id);
+    }
+  }
+  return map;
+}
 function viewMonthlyPlan(plan, v) {
   const d = parseDate(plan.startDate) || new Date();
   const y = d.getFullYear(), m = d.getMonth();
+  const tasks = plan.monthlyTasks || [];
+  const today = todayStr();
   let html = planHeader(plan, v);
+  // 月份标题（必须写在日历上方）
   html += '<div class="cal-head"><button class="btn btn-sm" onclick="shiftPlanMonth(\'' + plan.id + '\',-1)">‹ 上月</button><span class="cal-title">' + monthTitle(y, m) + '</span><button class="btn btn-sm" onclick="shiftPlanMonth(\'' + plan.id + '\',1)">下月 ›</button></div>';
+  // 月历：格子只显示「任务颜色点」（来自真实打卡），绝不塞任务文字 / 当日计划
   const first = new Date(y, m, 1); const start = new Date(y, m, 1 - ((first.getDay() + 6) % 7));
+  const byDate = monthlyTaskCheckinsByDate(tasks);
   html += '<div class="cal-grid">' + DOW.map((w) => '<div class="cal-dow">' + w + '</div>').join('');
   for (let i = 0; i < 42; i++) {
     const cell = new Date(start); cell.setDate(start.getDate() + i); const ds = dstr(cell); const inMonth = cell.getMonth() === m;
-    const tasks = DB.tasks.filter((t) => t.monthlyPlanId === plan.id && t.date === ds);
-    html += '<div class="cal-cell' + (inMonth ? '' : ' other') + (ds === todayStr() ? ' today' : '') + '" ondragover="event.preventDefault()" ondrop="taskDropToPlan(event,\'' + plan.id + '\',\'' + ds + '\',\'monthly\')" onclick="openTaskModal(\'' + ds + '\',null,\'' + plan.id + '\')"><div class="dnum">' + cell.getDate() + '</div>' +
-      tasks.map((t) => '<div class="cal-dot" style="' + (t.completed ? 'text-decoration:line-through;opacity:.5' : '') + '">' + (t.completed ? '✓ ' : '○ ') + esc(t.title) + '</div>').join('') + '</div>';
+    const doneIds = byDate[ds] || [];
+    let dots = '';
+    const shown = doneIds.slice(0, 4);
+    for (const id of shown) { const t = tasks.find((x) => x.id === id); dots += '<span class="mt-dot" style="background:' + (t ? t.color : '#6b8cae') + '"></span>'; }
+    if (doneIds.length > 4) dots += '<span class="mt-more">+' + (doneIds.length - 4) + '</span>';
+    html += '<div class="cal-cell' + (inMonth ? '' : ' other') + (ds === today ? ' today' : '') + '"><div class="dnum">' + cell.getDate() + '</div>' + (dots ? '<div class="mt-dots">' + dots + '</div>' : '') + '</div>';
   }
   html += '</div>';
+  // 月度任务卡片（日历下方）：名称 + 进度条 + 进度% + 今日打卡
+  html += '<div class="section-head" style="margin-top:20px"><h2>月度任务</h2><button class="btn btn-primary btn-sm" onclick="monthlyTaskModal(\'' + plan.id + '\')">＋ 新建任务</button></div>';
+  html += tasks.length === 0
+    ? '<div class="card card-pad empty" style="padding:26px"><div class="esub">还没有月度任务</div><div class="muted" style="font-size:calc(12px * var(--app-font-scale, 1));margin-top:6px">点击「＋ 新建任务」添加，完成后每日打卡</div></div>'
+    : tasks.map((t) => monthlyTaskCardHtml(plan, t)).join('');
   return html;
 }
 function shiftPlanMonth(id, n) { const p = planById(id); const d = parseDate(p.startDate); d.setMonth(d.getMonth() + n); const ym = d.getFullYear() + '-' + pad(d.getMonth() + 1); p.startDate = ym + '-01'; p.endDate = ym + '-28'; p.title = monthTitle(d.getFullYear(), d.getMonth()); p.updatedAt = Date.now(); saveDB(); render(); }
+function monthlyTaskCardHtml(plan, t) {
+  const pct = monthlyTaskProgress(t);
+  const count = Array.isArray(t.checkIns) ? t.checkIns.length : 0;
+  const target = Math.max(1, Math.round(Number(t.target) || 0));
+  const doneToday = Array.isArray(t.checkIns) && t.checkIns.includes(todayStr());
+  const c = t.color || '#10b981';
+  return '<div class="card card-pad" style="margin-bottom:12px;border-left:4px solid ' + c + '">' +
+    '<div class="row" style="gap:10px;align-items:center"><span class="mt-color-dot" style="background:' + c + '"></span>' +
+    '<div class="grow"><div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">' + esc(t.name) + '</div>' +
+    '<div class="muted" style="font-size:calc(11.5px * var(--app-font-scale, 1))">已打卡 ' + count + ' / ' + target + ' 次</div></div>' +
+    '<button class="icon-btn" style="border:none;background:none" onclick="monthlyTaskMenu(event,\'' + plan.id + '\',\'' + t.id + '\')">⋯</button></div>' +
+    '<div class="progress" style="margin:10px 0 8px"><span style="width:' + pct + '%;background:' + c + '"></span></div>' +
+    '<div class="row" style="gap:10px;align-items:center"><span class="chip" style="font-weight:700;min-width:44px;justify-content:center">' + pct + '%</span><span class="grow"></span>' +
+    '<button class="btn btn-sm ' + (doneToday ? 'btn-soft' : 'btn-primary') + '" onclick="monthlyTaskCheckinAction(\'' + plan.id + '\',\'' + t.id + '\')">' + (doneToday ? '今日已打卡 ✓' : '今日打卡') + '</button></div></div>';
+}
+// 打卡（幂等）：同一任务同一天只算一次，重复点击不增加进度
+function monthlyTaskCheckinAction(planId, taskId) {
+  const plan = planById(planId); if (!plan) return;
+  const t = (plan.monthlyTasks || []).find((x) => x.id === taskId); if (!t) return;
+  if (!Array.isArray(t.checkIns)) t.checkIns = [];
+  const today = todayStr();
+  if (t.checkIns.includes(today)) { toast('今天已打卡 ✓'); return; }
+  t.checkIns.push(today); t.updatedAt = Date.now(); plan.updatedAt = Date.now();
+  saveDB(); render();
+  toast('已打卡 🔥 ' + monthlyTaskProgress(t) + '%');
+}
+function monthlyTaskModal(planId, taskId) {
+  const plan = planById(planId); if (!plan) return;
+  const t = taskId ? (plan.monthlyTasks || []).find((x) => x.id === taskId) : null;
+  const color = t ? t.color : '#10b981';
+  modal('<div class="modal-head"><h3>' + (t ? '编辑任务' : '新建任务') + '</h3><button class="x" onclick="OS.closeModal()">✕</button></div><div class="modal-body">' +
+    '<div class="field"><label>任务名称</label><input class="input" id="mtName" value="' + esc(t ? t.name : '') + '" placeholder="如：学完第一章"></div>' +
+    '<div class="field"><label>目标打卡次数</label><input class="input" type="number" id="mtTarget" value="' + (t ? (t.target || 30) : 30) + '" min="1" placeholder="30"></div>' +
+    '<div class="field"><label>任务颜色</label>' + swatchHtml(color) + '<input type="hidden" id="swVal" value="' + color + '"></div>' +
+    '</div><div class="modal-foot">' + (t ? '<button class="btn btn-danger" onclick="deleteMonthlyTask(\'' + planId + '\',\'' + t.id + '\')">删除</button>' : '') + '<button class="btn" style="margin-left:auto" onclick="OS.closeModal()">取消</button><button class="btn btn-primary" onclick="saveMonthlyTask(\'' + planId + '\',\'' + (t ? t.id : '') + '\')">保存</button></div>');
+}
+function saveMonthlyTask(planId, taskId) {
+  const plan = planById(planId); if (!plan) return;
+  const name = document.getElementById('mtName').value.trim();
+  if (!name) { toast('请输入任务名称', true); return; }
+  const target = Math.max(1, Math.round(Number(document.getElementById('mtTarget').value) || 30));
+  const color = document.getElementById('swVal').value;
+  if (!Array.isArray(plan.monthlyTasks)) plan.monthlyTasks = [];
+  if (taskId) {
+    const t = plan.monthlyTasks.find((x) => x.id === taskId);
+    if (t) { t.name = name; t.target = target; t.color = color; t.updatedAt = Date.now(); }
+  } else {
+    plan.monthlyTasks.push({ id: uid(), name, color, target, checkIns: [], createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  plan.updatedAt = Date.now();
+  saveDB(); closeModal(); render(); toast('已保存 ✓');
+}
+function deleteMonthlyTask(planId, taskId) {
+  confirmDialog('删除任务', '删除这个月度任务？打卡记录会一并删除。', () => {
+    const plan = planById(planId);
+    if (plan) { plan.monthlyTasks = (plan.monthlyTasks || []).filter((x) => x.id !== taskId); plan.updatedAt = Date.now(); }
+    saveDB(); render();
+  }, '删除');
+}
+function monthlyTaskMenu(e, planId, taskId) {
+  e.stopPropagation();
+  const items = [
+    { label: '编辑', ico: '✎', fn: 'OS.closeMenu();monthlyTaskModal(\'' + planId + '\',\'' + taskId + '\')' },
+    { label: '删除', ico: '🗑', danger: true, fn: 'OS.closeMenu();deleteMonthlyTask(\'' + planId + '\',\'' + taskId + '\')' },
+  ];
+  menu(items, e.clientX, e.clientY);
+}
 
 /* --- weekly --- */
 function viewWeeklyPlan(plan, v) {
@@ -2006,15 +2120,25 @@ function viewHealth() {
   const hp = DB.healthProfile || {};
   const r = OS.ui.healthRange;
   let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Health</div><div class="muted">今日健康数据</div></div></div>';
-  // 身高 + 体重：两个小输入框并排（50% each），紧凑（需求 12）
+  // ① 顶部基础信息：身高 + 体重（轻量输入并排，体重不再作为独立记录卡）
   html += '<div class="card card-pad" style="margin-bottom:16px"><div class="grid cols-2" style="gap:10px">' +
     '<div class="field" style="margin:0"><label>身高（cm）</label><input class="input" type="number" id="hpHeight" value="' + (hp.height || '') + '" step="0.5" min="0" placeholder="如 165" onchange="setHeightInline(this.value)"></div>' +
     '<div class="field" style="margin:0"><label>体重（kg）</label><input class="input" type="number" id="hpWeight" value="' + (t.weight || '') + '" step="0.1" min="0" placeholder="如 50" onchange="setWeightInline(this.value)"></div>' +
     '</div></div>';
-  // 个人病历：入口卡片，置于折线图上方（需求 13）
+  // ② 病历 / Medical Records
   html += medicalRecordsSection();
-  // 折线图
-  html += '<div class="spread" style="margin-bottom:12px"><div class="seg">' + rangeBtn(7, '7 天', r) + rangeBtn(30, '30 天', r) + '</div></div>';
+  // ③ 四个主要记录卡片（睡眠 / 饮水 / 摄入 / 消耗）；水、运动等放在病历下面
+  html += '<div class="section-head"><h2>健康记录</h2><div class="hint">点击各模块独立记录</div></div>';
+  html += '<div class="grid cols-2" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">' +
+    healthModuleCard('😴', '睡眠', fmtSleep(t.sleep), 'sleep') +
+    healthModuleCard('💧', '饮水', fmtVal(t.water, ' L'), 'water') +
+    healthModuleCard('🍚', '摄入', fmtVal(t.caloriesIn, ' 千卡'), 'diet') +
+    healthModuleCard('🏃', '消耗', fmtVal(t.caloriesOut, ' 千卡'), 'exercise') +
+    '</div>';
+  // ④ 「祂的评论」：四个记录卡片之后、折线图之前（独立板块，不放进卡片内部）
+  if (t.id) html += commentSectionHtml('health', t.id);
+  // ⑤ 折线图：整个页面最下方（保留全部 5 张真实图表）
+  html += '<div class="spread" style="margin-bottom:12px;margin-top:8px"><div class="seg">' + rangeBtn(7, '7 天', r) + rangeBtn(30, '30 天', r) + '</div></div>';
   html += '<div class="grid cols-2" style="margin-bottom:16px">' +
     '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">⚖️ 体重（kg）</div><div id="chWeight"></div></div>' +
     '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">🍚 摄入（千卡）</div><div id="chIn"></div></div>' +
@@ -2022,19 +2146,6 @@ function viewHealth() {
     '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">💧 饮水（升）</div><div id="chWater"></div></div>' +
     '<div class="card chart-wrap"><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1));margin-bottom:8px">😴 睡眠（小时）</div><div id="chSleep"></div></div>' +
     '</div>';
-  // 健康记录：各模块独立可点记录（需求 14）
-  html += '<div class="section-head"><h2>健康记录</h2><div class="hint">点击各模块独立记录</div></div>';
-  html += '<div class="grid cols-2" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">' +
-    healthModuleCard('😴', '睡眠', fmtSleep(t.sleep), 'sleep') +
-    healthModuleCard('💧', '饮水', fmtVal(t.water, ' L'), 'water') +
-    healthModuleCard('⚖️', '体重', t.weight ? t.weight + ' kg' : '—', 'weight') +
-    healthModuleCard('🍚', '摄入', fmtVal(t.caloriesIn, ' 千卡'), 'diet') +
-    '</div>';
-  html += '<div class="grid cols-2" style="grid-template-columns:repeat(4,1fr)">' +
-    healthModuleCard('🏃', '消耗', fmtVal(t.caloriesOut, ' 千卡'), 'exercise') +
-    '</div>';
-  // 今日健康记录的「祂的评论」（仅当日已有记录时显示）
-  if (t.id) html += commentSectionHtml('health', t.id);
   return html;
 }
 function healthModuleCard(ico, label, v, module) { return '<div class="card stat-card" style="cursor:pointer" onclick="openHealthModule(\'' + module + '\')"><div style="font-size:calc(20px * var(--app-font-scale, 1));margin-bottom:6px">' + ico + '</div><div class="v" style="font-size:calc(19px * var(--app-font-scale, 1))">' + v + '</div><div class="l">' + label + '</div><div class="u">点击记录</div></div>'; }
@@ -4438,7 +4549,7 @@ const AIBus = {
 /* ---- 统一上下文 ---- */
 function currentPageInfo() {
   const r = OS.route;
-  const map = { '/today': '首页', '/calendar': '日历', '/alarm': '闹钟', '/habit': '习惯', '/health': '健康', '/statistics': '统计', '/shopping': '购物清单', '/chat': '对话', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/player': '音乐', '/notes': '笔记' };
+  const map = { '/today': '首页', '/calendar': '日历', '/period': '经期', '/alarm': '闹钟', '/habit': '习惯', '/health': '健康', '/statistics': '统计', '/shopping': '购物清单', '/chat': '对话', '/ai/memory': 'AI 记忆', '/ai/activity': 'AI 动态', '/player': '音乐', '/notes': '笔记' };
   let label = map[r] || '';
   if (r.startsWith('/plans/')) label = '计划 · ' + ((TYPE_META[r.split('/')[2]] || {}).label || '');
   if (r.startsWith('/settings')) label = '设置';
@@ -4945,6 +5056,19 @@ const EXPENSE_CATEGORIES = ['吃饭', '娱乐', '生活用品', '看病', '零�
 const INCOME_CATEGORIES = ['工资', '奖金', '兼职', '理财', '红包', '其他'];
 let _exKind = false; // false=支出 true=收入
 function financeIsIncome(e) { return e && e.kind === 'income'; }
+// 统一倒序排序（与后端 /api/finance、lib/finance.js 同一口径）：occurredAt 倒序 → occurredTime 倒序 → createdAt 倒序 → id。
+// 编辑金额/分类/备注只改 updatedAt 不改变位置；修改 occurredAt 才会重排。绝不在这里临时 reverse。
+function sortExpensesDesc(list) {
+  return (list || []).slice().sort((a, b) => {
+    const da = String(a.occurredAt || ''), db = String(b.occurredAt || '');
+    if (da !== db) return da < db ? 1 : -1;
+    const ta = String(a.occurredTime || ''), tb = String(b.occurredTime || '');
+    if (ta !== tb) return ta < tb ? 1 : -1;
+    const ca = Number(a.createdAt) || 0, cb = Number(b.createdAt) || 0;
+    if (ca !== cb) return cb - ca;
+    return String(a.id || '') < String(b.id || '') ? -1 : String(a.id || '') > String(b.id || '') ? 1 : 0;
+  });
+}
 function financeSummaryLocal() {
   const mk = todayStr().slice(0, 7);
   const ex = DB.expenses || [];
@@ -4974,7 +5098,7 @@ function viewFinance() {
     html += '<div class="section-head"><h2>本月分类统计</h2></div><div class="card card-pad" style="padding:14px">' +
       cats.map(([c, v]) => '<div style="margin-bottom:10px"><div class="row" style="justify-content:space-between;font-size:calc(13px * var(--app-font-scale, 1));margin-bottom:4px"><span>' + esc(c) + '</span><span class="muted">' + fmtMoney(v) + '</span></div><div class="progress"><span style="width:' + Math.round((v / max) * 100) + '%"></span></div></div>').join('') + '</div>';
   }
-  const list = (DB.expenses || []).slice().sort((a, b) => (b.occurredAt || '') < (a.occurredAt || '') ? -1 : 1).slice(0, 50);
+  const list = sortExpensesDesc(DB.expenses).slice(0, 50);
   html += '<div class="section-head"><h2>最近记录</h2></div>';
   html += '<div class="card card-pad" style="padding:4px 8px">' + (list.length ? list.map(financeRowHtml).join('') : '<div class="empty"><div class="eico">💰</div><div class="etitle">还没有记账</div><div class="esub">点「记一笔」开始记录收支</div></div>') + '</div>';
   return html;
@@ -5074,17 +5198,100 @@ function periodPrediction() {
   const nextStart = (avgCycle && last) ? addDays(last.startDate, avgCycle) : null;
   return { ongoing, closed, avgCycle, last, nextStart };
 }
+/* —— 经期逐日记录（Apple Cycle Tracking 式）：时间线选日期 → 当日记录 → 周期历史 —— */
+const PERIOD_FLOWS = ['少', '中', '多'];
+const PERIOD_SYMPTOMS = ['腹痛', '头痛', '腰痛', '疲劳', '情绪波动', '痤疮', '食欲', '失眠', '胀气', '恶心'];
+function periodDayRecord(date) { return (DB.menstrualDays || []).find((x) => x && x.date === date) || null; }
+// 某日标记：period=经期日（周期区间内或当日记录经期）；hasInfo=该日还有其他信息（经量/症状/点滴/体温）
+function periodDayMark(date) {
+  const rec = periodDayRecord(date);
+  const inCycle = (DB.menstrualCycles || []).some((c) => {
+    if (!c.startDate || date < c.startDate) return false;
+    if (c.endDate) return date <= c.endDate;
+    return date <= todayStr(); // 进行中的经期只标到「今天」
+  });
+  const period = !!(rec && rec.period) || inCycle;
+  const symptoms = (rec && Array.isArray(rec.symptoms) ? rec.symptoms : []).filter(Boolean);
+  const hasInfo = !!(rec && (rec.flow || rec.spotting || (rec.bbt != null && String(rec.bbt).trim() !== '') || symptoms.length));
+  return { period, hasInfo };
+}
+// 按日期 upsert 逐日记录；空记录自动移除，绝不堆积无用条目（与后端 repair 语义一致）
+function periodUpsertDay(date, patch) {
+  if (!Array.isArray(DB.menstrualDays)) DB.menstrualDays = [];
+  let rec = periodDayRecord(date);
+  if (!rec) { rec = { date }; DB.menstrualDays.push(rec); }
+  Object.assign(rec, patch);
+  const symptoms = (Array.isArray(rec.symptoms) ? rec.symptoms : []).filter(Boolean);
+  const empty = !rec.period && !rec.flow && !rec.spotting && (rec.bbt == null || String(rec.bbt).trim() === '') && symptoms.length === 0;
+  if (empty) DB.menstrualDays = DB.menstrualDays.filter((x) => x.date !== date);
+}
+function togglePeriodDay(date) { const r = periodDayRecord(date); periodUpsertDay(date, { period: !(r && r.period) }); saveDB(); render(); }
+function setPeriodFlow(date, flow) { periodUpsertDay(date, { flow }); saveDB(); render(); }
+function togglePeriodSymptom(date, sym) {
+  const r = periodDayRecord(date);
+  const symptoms = (r && Array.isArray(r.symptoms) ? r.symptoms : []).filter(Boolean);
+  const has = symptoms.includes(sym);
+  periodUpsertDay(date, { symptoms: has ? symptoms.filter((s) => s !== sym) : [...symptoms, sym] });
+  saveDB(); render();
+}
+function togglePeriodSpotting(date) { const r = periodDayRecord(date); periodUpsertDay(date, { spotting: !(r && r.spotting) }); saveDB(); render(); }
+function setPeriodBbt(date, v) { const b = parseFloat(v); periodUpsertDay(date, { bbt: Number.isFinite(b) ? b : null }); saveDB(); }
+function shiftPeriodMonth(n) {
+  const cur = OS.ui.periodDate || todayStr();
+  const curD = parseDate(cur) || new Date();
+  const d = new Date(curD.getFullYear(), curD.getMonth() + n, 1);
+  const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(curD.getDate(), maxDay));
+  OS.ui.periodDate = dstr(d);
+  render();
+}
+function selectPeriodDate(ds) { OS.ui.periodDate = ds; render(); }
+function periodDayPanelHtml(date) {
+  const rec = periodDayRecord(date);
+  const symptoms = (rec && Array.isArray(rec.symptoms) ? rec.symptoms : []).filter(Boolean);
+  const isPeriod = !!(rec && rec.period);
+  const spotting = !!(rec && rec.spotting);
+  let html = '<div class="card card-pad" style="margin-bottom:16px">';
+  html += '<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">' + fmtDateHuman(date) + '</div><span class="muted" style="font-size:calc(12px * var(--app-font-scale, 1))">当日记录</span></div>';
+  html += '<div class="row" style="justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span>🌸 经期</span><button class="btn btn-sm ' + (isPeriod ? 'btn-primary' : 'btn-soft') + '" onclick="togglePeriodDay(\'' + date + '\')">' + (isPeriod ? '已记录' : '未记录') + '</button></div>';
+  html += '<div style="padding:10px 0;border-bottom:1px solid var(--border)"><div style="margin-bottom:8px">🩸 经量</div><div class="row" style="gap:8px">' + PERIOD_FLOWS.map((f) => '<button class="btn btn-sm ' + ((rec && rec.flow === f) ? 'btn-primary' : 'btn-soft') + '" onclick="setPeriodFlow(\'' + date + '\',\'' + f + '\')">' + f + '</button>').join('') + '</div></div>';
+  html += '<div style="padding:10px 0;border-bottom:1px solid var(--border)"><div style="margin-bottom:8px">🤒 症状</div><div class="row" style="flex-wrap:wrap;gap:8px">' + PERIOD_SYMPTOMS.map((s) => '<button class="btn btn-sm ' + (symptoms.includes(s) ? 'btn-primary' : 'btn-soft') + '" onclick="togglePeriodSymptom(\'' + date + '\',\'' + s + '\')">' + s + '</button>').join('') + '</div></div>';
+  html += '<div class="row" style="justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><span>🩹 点滴出血</span><button class="btn btn-sm ' + (spotting ? 'btn-primary' : 'btn-soft') + '" onclick="togglePeriodSpotting(\'' + date + '\')">' + (spotting ? '是' : '否') + '</button></div>';
+  html += '<div class="row" style="justify-content:space-between;align-items:center;padding:10px 0"><span>🌡️ 基础体温</span><input class="input" type="number" step="0.1" value="' + (rec && rec.bbt != null ? rec.bbt : '') + '" placeholder="36.5 ℃" style="width:120px" onchange="setPeriodBbt(\'' + date + '\',this.value)"></div>';
+  html += '</div>';
+  return html;
+}
 function viewPeriod() {
   const p = periodPrediction();
   const sorted = periodSorted().slice().reverse();
-  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">经期</div><div class="muted">经期记录与预测 · 隐私</div></div><div class="row" style="gap:8px"><button class="btn btn-sm ' + (p.ongoing ? '' : 'btn-primary') + '" onclick="periodStartModal()">' + (p.ongoing ? '进行中' : '＋ 记录开始') + '</button>' + (p.ongoing ? '<button class="btn btn-sm" onclick="periodEndModal()">记录结束</button>' : '') + '</div></div>';
+  const selDate = OS.ui.periodDate || todayStr();
+  let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">经期记录</div><div class="muted">经期 · 经量 · 症状 · 周期 · 隐私</div></div><div class="row" style="gap:8px"><button class="btn btn-sm ' + (p.ongoing ? '' : 'btn-primary') + '" onclick="periodStartModal()">' + (p.ongoing ? '进行中' : '＋ 记录开始') + '</button>' + (p.ongoing ? '<button class="btn btn-sm" onclick="periodEndModal()">记录结束</button>' : '') + '</div></div>';
+  // 顶部：当前周期信息 / 预测（保留现有预测逻辑）
   let pred = '<div class="card card-pad" style="margin-bottom:16px">';
   if (p.ongoing) pred += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">🌸 经期中</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">开始于 ' + esc(p.ongoing.startDate) + '，记得点「记录结束」</div>';
   else if (p.nextStart) pred += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">🔮 预计下次</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">约 ' + esc(p.nextStart) + '（平均周期 ' + p.avgCycle + ' 天）</div>';
   else pred += '<div style="font-weight:700;font-size:calc(15px * var(--app-font-scale, 1))">📝 暂无预测</div><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1));margin-top:4px">记录几次经期后，会逐步估算你的周期</div>';
   pred += '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:8px">预测仅供参考，不构成医学诊断。</div></div>';
   html += pred;
-  html += '<div class="section-head"><h2>历史记录</h2></div>';
+  // 日期时间线：月历选日期（经期日明显标记 / 其他信息辅助小点）
+  const d = parseDate(selDate) || new Date();
+  const y = d.getFullYear(), m = d.getMonth();
+  html += '<div class="cal-head"><button class="btn btn-sm" onclick="shiftPeriodMonth(-1)">‹ 上月</button><span class="cal-title">' + monthTitle(y, m) + '</span><button class="btn btn-sm" onclick="shiftPeriodMonth(1)">下月 ›</button></div>';
+  const first = new Date(y, m, 1); const start = new Date(y, m, 1 - ((first.getDay() + 6) % 7));
+  html += '<div class="cal-grid" style="margin-bottom:16px">' + DOW.map((w) => '<div class="cal-dow">' + w + '</div>').join('');
+  for (let i = 0; i < 42; i++) {
+    const cell = new Date(start); cell.setDate(start.getDate() + i); const ds = dstr(cell); const inMonth = cell.getMonth() === m;
+    const mark = periodDayMark(ds);
+    let marks = '';
+    if (mark.period) marks += '<span class="pd-period"></span>';
+    if (mark.hasInfo) marks += '<span class="pd-info"></span>';
+    html += '<div class="cal-cell' + (inMonth ? '' : ' other') + (ds === todayStr() ? ' today' : '') + (ds === selDate ? ' selected' : '') + '" onclick="selectPeriodDate(\'' + ds + '\')"><div class="dnum">' + cell.getDate() + '</div>' + (marks ? '<div class="pd-marks">' + marks + '</div>' : '') + '</div>';
+  }
+  html += '</div>';
+  // 当前选中日期：当日记录
+  html += periodDayPanelHtml(selDate);
+  // 周期历史
+  html += '<div class="section-head"><h2>周期历史</h2></div>';
   html += '<div class="card card-pad" style="padding:4px 8px">' + (sorted.length ? sorted.map(periodRowHtml).join('') : '<div class="empty"><div class="eico">🌸</div><div class="etitle">还没有记录</div><div class="esub">点「记录开始」添加第一条经期</div></div>') + '</div>';
   return html;
 }
