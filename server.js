@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { config } from './lib/config.js';
 import { hasDb } from './lib/store.js';
 import { requireAuth } from './lib/auth.js';
+import { healthHandler } from './lib/health.js';
 import { HttpError } from './lib/rest.js';
 
 // 既有路由（AI 对话 / 全局设置 / 主动消息）
@@ -47,10 +48,8 @@ app.use(cors(allowedOrigins.length ? { origin: allowedOrigins, credentials: true
 // 附件走 JSON base64 上传（图片 ≤20MB、文件 ≤50MB → base64 会膨胀约 1.33 倍，故上限放宽到 70mb）
 app.use(express.json({ limit: '70mb' }));
 
-// 健康检查（Render 用）
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', database: hasDb() ? 'connected' : 'memory' });
-});
+// 健康检查（Render healthCheckPath 用，同时供外部 keep-alive 定时探测，只读无副作用）
+app.get('/health', healthHandler);
 
 // 认证（不强制鉴权，隐式 owner 兜底）
 app.use('/api/auth', authRouter);

@@ -1,0 +1,34 @@
+# 保活（keep-alive）：定时 GET /health，让 Render 免费版后端保持可唤醒，避免 AI→Bark 撞上冷启动。
+#
+# 与 heartbeat.yml 严格区分：
+#   - keep-alive.yml 只打 GET /health —— 纯存活探测，无任何业务副作用（不触发 AI/Bark/Activity/Memory/Audit）。
+#   - heartbeat.yml 打 /api/proactive + /api/notifications/tick —— 那是主动消息/闹钟的「业务触发」，不是保活。
+#
+# 间隔依据：Render 免费版约 15 分钟无请求即休眠（冷启动 30–60s）；
+# 每 10 分钟打一次，留出 ~5 分钟余量，与 heartbeat.yml 形成两个独立调度互相兜底。
+#
+# 生产 URL 优先读 GitHub Secret（BUNNY_BACKEND_URL），未配置时回退到公开服务地址。
+# 保活失败（最终仍非 2xx）会让 workflow 明确失败，方便及时发现服务异常。
+name: keep-alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake backend (GET /health)
+        env:
+          BACKEND_URL: ${{ secrets.BUNNY_BACKEND_URL || 'https://bunny-backend-bv89.onrender.com' }}
+        run: |
+          curl -fsS \
+            --retry 5 --retry-delay 20 --retry-all-errors \
+            --connect-timeout 20 --max-time 120 \
+            "${BACKEND_URL}/health"
