@@ -5275,26 +5275,77 @@ function aiStateItemHtml(s) {
     (s.reason ? '<div class="muted" style="font-size:calc(12.5px * var(--app-font-scale, 1));margin-top:6px;line-height:1.6">' + esc(s.reason) + '</div>' : '') +
     '<div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1));margin-top:6px">来自 · ' + esc(aiStateTriggerLabel(s)) + ' · ' + relTime(s.createdAt) + '</div></div>';
 }
+// 把 AI 状态按「今天 / 本周（今天以前）/ 更早（本周以前）」分桶（互不重叠，每个桶内最新在前）。
+// 「本周」= 当前自然周（周一起算，复用项目 startOfWeek 的同一套日期语义），只含今天以前的记录；
+// 「更早」= 本周以前。绝不另造「最近 7 天」滚动窗口，跨周边界按用户本地日历日切分。
+function aiStateBuckets(states) {
+  const sorted = (states || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const today = todayStr();
+  const weekStart = startOfWeek(today); // 本周周一（与周计划同一语义）
+  const todayItems = [], weekItems = [], earlierItems = [];
+  for (const s of sorted) {
+    const ds = dstr(new Date(s.createdAt));
+    if (ds === today) todayItems.push(s);
+    else if (ds >= weekStart && ds < today) weekItems.push(s);
+    else earlierItems.push(s);
+  }
+  return { todayItems, weekItems, earlierItems };
+}
+
+// 折叠切换：显示/隐藏指定容器，翻转按钮文案并同步 aria-expanded（标准 disclosure 模式）
+function aiToggleFold(boxId, btnId, moreLabel, lessLabel) {
+  const box = document.getElementById(boxId);
+  const btn = document.getElementById(btnId);
+  if (!box || !btn) return;
+  const hidden = box.style.display === 'none';
+  box.style.display = hidden ? '' : 'none';
+  btn.textContent = hidden ? lessLabel : moreLabel;
+  btn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+}
+
+// 打开「更早的心情」2/3 屏滑动页：底部 Sheet，头部固定、正文独立滚动、点遮罩关闭
+function aiOpenEarlierMoods() {
+  const earlier = aiStateBuckets(DB.ai.states || []).earlierItems;
+  const rows = earlier.map(aiStateItemHtml).join('');
+  drawer(
+    '<div style="display:flex;flex-direction:column;height:67vh">' +
+      '<div class="sheet-grab"></div>' +
+      '<div style="padding:4px 20px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0"><div style="font-weight:700;font-size:calc(16px * var(--app-font-scale, 1))">更早的心情</div><button class="x" style="background:none;border:none;font-size:calc(22px * var(--app-font-scale, 1));color:var(--text-faint);cursor:pointer" onclick="OS.closeModal()">✕</button></div>' +
+      '<div class="muted" style="padding:0 20px 12px;font-size:calc(12px * var(--app-font-scale, 1));flex-shrink:0">本周以外 · ' + earlier.length + ' 条</div>' +
+      '<div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 20px 28px">' + (rows || '<div class="empty"><div class="eico">💗</div><div class="etitle">没有更早的心情</div></div>') + '</div>' +
+    '</div>',
+    'bottom'
+  );
+}
+
 function viewAIActivity() {
   const states = DB.ai.states || [];
   const acts = (DB.ai.activities || []).filter(isAiActivity);
   const cur = aiCurrentState();
   let html = '<div class="h1" style="margin-bottom:2px">最近的祂</div><div class="muted" style="margin-bottom:14px">AI 状态 · 祂此刻的感受</div>';
   if (cur) html += '<div class="card card-pad ai-companion" style="margin-bottom:16px"><div class="row" style="gap:10px;align-items:center"><div class="ai-heart">♥</div><div><div style="font-weight:800;font-size:calc(16px * var(--app-font-scale, 1))">' + esc(cur.emotion) + ' · ' + esc(aiIntensityText(cur.intensity)) + '</div><div class="muted" style="font-size:calc(12.5px * var(--app-font-scale, 1))">' + esc(cur.reason || '') + '</div></div></div></div>';
-  const today = todayStr();
-  const groups = [
-    ['今天', (s) => dstr(new Date(s.createdAt)) === today],
-    ['昨天', (s) => dstr(new Date(s.createdAt)) === addDays(today, -1)],
-    ['本周', (s) => s.createdAt > Date.now() - 7 * 86400000],
-    ['更早', () => true],
-  ];
-  let any = false;
-  for (const g of groups) {
-    const items = states.filter(g[1]);
-    if (!items.length) continue; any = true;
-    html += '<div class="section-head"><h2>' + g[0] + '</h2></div>' + items.map(aiStateItemHtml).join('');
+  const { todayItems, weekItems, earlierItems } = aiStateBuckets(states);
+
+  // 今天：全部显示（最新在前）
+  if (todayItems.length) html += '<div class="section-head"><h2>今天</h2></div>' + todayItems.map(aiStateItemHtml).join('');
+
+  // 本周：只显示三条，其余折叠，点击展开（本周今天以前，昨天归入本周）
+  if (weekItems.length) {
+    html += '<div class="section-head"><h2>本周</h2></div>' + weekItems.slice(0, 3).map(aiStateItemHtml).join('');
+    const rest = weekItems.slice(3);
+    if (rest.length) {
+      html += '<div id="aiWeekMoreBox" style="display:none">' + rest.map(aiStateItemHtml).join('') + '</div>' +
+        '<button class="btn btn-sm btn-soft btn-block" style="margin-top:10px" id="aiWeekMoreBtn" aria-expanded="false" aria-controls="aiWeekMoreBox" onclick="aiToggleFold(\'aiWeekMoreBox\',\'aiWeekMoreBtn\',\'展开其余 ' + rest.length + ' 条\',\'收起\')">展开其余 ' + rest.length + ' 条</button>';
+    }
   }
-  if (!any) html += '<div class="empty"><div class="eico">💗</div><div class="etitle">祂还没有表露情绪</div><div class="esub">状态只在有意义的事件时产生，不会刷屏</div></div>';
+
+  // 更早（本周以前）：整段折叠，点击打开约 2/3 屏可滑动历史区域（独立滚动，不撑长页面）
+  if (earlierItems.length) {
+    html += '<div class="section-head"><h2>更早</h2></div>' +
+      '<button class="btn btn-sm btn-soft btn-block" aria-haspopup="dialog" onclick="aiOpenEarlierMoods()">' + earlierItems.length + ' 条更早的心情 · 点击浏览</button>';
+  }
+
+  if (!todayItems.length && !weekItems.length && !earlierItems.length) html += '<div class="empty"><div class="eico">💗</div><div class="etitle">祂还没有表露情绪</div><div class="esub">状态只在有意义的事件时产生，不会刷屏</div></div>';
   html += '<div class="section-head" style="margin-top:20px"><h2>AI 动态</h2></div>';
   html += '<div>' + (acts.length ? acts.slice(0, 30).map(aiActivityItemHtml).join('') : '<div class="empty"><div class="eico">✨</div><div class="etitle">暂无动态</div></div>') + '</div>';
   return html;
