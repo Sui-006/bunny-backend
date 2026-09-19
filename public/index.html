@@ -1173,7 +1173,7 @@ function navGroups() {
   const n = (route, ico, label, badge) => ({ route, ico, label, badge });
   const PLAN_EN = { 'weekly': 'Weekly Plan', 'monthly': 'Monthly Plan', 'stage': 'Stage Plan', 'long-term': 'Long-term Plan' };
   return [
-    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/tasks', '✅', 'Tasks'), n('/period', '🌸', '经期记录'), n('/alarm', '⏰', 'Alarms') ] },
+    { title: 'TODAY', items: [ n('/today', '🏠', 'Home'), n('/tasks', '✅', 'Tasks'), n('/period', '🌸', 'Period'), n('/alarm', '⏰', 'Alarms') ] },
     { title: '♥ 我的AI', ai: true, items: [ n('/chat', '💬', 'AI Chat'), n('/ai/memory', '🧠', 'AI Memory'), n('/ai/activity', '💗', 'AI Activity') ] },
     { title: 'PLANS', items: PLAN_ORDER.map((t) => n('/plans/' + t, TYPE_META[t].ico, PLAN_EN[t])) },
     { title: 'LIFE', items: [ n('/habit', '🌱', 'Habits'), n('/health', '❤️', 'Health'), n('/statistics', '📊', 'Statistics'), n('/shopping', '🛒', 'Shopping'), n('/finance', '💰', 'Finance'), n('/player', '🎵', 'Music') ] },
