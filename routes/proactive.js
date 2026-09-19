@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import {
   getAppSettings,
   saveAppSettings,
   getSettings,
+  getSession,
   DEFAULT_SETTINGS,
   getLatestActiveSessionId,
   getLastMessageAt,
@@ -13,9 +15,8 @@ import {
 } from '../lib/db.js';
 import { chat, normalizeProviderUsage, providerForModel } from '../lib/ai.js';
 import { config } from '../lib/config.js';
-import { composeNotification, barkLevelFor } from '../lib/notify.js';
 import { sendNotification } from '../lib/notification-engine.js';
-import { getState } from '../lib/domain.js';
+import { getState, withDoc } from '../lib/domain.js';
 import { ensureOwner } from '../lib/auth.js';
 import { buildAIContext } from '../lib/context-builder.js';
 
@@ -102,28 +103,61 @@ export function decideProactive(app, shNow, now, lastMessageAt) {
   return null;
 }
 
-// 主动消息的默认通知：AI 创作标题/正文后经 NotificationEngine 发送（普通通知，绝不 critical/call）。
-// 抽成可注入的 notifyFn，供测试用 spy 替换。
-async function sendProactiveNotification({ model, reason, content }) {
-  const reasonLabel = { morning: '早安问候', noon: '午安问候', night: '晚安问候', idle: '空闲关怀' }[reason] || '主动消息';
-  const composed = await composeNotification({
-    model,
-    context: `类型：${reasonLabel}。AI 主动发了一条消息，内容：${content}`,
-  });
-  const lvl = composed && composed.type === 'ALARM' ? 'normal' : barkLevelFor(composed?.type);
+// Bark 真实状态 → 通知里的 barkStatus 三态（success / failed / skipped）。
+// 只有 SUCCESS 才算 success；SKIPPED / NOT_CONFIGURED 属于「未真正发出」→ skipped；
+// 其余（FAILED / DENIED / TIMEOUT / UNSUPPORTED）→ failed。绝不把 failed/skipped 伪装成 success。
+function barkStatusOf(status) {
+  const s = String(status || '').toUpperCase();
+  if (s === 'SUCCESS') return 'success';
+  if (s === 'SKIPPED' || s === 'NOT_CONFIGURED') return 'skipped';
+  return 'failed';
+}
+
+// 主动消息的默认通知：title = 当前助手名字，body = assistantMessage.content（与 Chat 完全一致，同一字符串）。
+// 绝不调用 composeNotification 二次生成文案 —— 单一事实来源 = assistantMessage.content。
+// 经统一 NotificationEngine 发送（保留权限/审计/BarkProvider 链路）。抽成可注入的 notifyFn，供测试用 spy 替换。
+async function sendProactiveNotification({ title, content, conversationId, messageId }) {
   return sendNotification({
-    title: composed?.title || reasonLabel,
-    body: composed?.body || content,
-    level: lvl,
+    title,
+    body: content,
+    level: 'normal',
     source: 'proactive',
+    conversationId,
+    messageId,
+  });
+}
+
+// 持久化一条站内 proactive 通知（幂等：同一 messageId 只保留一条 proactive 通知，绝不重复）。
+// 这是「后端持久化」的唯一入口 —— 即使用户没打开前端，通知也已落库，前端 SYNC.bootstrap() 拉取即可。
+// Proactive assistant messages are Chat/Notification events, not AI Activity records.
+export async function persistProactiveNotification(userId, { title, body, conversationId, messageId, barkStatus }) {
+  return withDoc(userId, (doc) => {
+    if (!Array.isArray(doc.notifications)) doc.notifications = [];
+    const existing = doc.notifications.find((n) => n && n.source === 'proactive' && n.messageId === messageId);
+    if (existing) return { ...existing, reused: true };
+    const n = {
+      id: randomUUID(),
+      type: 'ai',
+      title,
+      body,
+      read: false,
+      time: Date.now(),
+      source: 'proactive',
+      conversationId,
+      messageId,
+      barkStatus,
+    };
+    doc.notifications.unshift(n);
+    return n;
   });
 }
 
 /**
- * 主动消息编排（可测试）：触发判断 → AI 生成 → Conversation 保存（metadata.proactive=true）→ 通知。
+ * 主动消息编排（可测试）：触发判断 → AI 生成 → Conversation 保存（metadata.proactive=true）→ Bark → 站内通知。
  * chatFn / notifyFn 仅供测试注入；生产不传。
- * 返回 { sent, reason, sessionId?, message?, notification? }。
- * 注意：普通主动消息只写 assistant message + 发 Bark，绝不自动创建 AI Activity。
+ * 返回 { sent, reason, sessionId?, message?, notification?, bark? }：
+ *   notification = 落库的站内通知（含 conversationId/messageId/barkStatus）；bark = NotificationEngine 真实状态。
+ * 注意：普通主动消息只写 assistant message + 发 Bark + 站内通知，绝不自动创建 AI Activity。
  */
 export async function runProactive({ chatFn = chat, notifyFn = sendProactiveNotification, now = new Date() } = {}) {
   const rawApp = await getAppSettings();
@@ -202,16 +236,36 @@ export async function runProactive({ chatFn = chat, notifyFn = sendProactiveNoti
   if (reason === 'night') patch.proactive_last_night_date = today;
   await saveAppSettings(patch);
 
-  // 通知（Bark）：AI 成功则发；失败不删除 Chat 消息，只返回 FAILED，绝不假装成功。
-  const notification = await notifyFn({ model, reason, content });
+  // 通知标题 = 当前助手真实名字（复用 doc.assistants + activeAssistantId，绝不硬编码问候语）。
+  // 优先取「该会话绑定的 assistant」，回退全局 activeAssistantId，最后兜底第一个助手 —— 与前端 OS.chat.currentAssistant 同一口径。
+  const session = await getSession(sessionId);
+  const assistantId = (session && session.assistant_id) || doc.activeAssistantId;
+  const assistant = ((doc.assistants || []).find((a) => a && a.id === assistantId))
+    || ((doc.assistants || []).find((a) => a && a.id === doc.activeAssistantId))
+    || ((doc.assistants || [])[0]);
+  const assistantName = (assistant && assistant.name) || (doc.aiSettings && doc.aiSettings.aiName) || 'Bunny';
 
-  return { sent: true, reason, sessionId, message: assistantMessage, notification };
+  // 1) Bark：title = 助手名，body = assistantMessage.content（同一字符串）。失败绝不删除 Chat 消息，也绝不假装成功。
+  const bark = await notifyFn({ title: assistantName, content, conversationId: sessionId, messageId: assistantMessage.id });
+
+  // 2) 站内通知：拿到真实 messageId 后落库（幂等）；barkStatus 记录 Bark 真实结果。Bark 失败/跳过时通知仍在。
+  const barkStatus = barkStatusOf(bark && bark.status);
+  const inApp = await persistProactiveNotification(userId, {
+    title: assistantName,
+    body: content,
+    conversationId: sessionId,
+    messageId: assistantMessage.id,
+    barkStatus,
+  });
+
+  // 主动消息绝不写 AI Activity：本函数全程不调用 create_ai_activity / appendAiActivity / doc.ai.activities.push。
+  return { sent: true, reason, sessionId, message: assistantMessage, notification: inApp, bark };
 }
 
 /**
  * GET /api/proactive —— 心跳触发点（幂等）
  * 由「前端打开页面」或「外部 cron」调用；内部判断此刻是否该主动发一条。
- * 返回 { sent, reason, sessionId?, message?, notification? }
+ * 返回 { sent, reason, sessionId?, message?, notification?, bark? }
  *   reason: disabled | no_session | cooldown | none | empty | morning | noon | night | idle
  */
 router.get('/', async (req, res, next) => {

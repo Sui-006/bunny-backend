@@ -417,6 +417,12 @@
 
     /* 聊天气泡操作：小图标、淡色、默认隐藏，hover / 长按 / 点击出现 */
     .chat-msg-row { position: relative; }
+    /* 通知点击后的定位高亮：短暂闪烁目标消息，绝不永久改变样式 */
+    .chat-msg-row.chat-message-located { border-radius: 12px; animation: locateFlash 1.6s ease-out; }
+    @keyframes locateFlash {
+      0%   { background: var(--accent-tint); box-shadow: 0 0 0 2px var(--accent); }
+      100% { background: transparent; box-shadow: 0 0 0 2px transparent; }
+    }
     .chat-actions { display: flex; gap: 2px; margin-top: 4px; opacity: 0; transition: opacity 0.15s; }
     .chat-msg-row:hover .chat-actions, .chat-msg-row:active .chat-actions { opacity: 1; }
     .chat-actions .mini-act { border: none; background: none; color: var(--text-faint); font-size:calc(11px * var(--app-font-scale, 1)); padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
@@ -2819,12 +2825,23 @@ function viewNotifications() {
   let html = '<div class="spread" style="margin-bottom:16px"><div><div class="h1">Notifications</div><div class="muted">' + list.filter((n) => !n.read).length + ' 条未读</div></div><div class="row" style="gap:8px"><button class="btn btn-sm" onclick="markAllRead()">全部已读</button><button class="btn btn-sm btn-danger" onclick="confirmDialog(\'清空通知\',\'删除所有通知？\',()=>{DB.notifications=[];saveDB();render()},\'清空\')">清空</button></div></div>';
   html += '<div class="card card-pad" style="padding:6px 8px">';
   if (list.length === 0) html += '<div class="empty"><div class="eico">🔔</div><div class="etitle">暂无通知</div></div>';
-  else html += list.map((n) => '<div class="conv-item" style="' + (n.read ? 'opacity:0.55' : '') + '" onclick="markRead(\'' + n.id + '\')"><div style="width:38px;height:38px;border-radius:12px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:calc(18px * var(--app-font-scale, 1))">' + notifIcon(n.type) + '</div><div class="grow"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))">' + esc(n.title) + '</div><div class="c-last">' + esc(n.body) + '</div></div><div class="c-time">' + relTime(n.time) + '</div></div>').join('');
+  else html += list.map((n) => '<div class="conv-item" style="' + (n.read ? 'opacity:0.55' : '') + '" onclick="openNotification(\'' + n.id + '\')"><div style="width:38px;height:38px;border-radius:12px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:calc(18px * var(--app-font-scale, 1))">' + notifIcon(n.type) + '</div><div class="grow"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))">' + esc(n.title) + '</div><div class="c-last">' + esc(n.body) + '</div></div><div class="c-time">' + relTime(n.time) + '</div></div>').join('');
   html += '</div>';
   return html;
 }
 function notifIcon(t) { return { ai: '♥', task: '✅', habit: '🌱', plan: '🎯', health: '❤️' }[t] || '🔔'; }
 function markRead(id) { const n = DB.notifications.find((x) => x.id === id); if (n) n.read = true; saveDB(); render(); }
+function openNotification(id) {
+  const n = DB.notifications.find((x) => x.id === id);
+  if (!n) return;
+  n.read = true; saveDB();
+  // 只有带完整定位信息的 AI proactive 通知才「打开 Chat + 精确定位」；旧通知（无 conversationId/messageId）只标已读，绝不报错。
+  if (n.type === 'ai' && n.conversationId && n.messageId) {
+    OS.chat.openAtMessage(n.conversationId, n.messageId);
+  } else {
+    render();
+  }
+}
 function markAllRead() { DB.notifications.forEach((n) => n.read = true); saveDB(); render(); }
 
 /* ================= ALARMS (闹钟) =================
@@ -3767,7 +3784,7 @@ function chatBubbleHtml(msg, isLast) {
   // 头像始终对齐到气泡底部（align-items:flex-end）；用户行 row-reverse 把头像放到右侧，绝不靠动态 margin
   const thinkHtml = chatThinkingHtml(msg);
   const tokenHtml = chatTokenText(msg) ? '<div class="chat-tokenline">' + esc(chatTokenText(msg)) + '</div>' : '';
-  return '<div class="chat-msg-row" style="display:flex;' + (isUser ? 'flex-direction:row-reverse;' : '') + 'gap:8px;align-items:flex-end">' +
+  return '<div class="chat-msg-row" data-mid="' + esc(msg.id || '') + '" style="display:flex;' + (isUser ? 'flex-direction:row-reverse;' : '') + 'gap:8px;align-items:flex-end">' +
     '<div class="avatar" style="width:30px;height:30px;flex-shrink:0;' + (avatar ? 'background-image:url(' + avatar + ')' : '') + '">' + (avatar ? '' : (isUser ? '🙂' : '♥')) + '</div>' +
     '<div class="chat-msg-main' + (isUser ? ' mine' : '') + '">' +
     '<div class="chat-meta">' + esc(name) + (msg.time ? ' · ' + esc(msg.time) : '') + '</div>' +
@@ -3966,22 +3983,54 @@ OS.chat.renderMessages = function() {
   OS.chat.updateScrollTop();
 };
 OS.chat.renderAll = function() { OS.chat.renderSessions(); OS.chat.renderMessages(); OS.chat.renderHeader(); OS.chat.syncSidebar(); };
-OS.chat.init = async function() {
-  chatDraftsLoad();
-  try {
-    const resp = await fetch(API_BASE + '/api/sessions'); if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    OS.chat.sessions = (await resp.json()).sessions || [];
-    if (OS.chat.sessions.length === 0) { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions = [c]; }
-    OS.chat.currentId = OS.chat.sessions[0].id;
-    await OS.chat.loadMessages(); await OS.chat.loadSessionSettings();
-  } catch (e) {
-    OS.chat.messages = [{ role: 'assistant', content: '连接服务器失败：' + e.message + '。可能是免费实例冷启动中，稍等几秒刷新重试。', error: true }];
-  }
-  OS.chat.renderAll();
-  OS.chat.restoreDraft();
-  OS.chat.syncSendButton();
+OS.chat.init = function() {
+  // 幂等：并发/重复调用只跑一次（返回同一个 in-flight promise），避免 openAtMessage 与 afterRender 二次 fetch。
+  if (OS.chat._initPromise) return OS.chat._initPromise;
+  OS.chat._initPromise = (async () => {
+    chatDraftsLoad();
+    try {
+      const resp = await fetch(API_BASE + '/api/sessions'); if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      OS.chat.sessions = (await resp.json()).sessions || [];
+      if (OS.chat.sessions.length === 0) { const c = await OS.chat.createSession('新的对话'); OS.chat.sessions = [c]; }
+      OS.chat.currentId = OS.chat.sessions[0].id;
+      await OS.chat.loadMessages(); await OS.chat.loadSessionSettings();
+    } catch (e) {
+      OS.chat.messages = [{ role: 'assistant', content: '连接服务器失败：' + e.message + '。可能是免费实例冷启动中，稍等几秒刷新重试。', error: true }];
+    }
+    OS.chat.renderAll();
+    OS.chat.restoreDraft();
+    OS.chat.syncSendButton();
+  })();
+  return OS.chat._initPromise;
 };
 OS.chat.ensureLoaded = function() { if (!OS.chat.loaded) { OS.chat.loaded = true; OS.chat.init(); } else OS.chat.renderAll(); };
+// 通知点击 → 打开对应会话并精确定位某条消息（复用现有 OS.go / init / switch / renderAll，绝不重建 Chat）。
+OS.chat.openAtMessage = async function(conversationId, messageId) {
+  // 1. 打开 Chat
+  if (OS.route !== '/chat') OS.go('/chat');
+  // 2. 确保 Chat 已初始化（init 幂等，await 完成后 sessions/currentId 才有效）
+  if (!OS.chat.loaded) OS.chat.loaded = true;
+  await OS.chat.init();
+  // 3. 目标会话不是当前会话 → 切换并等待消息渲染完成（switch 内部 await loadMessages）
+  if (OS.chat.currentId !== conversationId) {
+    await OS.chat.switch(conversationId);
+  } else {
+    OS.chat.renderAll();
+  }
+  // 4. 等待 DOM 稳定后定位（覆盖 renderMessages 的默认「滚到底」）
+  requestAnimationFrame(() => requestAnimationFrame(() => OS.chat.locateMessage(messageId)));
+};
+// 定位某条消息：scrollIntoView 居中 + 短暂高亮；找不到时返回 false（绝不报错）。
+OS.chat.locateMessage = function(messageId) {
+  if (!messageId) return false;
+  let el = null;
+  try { el = document.querySelector('[data-mid="' + CSS.escape(String(messageId)) + '"]'); } catch (e) { el = null; }
+  if (!el) return false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('chat-message-located');
+  setTimeout(() => el.classList.remove('chat-message-located'), 1600);
+  return true;
+};
 OS.chat.createSession = async function(name) { const r = await fetch(API_BASE + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name || '新的对话' }) }); if (!r.ok) throw new Error('HTTP ' + r.status); const session = (await r.json()).session; await OS.chat.saveSessionSettings(session.id); return session; };
 OS.chat.loadMessages = async function() { const r = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/messages?limit=500'); if (!r.ok) throw new Error('HTTP ' + r.status); OS.chat.messages = ((await r.json()).messages || []).filter((m) => m.visible !== false).map(chatMapMessage); };
 OS.chat.loadSessionSettings = async function() { try { const r = await fetch(API_BASE + '/api/sessions/' + OS.chat.currentId + '/settings'); OS.chat.sessionSettings = r.ok ? ((await r.json()).settings || {}) : {}; } catch (e) { OS.chat.sessionSettings = {}; } if (typeof OS.chat.sessionSettings.stream === 'boolean') { const s = aiSet(); if (s.streaming !== OS.chat.sessionSettings.stream) { s.streaming = OS.chat.sessionSettings.stream; saveDB(); } } };
@@ -4465,7 +4514,19 @@ function createTaskFromContent(content) {
   openTaskModal(null, null, null);
   setTimeout(() => { const el = document.getElementById('tkTitle'); if (el) el.value = (content || ''); }, 80);
 }
-async function checkProactive() { try { const r = await fetch(API_BASE + '/api/proactive'); if (!r.ok) return; const data = await r.json(); if (data.sent) pushNotification('ai', aiSet().aiName || 'AI', (data.message && data.message.content) || '来了一条主动消息'); } catch (e) {} }
+async function checkProactive() {
+  try {
+    const r = await fetch(API_BASE + '/api/proactive');
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.sent) {
+      // 后端已持久化站内通知（含 conversationId/messageId），前端只负责拉取 + 轻提示，绝不本地再造一条（否则会重复）。
+      const content = (data.message && data.message.content) || '';
+      if (content) toast(content);
+      await SYNC.bootstrap();
+    }
+  } catch (e) {}
+}
 
 /* ---- iPhone Safari 键盘：fixed 元素锚定布局视口（innerHeight），键盘弹出时视觉视口缩小/上移。
        用 visualViewport 算出键盘真实高度，把 stage 底边抬到键盘顶，composer 自然贴住键盘上方（需求 4） ---- */
