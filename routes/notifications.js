@@ -3,6 +3,7 @@ import { getState, putState } from '../lib/domain.js';
 import { HttpError, ok } from '../lib/rest.js';
 import { composeNotification, toBarkArgs } from '../lib/notify.js';
 import { sendNotification, resolveBarkUrl, diagnoseNotification } from '../lib/notification-engine.js';
+import { shanghaiNow } from '../lib/time.js';
 
 const router = Router();
 
@@ -108,12 +109,7 @@ router.post('/compose', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// ---- 闹钟调度（Asia/Shanghai）----
-function shanghaiNow() {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utc + 8 * 3600000);
-}
+// ---- 闹钟调度（Asia/Shanghai，复用 lib/time.js 的 shanghaiNow）----
 function shanghaiDate(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');

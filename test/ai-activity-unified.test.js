@@ -8,7 +8,7 @@ import { getState, appendAiActivity, appendAiState, isAiActivity, aiActivities }
 import { buildDomainTools, AI_SELF_TOOL_NAMES } from '../lib/tools.js';
 import { aiCan } from '../lib/permissions.js';
 import { buildAISelfContext } from '../lib/context-builder.js';
-import { currentTimeInfo, intensityLabel } from '../lib/time.js';
+import { currentTimeInfo, intensityLabel, nowSystemLine } from '../lib/time.js';
 
 // 造一个用户 + 返回 callTool（内存后端，不碰真实 DB / 网络）
 async function mkTool(state = {}) {
@@ -272,4 +272,12 @@ test('currentTimeInfo / intensityLabel 纯函数', () => {
   assert.equal(intensityLabel(1), '有一点');
   assert.equal(intensityLabel(5), '非常强');
   assert.equal(intensityLabel(99), '非常强'); // clamp
+});
+
+test('nowSystemLine 供无工具 AI 入口读时间（含真实日期 + 时区 + 绝不猜的约定）', () => {
+  const line = nowSystemLine();
+  assert.ok(line.startsWith('【当前时间】现在是 '));
+  assert.match(line, /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/); // 真实日期时间
+  assert.ok(line.includes('Asia/Shanghai'));
+  assert.ok(line.includes('绝不猜'));
 });

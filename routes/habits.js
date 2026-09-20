@@ -2,12 +2,11 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { getState, putState, habitStreak, habitTotalCompletions } from '../lib/domain.js';
 import { HttpError, ok, pick, requireFields } from '../lib/rest.js';
+import { todayStr } from '../lib/time.js';
 
 const router = Router();
 const HABIT_FIELDS = ['name', 'description', 'icon', 'color', 'frequency', 'goal', 'reminderTime'];
 const FREQS = ['daily', 'weekdays', 'weekly', 'custom'];
-const pad = (n) => (n < 10 ? '0' + n : '' + n);
-const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
 router.get('/', async (req, res, next) => {
   try { ok(res, await (await getState(req.user.id)).habits); } catch (e) { next(e); }

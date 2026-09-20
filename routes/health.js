@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { getState, putState } from '../lib/domain.js';
 import { HttpError, ok, pick, requireFields } from '../lib/rest.js';
+import { todayStr } from '../lib/time.js';
 
 const router = Router();
 // 健康记录字段：睡眠(小时)/饮水(升)/摄入热量(千卡)/运动消耗(千卡)/体重(kg)。
@@ -11,7 +12,6 @@ const METRICS = ['sleep', 'water', 'caloriesIn', 'caloriesOut', 'weight'];
 const MEDICAL_TYPES = ['过敏史', '疾病', '就诊', '检查', '手术', '用药', '其他'];
 const MEDICAL_FIELDS = ['title', 'type', 'date', 'hospital', 'doctor', 'diagnosis', 'symptoms', 'treatment', 'medication', 'notes', 'source'];
 const pad = (n) => (n < 10 ? '0' + n : '' + n);
-const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const addDays = (s, n) => { const p = s.split('-').map(Number); const d = new Date(p[0], p[1] - 1, p[2] + n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
 router.get('/', async (req, res, next) => {

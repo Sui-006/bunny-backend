@@ -2,12 +2,11 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { getState, putState, planChain } from '../lib/domain.js';
 import { HttpError, ok, pick, requireFields } from '../lib/rest.js';
+import { todayStr } from '../lib/time.js';
 
 const router = Router();
 const TASK_FIELDS = ['title', 'date', 'time', 'completed', 'priority', 'note', 'tags', 'planId', 'weeklyPlanId', 'monthlyPlanId', 'stagePlanId', 'longTermPlanId', 'order'];
 const PRIORITIES = ['high', 'med', 'low'];
-const pad = (n) => (n < 10 ? '0' + n : '' + n);
-const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
 // GET /api/tasks?date=YYYY-MM-DD&completed=0|1
 router.get('/', async (req, res, next) => {

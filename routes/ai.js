@@ -7,6 +7,7 @@ import { HttpError, ok } from '../lib/rest.js';
 import { parseExpenseText, parsePurchaseText, guessCategory, financeSummary, centsToYuan } from '../lib/finance.js';
 import { AI_PERMISSION_POLICY, USER_ONLY_EDITABLE } from '../lib/permissions.js';
 import { buildDomainTools } from '../lib/tools.js';
+import { nowSystemLine } from '../lib/time.js';
 
 const router = Router();
 
@@ -15,9 +16,10 @@ function stripFences(s) {
 }
 
 // 统一把「缺 Key」等错误转成 503
+// 并在每次调用前注入真实「现在时间」，保证这些无工具入口的 AI 也能读到时间（绝不猜日期/时间）。
 async function aiCall(opts) {
   try {
-    return await chat(opts);
+    return await chat({ ...opts, system: `${nowSystemLine()}\n${opts.system || ''}` });
   } catch (e) {
     if (/API Key|缺少|密钥/i.test(e.message)) throw new HttpError(503, 'NO_AI_KEY', e.message);
     throw e;

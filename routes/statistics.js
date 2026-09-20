@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { getState, planProgress } from '../lib/domain.js';
 import { ok } from '../lib/rest.js';
+import { todayStr } from '../lib/time.js';
 
 const router = Router();
 const pad = (n) => (n < 10 ? '0' + n : '' + n);
 const dstr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const todayStr = () => dstr(new Date());
 const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return dstr(d); };
 
 // GET /api/statistics?range=7d|30d|90d

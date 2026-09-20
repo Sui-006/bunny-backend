@@ -17,14 +17,9 @@ import { sendNotification } from '../lib/notification-engine.js';
 import { getState, withDoc } from '../lib/domain.js';
 import { ensureOwner } from '../lib/auth.js';
 import { buildAIContext } from '../lib/context-builder.js';
+import { shanghaiNow } from '../lib/time.js';
 
 const router = Router();
-
-// Asia/Shanghai（UTC+8，无夏令时）
-function shanghaiNow(base = new Date()) {
-  const utc = base.getTime() + base.getTimezoneOffset() * 60000;
-  return new Date(utc + 8 * 3600000);
-}
 
 function shanghaiDate(d) {
   const y = d.getFullYear();
