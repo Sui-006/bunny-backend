@@ -84,11 +84,24 @@ async function setAssistantName(name) {
   const owner = await ensureOwner();
   await withDoc(owner.id, (doc) => { if (doc.assistants && doc.assistants[0]) doc.assistants[0].name = name; });
 }
+// 把「激活助手」的模型改成指定值（同时确保 activeAssistantId 指向它，让 resolveAssistantModel 命中）
+async function setAssistantModel(model) {
+  const owner = await ensureOwner();
+  await withDoc(owner.id, (doc) => {
+    if (doc.assistants && doc.assistants[0]) {
+      doc.assistants[0].model = model;
+      doc.activeAssistantId = doc.assistants[0].id;
+    }
+  });
+}
 // 读 owner 的站内通知列表
 async function notificationsOf() {
   const owner = await ensureOwner();
   return (await getState(owner.id)).notifications || [];
 }
+// 打破毫秒级时间戳平局：确保本测试新造消息的 created_at 严格晚于之前测试，
+// 避免 getLatestActiveSessionId 因时间戳相同而选错会话（iso() 只精确到毫秒）。
+const tick = () => new Promise((r) => setTimeout(r, 5));
 
 test('runProactive：完整链路 —— assistant message + Bark(body=content,title=助手名) + 站内通知(含 conversationId/messageId) + 不写 Activity', async () => {
   const s = await seedProactiveSession();
@@ -193,4 +206,95 @@ test('persistProactiveNotification：同一 messageId 重复处理只产生一�
 
   const proactive = (await notificationsOf()).filter((n) => n.source === 'proactive' && n.messageId === messageId);
   assert.equal(proactive.length, 1, '同一 messageId 只能有一条 proactive 通知');
+});
+
+// ---- 模型解析回归：proactive 必须复用 resolveAssistantModel（激活助手），绝不猜历史 metadata.model ----
+
+test('runProactive：模型取「激活助手」而非历史 assistant 消息的 metadata.model', async () => {
+  await setAssistantModel('claude-sonnet-5');
+  // 历史：最后一条 assistant 回复曾用 deepseek-chat（旧 model），与当前激活助手 claude-sonnet-5 不一致
+  const s = await seedProactiveSession();
+  await createMessage(s.id, { role: 'assistant', content: '在的呀', metadata: { model: 'deepseek-chat' } });
+
+  let capturedModel = null;
+  const chatFn = async (args) => { capturedModel = args.model; return { content: '早安呀', reasoningContent: '', usage: null }; };
+  const notifyFn = async () => ({ status: 'NOT_CONFIGURED' });
+
+  await runProactive({ chatFn, notifyFn, now: nowAtShanghai(2026, 9, 18, 8, 30) });
+
+  assert.equal(capturedModel, 'claude-sonnet-5');
+});
+
+test('runProactive：无历史 assistant metadata.model 时仍取「激活助手」，绝不回退 deepseek-chat', async () => {
+  await setAssistantModel('claude-sonnet-5');
+  // 只有 user 消息，没有任何 assistant 消息 / metadata.model
+  await seedProactiveSession();
+
+  let capturedModel = null;
+  const chatFn = async (args) => { capturedModel = args.model; return { content: '早安呀', reasoningContent: '', usage: null }; };
+  const notifyFn = async () => ({ status: 'NOT_CONFIGURED' });
+
+  await runProactive({ chatFn, notifyFn, now: nowAtShanghai(2026, 9, 18, 8, 30) });
+
+  assert.equal(capturedModel, 'claude-sonnet-5');
+});
+
+// ---- G2 回归：Anthropic-compatible Messages API 要求末条为 user；synthetic user 只进 outbound，绝不落库 ----
+
+test('runProactive：末条为 assistant 时 outbound messages 追加一条 synthetic user，历史顺序不变且绝不落库', async () => {
+  // 复现生产：正常聊天 user→assistant 交替后，最后一条通常是 assistant 回复。
+  await tick();
+  const s = await seedProactiveSession();
+  await createMessage(s.id, { role: 'assistant', content: '今天还不错呀', metadata: { model: 'deepseek-chat' } });
+
+  let captured = null;
+  const chatFn = async (args) => { captured = args; return { content: '诊断文案', reasoningContent: '', usage: null }; };
+  const notifyFn = async () => ({ status: 'NOT_CONFIGURED' });
+  const result = await runProactive({ chatFn, notifyFn, now: nowAtShanghai(2026, 9, 18, 8, 30) });
+
+  // 确认选中的正是本测试构造的会话（历史 = user「你好」+ assistant「今天还不错呀」）
+  assert.equal(result.sessionId, s.id);
+
+  // 1) outbound 比 built 历史多 1 条
+  const msgs = captured.messages;
+  assert.ok(Array.isArray(msgs), 'chatFn 收到 messages 数组');
+  assert.equal(msgs.length, 3, '历史 2 条 + 1 条 synthetic user');
+  // 2) 最后一条是 user
+  assert.equal(msgs[msgs.length - 1].role, 'user');
+  // 3) 最后一条内容固定为 synthetic user 文案
+  assert.equal(msgs[msgs.length - 1].content, '现在由你主动说点什么吧。');
+  // 4) 原历史顺序不变
+  assert.equal(msgs[0].role, 'user');
+  assert.equal(msgs[0].content, '你好');
+  assert.equal(msgs[1].role, 'assistant');
+  assert.equal(msgs[1].content, '今天还不错呀');
+  // 5) 原 assistant 消息仍在
+  assert.ok(msgs.some((m) => m.role === 'assistant' && m.content === '今天还不错呀'));
+
+  // 6) synthetic user 绝不落库：数据库/session/history 中没有这条 user 消息
+  const persisted = await listMessages(result.sessionId, { visibleOnly: false });
+  assert.ok(!persisted.some((m) => m.role === 'user' && m.content === '现在由你主动说点什么吧。'),
+    'synthetic user 绝不能写入数据库/session/history');
+  // 数据库中 user 消息只有原来那 1 条（「你好」），proactive 只追加 assistant 回复
+  const userMsgs = persisted.filter((m) => m.role === 'user');
+  assert.equal(userMsgs.length, 1, 'user 消息数量不变（无 synthetic user 落库）');
+  assert.equal(userMsgs[0].content, '你好');
+});
+
+test('runProactive：末条已为 user 时不再追加第二条 synthetic user', async () => {
+  // 只有一条 user 消息、没有任何 assistant 消息 → built.messages 以 user 结尾
+  await tick();
+  const s = await seedProactiveSession();
+
+  let captured = null;
+  const chatFn = async (args) => { captured = args; return { content: '早安呀', reasoningContent: '', usage: null }; };
+  const notifyFn = async () => ({ status: 'NOT_CONFIGURED' });
+  const result = await runProactive({ chatFn, notifyFn, now: nowAtShanghai(2026, 9, 18, 8, 30) });
+
+  assert.equal(result.sessionId, s.id);
+  const msgs = captured.messages;
+  assert.equal(msgs.length, 1, '末条已是 user，不应追加 synthetic user');
+  assert.equal(msgs[0].role, 'user');
+  assert.equal(msgs[0].content, '你好');
+  assert.ok(!msgs.some((m) => m.content === '现在由你主动说点什么吧。'), '不得出现 synthetic user');
 });

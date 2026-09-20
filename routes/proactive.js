@@ -8,13 +8,11 @@ import {
   DEFAULT_SETTINGS,
   getLatestActiveSessionId,
   getLastMessageAt,
-  listMessages,
   createMessage,
   touchSession,
   effectiveAppSettings,
 } from '../lib/db.js';
-import { chat, normalizeProviderUsage, providerForModel } from '../lib/ai.js';
-import { config } from '../lib/config.js';
+import { chat, normalizeProviderUsage, providerForModel, resolveAssistantModel } from '../lib/ai.js';
 import { sendNotification } from '../lib/notification-engine.js';
 import { getState, withDoc } from '../lib/domain.js';
 import { ensureOwner } from '../lib/auth.js';
@@ -185,28 +183,30 @@ export async function runProactive({ chatFn = chat, notifyFn = sendProactiveNoti
   const settings = { ...DEFAULT_SETTINGS, ...((await getSettings(sessionId)) || {}) };
   settings.personal_signature = app.personal_signature;
 
-  // 模型沿用最近一次 AI 回复用过的，兜底默认模型
-  const recent = await listMessages(sessionId, { limit: 30, visibleOnly: false });
-  let model = config.defaultModel || 'deepseek-chat';
-  for (let i = recent.length - 1; i >= 0; i--) {
-    if (recent[i].role === 'assistant' && recent[i].metadata?.model) {
-      model = recent[i].metadata.model;
-      break;
-    }
-  }
-
+  // 模型复用「用户当前助手」：与 Chat / 助手 Runtime 同一套 resolveAssistantModel。
+  // 绝不从旧 assistant 消息的 metadata.model 猜模型、绝不硬编码 deepseek-chat（回退链由 resolveAssistantModel 内部统一处理）。
   const userId = (await ensureOwner()).id;
   const doc = await getState(userId);
+  const model = resolveAssistantModel(doc);
   const built = await buildAIContext({ sessionId, doc, settings, content: '', model, tools: [], callTool: null });
   const task = '【主动发言】' + instruction;
   const systemWithTask = [built.system, task].filter(Boolean).join('\n\n');
   const systemBlocks = built.systemBlocks.length ? [...built.systemBlocks, { type: 'text', text: task }] : null;
 
+  // 协议保障：Anthropic-compatible Messages API 要求 messages 最后一条必须是 user。
+  // 生产场景下 built.messages 常以 assistant 结尾（最后一条是助手回复），直接透传会触发 400。
+  // 这里只在末尾非 user 时追加一条 synthetic user turn；该条只存在于本次 outbound request 的内存变量，
+  // 绝不写入 session / conversation / doc.messages / Activity / Notification，也绝不拼进 system。
+  const lastBuilt = built.messages[built.messages.length - 1];
+  const messages = lastBuilt && lastBuilt.role === 'user'
+    ? built.messages
+    : built.messages.concat([{ role: 'user', content: '现在由你主动说点什么吧。' }]);
+
   const reply = await chatFn({
     model,
     system: systemWithTask,
     systemBlocks,
-    messages: built.messages,
+    messages,
     temperature: settings.temperature,
     maxTokens: settings.max_reply_tokens,
   });
