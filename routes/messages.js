@@ -12,7 +12,7 @@ import { McpSession, parseMcpServers } from '../lib/mcp.js';
 import { ensureOwner } from '../lib/auth.js';
 import { getState } from '../lib/domain.js';
 import { detectToolDomains } from '../lib/aiContext.js';
-import { buildDomainTools, toolsForDomains } from '../lib/tools.js';
+import { buildDomainTools, toolsForDomains, consumePendingJournal, pendingJournalContextText } from '../lib/tools.js';
 import { buildAIContext } from '../lib/context-builder.js';
 import { maybeSummarize, invalidateSummary } from '../services/conversation-summary.js';
 import { maybeLearnStyle } from '../services/style-profile.js';
@@ -57,7 +57,11 @@ async function buildAssistEnv(sessionId, content, model = config.defaultModel) {
     if (mcp) return mcp.callTool(name, args);
     throw new Error('未知工具: ' + name);
   };
-  return { settings, app, mcp, tools, callTool, doc, userId };
+  // 机制 A：一次性消费「新日志待读」标记（写新 Journal → 下一条用户消息触发一次，绝不每条都读）。
+  // 原子消费：并发消息下只有一条能读到并消费成功；读取失败保留 pending，下一条消息再试。
+  const pending = await consumePendingJournal(userId);
+  const pendingJournalText = pending.consumed ? pendingJournalContextText(pending.journals) : '';
+  return { settings, app, mcp, tools, callTool, doc, userId, pendingJournalText };
 }
 
 // 解析附件：按 id 读取 + 所有权校验（用户 A 不能引用用户 B 的附件），最多 10 个。
@@ -140,7 +144,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
       : null;
 
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
-    const { settings, app, mcp, tools, callTool, doc, userId } = await buildAssistEnv(sessionId, content, model);
+    const { settings, app, mcp, tools, callTool, doc, userId, pendingJournalText } = await buildAssistEnv(sessionId, content, model);
 
     // 附件：解析 + 所有权校验 + 持久化到消息 metadata.attachments（独立字段，不进 content）
     const attachmentRows = await resolveAttachments(userId, attachmentIds);
@@ -154,7 +158,7 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     // 风格学习（user-level，确定性、纯检测先行，命中才碰数据库）：
     // 明确偏好→立即更新画像；重复行为→计数达阈值才更新；其它消息→完全不写库。绝不每轮重建画像。
     try { await maybeLearnStyle(userId, content); } catch (e) { console.warn('[messages] 风格学习失败（不阻断对话）：', e.message); }
-    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic, quotedRecord });
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic, quotedRecord, pendingJournalText });
     await augmentLastUserMessage(built.messages, attachmentRows);
 
     const stream = settings.stream && tools.length === 0;
@@ -280,8 +284,8 @@ router.post('/:sessionId/messages/:messageId/edit', async (req, res, next) => {
     await invalidateSummary(sessionId).catch(() => {});
 
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
-    const { settings, app, mcp, tools, callTool, doc, userId } = await buildAssistEnv(sessionId, content, model);
-    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool });
+    const { settings, app, mcp, tools, callTool, doc, userId, pendingJournalText } = await buildAssistEnv(sessionId, content, model);
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, pendingJournalText });
 
     const reply = await chat({
       model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
@@ -314,12 +318,12 @@ router.post('/:sessionId/regenerate', async (req, res, next) => {
     const content = lastUser?.content || '';
 
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
-    const { settings, app, mcp, tools, callTool, doc, userId } = await buildAssistEnv(sessionId, content, model);
+    const { settings, app, mcp, tools, callTool, doc, userId, pendingJournalText } = await buildAssistEnv(sessionId, content, model);
 
     const last = await getLastAssistantMessage(sessionId);
     if (last) await deleteMessage(last.id);
 
-    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool });
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, pendingJournalText });
     const reply = await chat({
       model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,

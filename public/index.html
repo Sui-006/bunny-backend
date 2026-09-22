@@ -578,6 +578,8 @@
     .ai-state-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: #fdf2f8; color: #db2777; border: 1px solid #f9d8e6; font-size:calc(12.5px * var(--app-font-scale, 1)); white-space: nowrap; }
     html[data-theme="dark"] .ai-state-pill { background: #2a1f2a; border-color: #5b3a52; color: #f9a8d4; }
     .ai-mem-item, .ai-act-item, .ai-state-item { padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; background: var(--card); }
+    .ai-act-text { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.6; }
+    .ai-act-text.clamped { white-space: normal; display: -webkit-box; -webkit-line-clamp: 5; line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
     .ai-state-item .emotion { font-size:calc(15px * var(--app-font-scale, 1)); font-weight: 700; }
     .intensity-dots { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
     .intensity-dots i { width: 6px; height: 6px; border-radius: 50%; background: #f472b6; opacity: .25; }
@@ -4878,10 +4880,24 @@ function todayHimHtml() {
     html += '<div class="card card-pad" style="margin-bottom:10px"><div class="row" style="gap:8px;align-items:center"><span style="font-size:calc(16px * var(--app-font-scale, 1))">💗</span><div style="font-weight:700;font-size:calc(14px * var(--app-font-scale, 1))">' + esc(st.emotion) + ' · ' + esc(aiIntensityText(st.intensity)) + '</div></div>' + (st.reason ? '<div class="muted" style="font-size:calc(12.5px * var(--app-font-scale, 1));margin-top:4px;line-height:1.6">' + esc(st.reason) + '</div>' : '') + '</div>';
   }
   if (acts.length === 0) html += '<div class="card card-pad" style="padding:16px"><div class="muted" style="font-size:calc(13px * var(--app-font-scale, 1))">祂今天还没写下什么</div></div>';
-  else html += '<div class="card card-pad" style="padding:6px 8px">' + acts.map((a) => '<div class="conv-item" style="cursor:pointer" onclick="OS.go(\'/ai/activity\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))">' + aiActivityIcon(a.type) + ' ' + esc(a.text) + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + relTime(a.time) + '</div></div></div>').join('') + '</div>';
+  else html += '<div class="card card-pad" style="padding:6px 8px">' + acts.map((a) => '<div class="conv-item" style="cursor:pointer" onclick="OS.go(\'/ai/activity\')"><div class="grow" style="min-width:0"><div style="font-weight:600;font-size:calc(14px * var(--app-font-scale, 1))"><span style="display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + aiActivityIcon(a.type) + ' ' + esc(a.text) + '</span></div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + relTime(a.time) + '</div></div></div>').join('') + '</div>';
   return html;
 }
-function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:calc(18px * var(--app-font-scale, 1))">' + aiActivityIcon(a.type) + '</span><div class="grow"><div style="font-size:calc(13.5px * var(--app-font-scale, 1))">' + esc(a.text) + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + relTime(a.time) + '</div></div><button class="mini-act" style="align-self:flex-start" onclick="OS.chat.quoteDynamic(\'' + a.id + '\')">↳ 回应</button></div></div>'; }
+function aiActivityIsLong(text) { return String(text || '').length > 200; }
+function aiActivityTextHtml(a) {
+  const text = String(a.text || '');
+  if (!aiActivityIsLong(text)) return '<div class="ai-act-text">' + esc(text) + '</div>';
+  const id = String(a.id || uid()).replace(/[^A-Za-z0-9_-]/g, '');
+  return '<div class="ai-act-text clamped" id="actt-' + id + '">' + esc(text) + '</div><button class="mini-act" style="margin-top:4px" id="actb-' + id + '" onclick="aiToggleAct(\'' + id + '\')">展开</button>';
+}
+function aiToggleAct(id) {
+  const t = document.getElementById('actt-' + id);
+  const b = document.getElementById('actb-' + id);
+  if (!t || !b) return;
+  const collapsed = t.classList.toggle('clamped');
+  b.textContent = collapsed ? '展开' : '收起';
+}
+function aiActivityItemHtml(a) { return '<div class="ai-act-item"><div class="row" style="gap:10px"><span style="font-size:calc(18px * var(--app-font-scale, 1))">' + aiActivityIcon(a.type) + '</span><div class="grow" style="min-width:0"><div style="font-size:calc(13.5px * var(--app-font-scale, 1))">' + aiActivityTextHtml(a) + '</div><div class="muted" style="font-size:calc(11px * var(--app-font-scale, 1))">' + relTime(a.time) + '</div></div><button class="mini-act" style="align-self:flex-start" onclick="OS.chat.quoteDynamic(\'' + a.id + '\')">↳ 回应</button></div></div>'; }
 
 /* ---- AI 通知引擎（非报错式） ---- */
 const AINotify = {
