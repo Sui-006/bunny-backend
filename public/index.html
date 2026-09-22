@@ -4822,7 +4822,6 @@ function aiSetState(emotion, intensity, reason, triggerType, triggerEntityType, 
   if (!aiCan('aiState')) return;
   const st = { id: uid(), emotion, intensity: Math.max(0, Math.min(5, intensity || 0)), reason: reason || '', triggerType: triggerType || 'manual', triggerEntityType: triggerEntityType || null, triggerEntityId: triggerEntityId || null, sourceConversationId: sourceConversationId || null, createdAt: Date.now(), expiresAt: Date.now() + 24 * 3600 * 1000, acknowledged: false };
   (DB.ai.states || (DB.ai.states = [])).unshift(st);
-  DB.ai.states = DB.ai.states.filter((s) => s.expiresAt > Date.now());
   saveDB();
   return st;
 }

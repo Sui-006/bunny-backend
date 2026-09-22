@@ -7,7 +7,7 @@ import {
   getSession,
   DEFAULT_SETTINGS,
   getLatestActiveSessionId,
-  getLastMessageAt,
+  getLastUserMessageAt,
   createMessage,
   touchSession,
   effectiveAppSettings,
@@ -18,6 +18,7 @@ import { getState, withDoc } from '../lib/domain.js';
 import { ensureOwner } from '../lib/auth.js';
 import { buildAIContext } from '../lib/context-builder.js';
 import { shanghaiNow } from '../lib/time.js';
+import { buildDomainTools, toolsForDomains } from '../lib/tools.js';
 
 const router = Router();
 
@@ -38,10 +39,11 @@ function timeToMinutes(t) {
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
-// 纯决策函数（可测试）：根据有效设置 + 当前上海时间 + 最后消息时间，决定此刻该发哪条主动消息。
+// 纯决策函数（可测试）：根据有效设置 + 当前上海时间 + 最后一条用户消息时间，决定此刻该发哪条主动消息。
 // 返回 { reason, instruction } 或 null（不该发）。
 //   reason: morning | noon | night | idle
-export function decideProactive(app, shNow, now, lastMessageAt) {
+// lastUserMessageAt = 用户最后一条消息时间（不含助手/主动消息），空闲判断据此计算。
+export function decideProactive(app, shNow, now, lastUserMessageAt) {
   const today = shanghaiDate(shNow);
   const nowMin = shNow.getHours() * 60 + shNow.getMinutes();
 
@@ -79,16 +81,29 @@ export function decideProactive(app, shNow, now, lastMessageAt) {
   }
 
   // D. 空闲提醒（N 小时没消息）
+  // 只在「白天窗口」[早安时间, 晚安时间) 内计算：晚安之后到第二天早安属于睡眠，不计入空闲，
+  // 避免用户半夜被「想念」消息叫醒。空闲计时从用户当天白天发出的第一条消息开始算——
+  // 昨晚的晚安、今早的助手早安，都不会重启空闲计时，只有用户本人白天开口才算。
   if (app.proactive_idle_enabled && app.proactive_idle_hours) {
     const idleHours = Number(app.proactive_idle_hours);
-    if (idleHours > 0 && lastMessageAt) {
-      const idleMin = (now.getTime() - new Date(lastMessageAt).getTime()) / 60000;
-      if (idleMin >= idleHours * 60) {
-        const hrs = Math.max(1, Math.floor(idleMin / 60));
-        return {
-          reason: 'idle',
-          instruction: `用户已经 ${hrs} 小时没有发消息了，请主动发一条简短自然的关心/想念的话，别太长，不要像系统通知。`,
-        };
+    const morningMin = timeToMinutes(app.proactive_morning_time || '08:00') ?? 480;
+    const nightMin = timeToMinutes(app.proactive_night_time || '22:00') ?? 1320;
+
+    if (idleHours > 0 && lastUserMessageAt && nowMin >= morningMin && nowMin < nightMin) {
+      const lastUser = shanghaiNow(new Date(lastUserMessageAt));
+      const lastUserIsTodayDaytime = shanghaiDate(lastUser) === today
+        && lastUser.getHours() * 60 + lastUser.getMinutes() >= morningMin
+        && lastUser.getHours() * 60 + lastUser.getMinutes() < nightMin;
+
+      if (lastUserIsTodayDaytime) {
+        const idleMin = (now.getTime() - new Date(lastUserMessageAt).getTime()) / 60000;
+        if (idleMin >= idleHours * 60) {
+          const hrs = Math.max(1, Math.floor(idleMin / 60));
+          return {
+            reason: 'idle',
+            instruction: `用户已经 ${hrs} 小时没有发消息了，请主动发一条简短自然的关心/想念的话，别太长，不要像系统通知。`,
+          };
+        }
       }
     }
   }
@@ -169,8 +184,8 @@ export async function runProactive({ chatFn = chat, notifyFn = sendProactiveNoti
 
   const shNow = shanghaiNow(now);
   const today = shanghaiDate(shNow);
-  const lastMessageAt = await getLastMessageAt(sessionId);
-  const decision = decideProactive(app, shNow, now, lastMessageAt);
+  const lastUserMessageAt = await getLastUserMessageAt(sessionId);
+  const decision = decideProactive(app, shNow, now, lastUserMessageAt);
   if (!decision) return { sent: false, reason: 'none' };
   const { reason, instruction } = decision;
 
@@ -183,7 +198,15 @@ export async function runProactive({ chatFn = chat, notifyFn = sendProactiveNoti
   const userId = (await ensureOwner()).id;
   const doc = await getState(userId);
   const model = resolveAssistantModel(doc);
-  const built = await buildAIContext({ sessionId, doc, settings, content: '', model, tools: [], callTool: null });
+  // 只注入 get_current_time 一个只读工具：主动发言也能调用时间工具读真实时间，
+  // 但绝不放开任何业务写工具（主动消息刻意不带写工具，避免 AI 主动发言时误改数据；这里只补时间只读工具）。
+  const timeTools = toolsForDomains([]).filter((t) => t.name === 'get_current_time');
+  const domain = buildDomainTools(userId, model, { sessionId });
+  const callTool = async (name, args = {}) => {
+    if (name !== 'get_current_time') throw new Error('未知工具: ' + name);
+    return domain.callTool(name, args);
+  };
+  const built = await buildAIContext({ sessionId, doc, settings, content: '', model, tools: timeTools, callTool });
   const task = '【主动发言】' + instruction;
   const systemWithTask = [built.system, task].filter(Boolean).join('\n\n');
   const systemBlocks = built.systemBlocks.length ? [...built.systemBlocks, { type: 'text', text: task }] : null;
@@ -202,6 +225,8 @@ export async function runProactive({ chatFn = chat, notifyFn = sendProactiveNoti
     system: systemWithTask,
     systemBlocks,
     messages,
+    tools: timeTools,
+    callTool,
     temperature: settings.temperature,
     maxTokens: settings.max_reply_tokens,
   });

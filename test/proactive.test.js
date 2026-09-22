@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decideProactive, runProactive, persistProactiveNotification } from '../routes/proactive.js';
 import {
-  effectiveAppSettings, createSession, createMessage, saveAppSettings, listMessages,
+  effectiveAppSettings, createSession, createMessage, saveAppSettings, listMessages, getLastUserMessageAt,
 } from '../lib/db.js';
 import { getState, aiActivities, withDoc } from '../lib/domain.js';
 import { ensureOwner } from '../lib/auth.js';
@@ -58,13 +58,34 @@ test('decideProactive：开关关闭 → null', () => {
   assert.equal(decideProactive(app, shNow, new Date(), null), null);
 });
 
-test('decideProactive：空闲 N 小时 → idle', () => {
-  const app = { proactive_idle_enabled: true, proactive_idle_hours: 6 };
-  const now = new Date();
-  const lastMessageAt = new Date(now.getTime() - 7 * 3600000); // 7 小时前
-  const d = decideProactive(app, sh(2026, 9, 18, 8, 30), now, lastMessageAt.toISOString());
+test('decideProactive：空闲计时从当天白天第一条用户消息开始 → idle', () => {
+  const app = { proactive_idle_enabled: true, proactive_idle_hours: 6, proactive_morning_time: '08:00', proactive_night_time: '22:00' };
+  const now = nowAtShanghai(2026, 9, 18, 15, 0);          // 15:00 白天
+  const lastUser = nowAtShanghai(2026, 9, 18, 9, 0);      // 09:00 当天白天，恰好 6 小时前
+  const d = decideProactive(app, sh(2026, 9, 18, 15, 0), now, lastUser.toISOString());
   assert.equal(d.reason, 'idle');
   assert.ok(d.instruction.includes('小时'));
+});
+
+test('decideProactive：晚安后到当天白天第一条消息前 → 不计空闲（昨夜沉默不累计）', () => {
+  const app = { proactive_idle_enabled: true, proactive_idle_hours: 6, proactive_morning_time: '08:00', proactive_night_time: '22:00' };
+  const now = nowAtShanghai(2026, 9, 18, 10, 0);          // 上午 10:00
+  const lastUser = nowAtShanghai(2026, 9, 17, 23, 0);     // 昨晚 23:00 晚安
+  assert.equal(decideProactive(app, sh(2026, 9, 18, 10, 0), now, lastUser.toISOString()), null);
+});
+
+test('decideProactive：凌晨属于睡眠时间 → 即使超 N 小时也不发空闲', () => {
+  const app = { proactive_idle_enabled: true, proactive_idle_hours: 6, proactive_morning_time: '08:00', proactive_night_time: '22:00' };
+  const now = nowAtShanghai(2026, 9, 18, 3, 0);           // 凌晨 3 点
+  const lastUser = nowAtShanghai(2026, 9, 17, 20, 0);     // 昨晚 20:00
+  assert.equal(decideProactive(app, sh(2026, 9, 18, 3, 0), now, lastUser.toISOString()), null);
+});
+
+test('decideProactive：今天用户还没开口 → 不发空闲（即使已超 N 小时）', () => {
+  const app = { proactive_idle_enabled: true, proactive_idle_hours: 6, proactive_morning_time: '08:00', proactive_night_time: '22:00' };
+  const now = nowAtShanghai(2026, 9, 18, 15, 0);
+  const lastUser = nowAtShanghai(2026, 9, 16, 15, 0);     // 两天前
+  assert.equal(decideProactive(app, sh(2026, 9, 18, 15, 0), now, lastUser.toISOString()), null);
 });
 
 // ---- 测试辅助：造「最新会话」并重置主动消息设置（保证 runProactive 触发早安、无冷却） ----
@@ -297,4 +318,28 @@ test('runProactive：末条已为 user 时不再追加第二条 synthetic user',
   assert.equal(msgs[0].role, 'user');
   assert.equal(msgs[0].content, '你好');
   assert.ok(!msgs.some((m) => m.content === '现在由你主动说点什么吧。'), '不得出现 synthetic user');
+});
+
+test('runProactive：注入 get_current_time 只读时间工具（且绝不放开写工具）', async () => {
+  await seedProactiveSession();
+
+  let captured = null;
+  const chatFn = async (args) => { captured = args; return { content: '早安呀', reasoningContent: '', usage: null }; };
+  const notifyFn = async () => ({ status: 'NOT_CONFIGURED' });
+
+  await runProactive({ chatFn, notifyFn, now: nowAtShanghai(2026, 9, 18, 8, 30) });
+
+  // 只注入 get_current_time 一个工具，绝不带入任何业务写工具
+  assert.ok(Array.isArray(captured.tools), 'chatFn 收到 tools 数组');
+  assert.equal(captured.tools.length, 1, '只注入 1 个工具');
+  assert.equal(captured.tools[0].name, 'get_current_time');
+
+  // callTool 能执行 get_current_time（返回真实上海时间），并拒绝其它任何工具
+  assert.equal(typeof captured.callTool, 'function');
+  const timeResult = JSON.parse(await captured.callTool('get_current_time', {}));
+  assert.equal(timeResult.code, 'OK');
+  assert.equal(timeResult.timezone, 'Asia/Shanghai');
+  assert.match(timeResult.localDate, /^\d{4}-\d{2}-\d{2}$/);
+  assert.match(timeResult.localTime, /^\d{2}:\d{2}:\d{2}$/);
+  await assert.rejects(() => captured.callTool('create_ai_activity', {}), /未知工具/);
 });

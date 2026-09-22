@@ -241,13 +241,14 @@ test('aiState 权限：AI 可建立自己的心情，但不可删除', () => {
   assert.equal(aiCan('aiState', 'delete'), false);
 });
 
-test('appendAiState 清理过期状态，绝不无限堆积', () => {
+test('appendAiState 永久保留历史，绝不因过期删除（过期 ≠ 删除）', () => {
   const doc = { ai: { states: [
     { id: 'old', emotion: '开心', intensity: 1, createdAt: 1, expiresAt: Date.now() - 1000, acknowledged: false },
   ] } };
   const s = appendAiState(doc, { emotion: '期待', intensity: 2 });
-  assert.equal(doc.ai.states.length, 1);
-  assert.equal(doc.ai.states[0].id, s.id);
+  assert.equal(doc.ai.states.length, 2);      // 旧心情（含过期）保留
+  assert.equal(doc.ai.states[0].id, s.id);    // 新心情 unshift 到最前
+  assert.equal(doc.ai.states[1].id, 'old');   // 过期旧心情仍在
 });
 
 // ---------- 23：失败不显示成功 ----------
