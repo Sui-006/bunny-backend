@@ -93,7 +93,7 @@ test('save_conversation_cache 工具端到端：tool → permission → cache se
   const { callTool } = buildDomainTools(user.id, 'test-model', { sessionId: s.id });
   const r = JSON.parse(await callTool('save_conversation_cache', { summary: '工具写的缓存', currentTopic: '测试主题', keyPoints: ['要点A'] }));
   assert.equal(r.code, 'OK');
-  assert.equal(r.cache.summary, '工具写的缓存');
+  assert.equal(r.cache, undefined, 'tool_result 不回灌整份 cache');
   const got = await getConversationCache(s.id);
   assert.equal(got.summary, '工具写的缓存');
   assert.deepEqual(got.keyPoints, ['要点A']);

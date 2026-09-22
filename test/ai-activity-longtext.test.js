@@ -27,7 +27,7 @@ test('长文本 Activity 全文落库（jsonb 存全文，绝不截断、绝不�
   const { userId, callTool } = await mkTool();
   const r = JSON.parse(await callTool('create_ai_activity', { content: LONG_TEXT }));
   assert.equal(r.code, 'CREATED');
-  assert.ok(r.activity.id);
+  assert.equal(r.activity, undefined, 'tool_result 不回灌完整 activity');
   const state = await getState(userId);
   assert.equal(state.ai.activities.length, 1);
   assert.equal(state.ai.activities[0].text, LONG_TEXT); // 全文原样

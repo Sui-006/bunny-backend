@@ -33,7 +33,7 @@ test('comment_on_record：首次评论返回 CREATED，评论落在 doc.ai.comme
   const r = JSON.parse(await callTool('comment_on_record', { recordType: 'journal', recordId: 'j1', comment: '散步很棒，记得喝水哦。' }));
   assert.equal(r.code, 'CREATED');
   assert.equal(r.recordId, 'j1');
-  assert.equal(r.comment.recordType, 'journal');
+  assert.equal(r.comment, undefined, 'tool_result 不回灌完整 comment（AI 自我叙述）');
 
   const state = await getState(user.id);
   assert.equal(state.ai.comments.length, 1);
@@ -53,12 +53,13 @@ test('comment_on_record：重复评论覆盖更新，version+1，仅保留一条
   const b = JSON.parse(await callTool('comment_on_record', { recordType: 'health', recordId: 'h1', comment: '睡眠不错，继续保持。' }));
   assert.equal(a.code, 'CREATED');
   assert.equal(b.code, 'UPDATED');
-  assert.equal(a.comment.id, b.comment.id, '更新后 id 不变');
-  assert.equal(b.comment.version, 2);
+  assert.equal(a.comment, undefined, 'tool_result 不回灌完整 comment');
+  assert.equal(b.comment, undefined, 'tool_result 不回灌完整 comment');
 
   const state = await getState(user.id);
   assert.equal(state.ai.comments.length, 1, '同 (recordType,recordId) 只保留一条');
   assert.equal(state.ai.comments[0].text, '睡眠不错，继续保持。');
+  assert.equal(state.ai.comments[0].version, 2, '更新后 version+1');
 });
 
 // ---- 4. 权限：COMMENT 与 WRITE 分离；无 ADMIN ----

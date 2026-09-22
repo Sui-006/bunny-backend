@@ -88,7 +88,8 @@ test('create_task / delete_task：action 分别为 create/delete，删除保留�
   const { callTool } = buildDomainTools(user.id, 'test-model');
   const created = JSON.parse(await callTool('create_task', { title: '临时任务', reason: '测试' }));
   assert.equal(created.code, 'CREATED');
-  const taskId = created.task.id;
+  assert.equal(created.task, undefined, 'tool_result 不回灌完整 task');
+  const taskId = (await getState(user.id)).tasks[0].id;
 
   const deleted = JSON.parse(await callTool('delete_task', { id: taskId, reason: '不需要了' }));
   assert.equal(deleted.code, 'OK');

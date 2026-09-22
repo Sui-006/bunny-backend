@@ -337,13 +337,12 @@ test('create_ai_activity：真实写入 ai.activities，返回 CREATED，留审�
 
   const r = JSON.parse(await callTool('create_ai_activity', { content: "刚搬进 bunny's home。" }));
   assert.equal(r.code, 'CREATED');
-  assert.equal(r.activity.text, "刚搬进 bunny's home。");
-  assert.equal(r.activity.type, 'chat'); // 缺省类型
-  assert.ok(r.activity.id);
+  assert.equal(r.activity, undefined, 'tool_result 不回灌完整 activity（含 AI 自我叙述正文）');
 
   const state = await getState(user.id);
   assert.equal(state.ai.activities.length, 1);
   assert.equal(state.ai.activities[0].text, "刚搬进 bunny's home。");
+  assert.equal(state.ai.activities[0].type, 'chat'); // 缺省类型
 
   const log = state.ai.auditLog.find((a) => a.entityType === 'activity');
   assert.ok(log, '存在 activity 审计记录');

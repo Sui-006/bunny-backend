@@ -9,18 +9,23 @@ test('add_shopping_item 严格区分 owner：mine→user，deity/assistant→ass
 
   const mine = JSON.parse(await callTool('add_shopping_item', { title: '牛奶', listId: 'mine', reason: '测试' }));
   assert.equal(mine.code, 'CREATED');
-  assert.equal(mine.item.owner, 'user');
-  assert.equal(mine.item.listId, 'mine');
+  assert.equal(mine.item, undefined, 'tool_result 不回灌完整 item');
 
   const deity = JSON.parse(await callTool('add_shopping_item', { title: '她想要的花', owner: 'assistant', reason: '测试' }));
   assert.equal(deity.code, 'CREATED');
-  assert.equal(deity.item.owner, 'assistant');
-  assert.equal(deity.item.listId, 'deity');
+  assert.equal(deity.item, undefined, 'tool_result 不回灌完整 item');
 
   // 缺省 listId/owner → 回退 mine（用户清单），绝不默认写进祂的清单
   const def = JSON.parse(await callTool('add_shopping_item', { title: '默认牛奶', reason: '测试' }));
-  assert.equal(def.item.owner, 'user');
-  assert.equal(def.item.listId, 'mine');
+  assert.equal(def.code, 'CREATED');
+
+  const items = (await getUserState(user.id)).shoppingItems;
+  assert.equal(items.find((i) => i.title === '牛奶').owner, 'user');
+  assert.equal(items.find((i) => i.title === '牛奶').listId, 'mine');
+  assert.equal(items.find((i) => i.title === '她想要的花').owner, 'assistant');
+  assert.equal(items.find((i) => i.title === '她想要的花').listId, 'deity');
+  assert.equal(items.find((i) => i.title === '默认牛奶').owner, 'user');
+  assert.equal(items.find((i) => i.title === '默认牛奶').listId, 'mine');
 });
 
 test('list_shopping 按 owner 过滤，owner 不串清单', async () => {
@@ -44,10 +49,12 @@ test('complete_shopping_item 完成切换，不影响另一份清单', async () 
   const user = await createUser({ email: null, passwordHash: null, state: {} });
   const { callTool } = buildDomainTools(user.id, 'test-model');
   const created = JSON.parse(await callTool('add_shopping_item', { title: '买书', owner: 'user' }));
-  const done = JSON.parse(await callTool('complete_shopping_item', { id: created.item.id, completed: true }));
+  const itemId = (await getUserState(user.id)).shoppingItems.find((i) => i.title === '买书').id;
+  const done = JSON.parse(await callTool('complete_shopping_item', { id: itemId, completed: true }));
   assert.equal(done.code, 'OK');
-  assert.equal(done.item.completed, true);
-  assert.equal(done.item.owner, 'user'); // 完成不改 owner
+  assert.equal(done.completed, true);
+  assert.equal(done.item, undefined, 'tool_result 不回灌完整 item');
+  assert.equal((await getUserState(user.id)).shoppingItems.find((i) => i.id === itemId).owner, 'user'); // 完成不改 owner
 
   // 缺省 list_shopping 只列未购 → 完成后不再出现
   const list = JSON.parse(await callTool('list_shopping', { owner: 'user' }));
@@ -58,10 +65,13 @@ test('update_shopping_item 可把条目移动到另一份清单（listId 与 own
   const user = await createUser({ email: null, passwordHash: null, state: {} });
   const { callTool } = buildDomainTools(user.id, 'test-model');
   const created = JSON.parse(await callTool('add_shopping_item', { title: '移动条目', owner: 'user' }));
-  const moved = JSON.parse(await callTool('update_shopping_item', { id: created.item.id, owner: 'assistant' }));
+  const itemId = (await getUserState(user.id)).shoppingItems.find((i) => i.title === '移动条目').id;
+  const moved = JSON.parse(await callTool('update_shopping_item', { id: itemId, owner: 'assistant' }));
   assert.equal(moved.code, 'OK');
-  assert.equal(moved.item.owner, 'assistant');
-  assert.equal(moved.item.listId, 'deity');
+  assert.equal(moved.item, undefined, 'tool_result 不回灌完整 item');
+  const movedItem = (await getUserState(user.id)).shoppingItems.find((i) => i.id === itemId);
+  assert.equal(movedItem.owner, 'assistant');
+  assert.equal(movedItem.listId, 'deity');
 
   const mine = JSON.parse(await callTool('list_shopping', { owner: 'user' }));
   assert.equal(mine.count, 0);

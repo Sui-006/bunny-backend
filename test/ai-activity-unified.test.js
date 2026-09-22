@@ -23,12 +23,12 @@ test('AI 创建 Activity → 数据库真实出现一条，且不自动创建 Me
   const { userId, callTool } = await mkTool();
   const r = JSON.parse(await callTool('create_ai_activity', { content: '今天突然想和你说句话。' }));
   assert.equal(r.code, 'CREATED');
-  assert.ok(r.activity.id);
-  assert.equal(r.activity.actor, 'assistant');
-  assert.equal(r.activity.entityType, 'activity');
+  assert.equal(r.activity, undefined, 'tool_result 不回灌完整 activity');
   const state = await getState(userId);
   assert.equal(state.ai.activities.length, 1);
   assert.equal(state.ai.activities[0].text, '今天突然想和你说句话。');
+  assert.equal(state.ai.activities[0].actor, 'assistant');
+  assert.equal(state.ai.activities[0].entityType, 'activity');
   assert.equal(state.ai.memories.length, 0); // 不强制写 Memory
 });
 
@@ -120,8 +120,8 @@ test('aiActivities：过滤后只剩 AI 动态，系统/用户条目不出现', 
 
 test('AI 修改 Activity → 落 assistant 审计（before/after）', async () => {
   const { userId, callTool } = await mkTool();
-  const c = JSON.parse(await callTool('create_ai_activity', { content: '原来的动态' }));
-  const id = c.activity.id;
+  await callTool('create_ai_activity', { content: '原来的动态' });
+  const id = (await getState(userId)).ai.activities[0].id;
   const u = JSON.parse(await callTool('update_ai_activity', { id, text: '改过的动态' }));
   assert.equal(u.code, 'UPDATED');
   const state = await getState(userId);
@@ -135,8 +135,8 @@ test('AI 修改 Activity → 落 assistant 审计（before/after）', async () =
 
 test('AI 删除 Activity → 真实删除 + 保留 before 快照审计', async () => {
   const { userId, callTool } = await mkTool();
-  const c = JSON.parse(await callTool('create_ai_activity', { content: '要被删掉的动态' }));
-  const id = c.activity.id;
+  await callTool('create_ai_activity', { content: '要被删掉的动态' });
+  const id = (await getState(userId)).ai.activities[0].id;
   const d = JSON.parse(await callTool('delete_ai_activity', { id }));
   assert.equal(d.code, 'DELETED');
   const state = await getState(userId);
@@ -202,33 +202,32 @@ test('set_ai_state 落库 AI 心情状态，并进入统一自我上下文', asy
   const { userId, callTool } = await mkTool();
   const r = JSON.parse(await callTool('set_ai_state', { emotion: '委屈', intensity: 2, reason: '你一直没理我' }));
   assert.equal(r.code, 'CREATED');
-  assert.ok(r.state.id);
-  assert.equal(r.state.emotion, '委屈');
-  assert.equal(r.state.intensity, 2);
+  assert.equal(r.state, undefined, 'tool_result 不回灌完整 state');
   const doc = { ai: (await getState(userId)).ai };
   assert.equal(doc.ai.states.length, 1);
   assert.equal(doc.ai.states[0].emotion, '委屈');
+  assert.equal(doc.ai.states[0].intensity, 2);
   assert.equal(doc.ai.states[0].acknowledged, false);
   assert.ok(buildAISelfContext(doc).includes('委屈'));
 });
 
 test('set_ai_state 强度 clamp 到 0-5；空 emotion 失败不落库', async () => {
   const { userId, callTool } = await mkTool();
-  const hi = JSON.parse(await callTool('set_ai_state', { emotion: '开心', intensity: 99 }));
-  assert.equal(hi.state.intensity, 5);
-  const lo = JSON.parse(await callTool('set_ai_state', { emotion: '委屈', intensity: -3 }));
-  assert.equal(lo.state.intensity, 0);
+  await callTool('set_ai_state', { emotion: '开心', intensity: 99 });
+  await callTool('set_ai_state', { emotion: '委屈', intensity: -3 });
   const bad = JSON.parse(await callTool('set_ai_state', { emotion: '   ' }));
   assert.equal(bad.code, 'FAILED');
   const state = await getState(userId);
   assert.equal(state.ai.states.length, 2); // 空 emotion 不落库
+  assert.equal(state.ai.states[0].intensity, 0); // 委屈（最新，clamp 到 0）
+  assert.equal(state.ai.states[1].intensity, 5); // 开心（clamp 到 5）
 });
 
 test('set_ai_state 落 assistant 审计（entityType=aiState，label=情绪词）', async () => {
   const { userId, callTool } = await mkTool();
-  const r = JSON.parse(await callTool('set_ai_state', { emotion: '期待', intensity: 3, reason: '想见你' }));
+  await callTool('set_ai_state', { emotion: '期待', intensity: 3, reason: '想见你' });
   const state = await getState(userId);
-  const log = state.ai.auditLog.find((a) => a.entityType === 'aiState' && a.entityId === r.state.id);
+  const log = state.ai.auditLog.find((a) => a.entityType === 'aiState');
   assert.ok(log);
   assert.equal(log.actor, 'assistant');
   assert.equal(log.action, 'create');
