@@ -306,6 +306,17 @@ function recordSnippet(recordType, rec) {
   return `支出 ${rec.title || '未命名'} ${centsToYuan(rec.amountCents)}元 (${rec.category || '其他'}) ${rec.occurredAt || ''}`;
 }
 
+// 评论事件入口的用户消息：把「真实 recordId」与记录摘要一起喂给模型——模型绝不能自己猜/编造 id。
+export function considerCommentPrompt(recordType, recordId, record) {
+  return `记录类型：${recordType}\n记录 ID：${recordId}\n记录内容：\n${recordSnippet(recordType, record)}`;
+}
+
+// 评论是否真正成功：只有 comment_on_record 返回 CREATED/UPDATED 才算成功；
+// NOT_FOUND / DENIED / FAILED / 无结果码（code undefined）一律视为未评论，绝不把「调用过工具」当成功。
+export function commentSucceeded(toolEvents) {
+  return (toolEvents || []).some((e) => e.name === 'comment_on_record' && (e.code === 'CREATED' || e.code === 'UPDATED'));
+}
+
 // POST /api/ai/comments/consider —— 用户新增/编辑记录后的「最小事件入口」：跑工具循环，AI 自行决定是否评论。
 // 前端 fire-and-forget 调用；只注入 comment_on_record + get_current_time，绝不全量注入 89 个工具。
 // 模型复用「用户当前助手」（与 Chat 同一套 Runtime），绝不硬编码 DeepSeek。
@@ -341,11 +352,11 @@ router.post('/comments/consider', async (req, res, next) => {
     const reply = await aiCall({
       model, temperature: 0.7, maxTokens: 500,
       tools: slim, callTool,
-      system: '你是 Bunny\'s Home 里的 AI 伴侣「♥ 我的AI」，温柔、体贴、有洞察。用户刚刚新增/修改了一条生活记录。请判断是否值得为它写一句「祂的评论」：只有这条记录确实有意义、能体现你对 ta 的了解与关心时才调用 comment_on_record；流水账、普通数据变化、或你没有实质感受时，绝不调用任何工具，直接不写。评论要自然、简短（1-3 句），不评判对错、不机械复述数据。',
-      messages: [{ role: 'user', content: `记录类型：${recordType}\n记录内容：\n${recordSnippet(recordType, record)}` }],
+      system: '你是 Bunny\'s Home 里的 AI 伴侣「♥ 我的AI」，温柔、体贴、有洞察。用户刚刚新增/修改了一条生活记录。请判断是否值得为它写一句「祂的评论」：只有这条记录确实有意义、能体现你对 ta 的了解与关心时才调用 comment_on_record；流水账、普通数据变化、或你没有实质感受时，绝不调用任何工具，直接不写。评论要自然、简短（1-3 句），不评判对错、不机械复述数据。若决定评论，comment_on_record 的 recordId 必须原样使用「记录 ID」字段给出的值，绝不自己猜测或编造。',
+      messages: [{ role: 'user', content: considerCommentPrompt(recordType, recordId, record) }],
     });
     const toolEvents = reply.toolEvents || [];
-    const commented = toolEvents.some((e) => e.name === 'comment_on_record');
+    const commented = commentSucceeded(toolEvents);
     // 非敏感诊断：模型/厂商/注入的工具/实际执行的工具事件；commented 时读回确认已持久化（全链路可观测，绝不暴露 key/secret）
     let persisted = false;
     if (commented) {

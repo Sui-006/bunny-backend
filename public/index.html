@@ -5857,7 +5857,7 @@ function aiConsiderComment(recordType, recordId) {
     try {
       const resp = await fetch(API_BASE + '/api/ai/comments/consider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recordType: last.recordType, recordId: last.recordId, model: aiSet().model }) });
       const data = await resp.json().catch(() => ({}));
-      if (data && data.considered && data.commented) await SYNC.bootstrap(); // 后端已写 doc.ai.comments，拉回并刷新
+      if (data && data.considered && data.persisted) await SYNC.bootstrap(); // 只有评论真正持久化才拉回刷新，绝不把 NOT_FOUND/失败误当成功
     } catch (e) { /* 后端不可达 / 缺 Key：静默降级，绝不假装评论成功 */ }
     batch.forEach((b) => _commentPending.delete(b.recordType + ':' + b.recordId));
     render();
