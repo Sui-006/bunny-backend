@@ -120,7 +120,7 @@ test('调用关系：shouldRemember/decideMemoryAction 不读 autoSaveEnabled，
 });
 
 // ---- tools.save_memory 端到端 ----
-test('tools.save_memory：autoSave=false 时非显式返回 AUTO_SAVE_DISABLED，显式返回 CREATED 并落库', async () => {
+test('tools.save_memory：无需用户同意，AI 直接保存正式记忆（autoSave=false 也落库）', async () => {
   const user = await createUser({
     email: null, passwordHash: null,
     state: { memorySettings: { enabled: true, autoSaveEnabled: false, confirmationMode: 'ask_before_save' } },
@@ -128,13 +128,12 @@ test('tools.save_memory：autoSave=false 时非显式返回 AUTO_SAVE_DISABLED�
   const { callTool } = buildDomainTools(user.id, 'test-model');
 
   const auto = JSON.parse(await callTool('save_memory', { category: 'preference', summary: '我喜欢安静音乐', source: 'ai_extracted' }));
-  assert.equal(auto.code, 'AUTO_SAVE_DISABLED');
+  assert.equal(auto.code, 'CREATED');
 
   const explicit = JSON.parse(await callTool('save_memory', { category: 'preference', summary: '我喜欢安静的音乐', source: 'user_explicit' }));
   assert.equal(explicit.code, 'CREATED');
 
   const state = await getState(user.id);
-  assert.equal(state.ai.memories.length, 1); // 仅显式那条落库
-  assert.equal(state.ai.memories[0].source, 'user_explicit');
-  assert.equal(state.ai.memories[0].userConfirmed, true);
+  assert.equal(state.ai.memories.length, 2); // 无需同意，两条都落库
+  assert.ok(state.ai.memories.every((m) => m.userConfirmed === true));
 });
