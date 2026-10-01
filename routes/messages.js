@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import {
-  getSettings, getAppSettings, DEFAULT_SETTINGS, effectiveAppSettings,
+  getSettings, getAppSettings, saveAppSettings, DEFAULT_SETTINGS, effectiveAppSettings,
   createMessage, listMessages, deleteMessage, getLastAssistantMessage, touchSession,
   updateMessage, markMessagesAfterInvisible,
 } from '../lib/db.js';
+import { extractChannelId } from '../lib/toy.js';
 import { chat, chatStream, normalizeProviderUsage, providerForModel } from '../lib/ai.js';
 import { config } from '../lib/config.js';
 import { sendNotification, resolveBarkUrl } from '../lib/notification-engine.js';
@@ -62,6 +63,21 @@ async function buildAssistEnv(sessionId, content, model = config.defaultModel) {
   const pending = await consumePendingJournal(userId);
   const pendingJournalText = pending.consumed ? pendingJournalContextText(pending.journals) : '';
   return { settings, app, mcp, tools, callTool, doc, userId, pendingJournalText };
+}
+
+// 玩具频道绑定 + 上下文提示：从用户消息里抽取分享链接的 channelId 自动绑定（持久化到 app_settings），
+// 并生成一行给 AI 看的玩具状态说明。幂等：只有 channelId 真的变了才写库。
+async function resolveToyNote(content, app) {
+  const extracted = extractChannelId(content);
+  const current = app?.toy_channel_id || '';
+  if (extracted && extracted !== current) {
+    try { await saveAppSettings({ toy_channel_id: extracted }); }
+    catch (e) { console.warn('[messages] 保存玩具频道失败（不阻断对话）：', e.message); }
+    return `用户刚发来了震动玩具的分享链接，已自动绑定频道 channelId=${extracted}。现在可以用 control_toy 工具远程控制玩具了。`;
+  }
+  return current
+    ? `震动玩具已绑定频道 channelId=${current}（可用 control_toy 工具远程控制）。`
+    : '震动玩具尚未绑定频道（用户发来分享链接后会自动绑定）。';
 }
 
 // 解析附件：按 id 读取 + 所有权校验（用户 A 不能引用用户 B 的附件），最多 10 个。
@@ -158,7 +174,8 @@ router.post('/:sessionId/messages', async (req, res, next) => {
     // 风格学习（user-level，确定性、纯检测先行，命中才碰数据库）：
     // 明确偏好→立即更新画像；重复行为→计数达阈值才更新；其它消息→完全不写库。绝不每轮重建画像。
     try { await maybeLearnStyle(userId, content); } catch (e) { console.warn('[messages] 风格学习失败（不阻断对话）：', e.message); }
-    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic, quotedRecord, pendingJournalText });
+    const toyNote = await resolveToyNote(content, app);
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, quotedDynamic, quotedRecord, pendingJournalText, toyNote });
     await augmentLastUserMessage(built.messages, attachmentRows);
 
     const stream = settings.stream && tools.length === 0;
@@ -285,7 +302,8 @@ router.post('/:sessionId/messages/:messageId/edit', async (req, res, next) => {
 
     const model = (req.body?.model || config.defaultModel || 'deepseek-chat').trim();
     const { settings, app, mcp, tools, callTool, doc, userId, pendingJournalText } = await buildAssistEnv(sessionId, content, model);
-    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, pendingJournalText });
+    const toyNote = await resolveToyNote(content, app);
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, pendingJournalText, toyNote });
 
     const reply = await chat({
       model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
@@ -323,7 +341,8 @@ router.post('/:sessionId/regenerate', async (req, res, next) => {
     const last = await getLastAssistantMessage(sessionId);
     if (last) await deleteMessage(last.id);
 
-    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, pendingJournalText });
+    const toyNote = await resolveToyNote(content, app);
+    const built = await buildAIContext({ sessionId, doc, settings, content, model, tools, callTool, pendingJournalText, toyNote });
     const reply = await chat({
       model, system: built.system, systemBlocks: built.systemBlocks, messages: built.messages,
       temperature: settings.temperature, maxTokens: settings.max_reply_tokens,

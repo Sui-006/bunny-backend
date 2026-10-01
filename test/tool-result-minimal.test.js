@@ -45,10 +45,10 @@ function fetchStub(turns) {
 
 // ---------- 1. 工具总数与核心工具集 ----------
 
-test('工具总数 = 90，核心常驻工具 = 9（数量不得被本次改动增减）', () => {
+test('工具总数 = 91，核心常驻工具 = 9（数量不得被本次改动增减）', () => {
   const { names } = buildDomainTools('x', 'test-model');
-  assert.equal(names.length, 90);
-  assert.equal(new Set(names).size, 90, '无重名工具');
+  assert.equal(names.length, 91);
+  assert.equal(new Set(names).size, 91, '无重名工具');
   assert.equal(CORE_ALWAYS_TOOLS.length, 9);
 });
 
