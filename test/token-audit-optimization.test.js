@@ -62,11 +62,11 @@ test('TOOL_DOMAIN_MAP / CORE_ALWAYS_TOOLS 里没有幽灵工具名（全为真�
 
 // ---------------- 按领域裁剪工具注入 ----------------
 
-test('普通聊天只注入核心工具（9 个），远小于全量 91', () => {
+test('普通聊天只注入核心工具（10 个），远小于全量 91', () => {
   const full = buildDomainTools('x', 'test-model').tools;
   const core = toolsForDomains([]);
   assert.equal(core.length, CORE_ALWAYS_TOOLS.length);
-  assert.equal(core.length, 9);
+  assert.equal(core.length, 10);
   assert.ok(core.length < full.length / 2, '核心工具应远少于全量');
 });
 

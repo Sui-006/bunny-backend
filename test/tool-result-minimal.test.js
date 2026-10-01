@@ -45,11 +45,11 @@ function fetchStub(turns) {
 
 // ---------- 1. 工具总数与核心工具集 ----------
 
-test('工具总数 = 91，核心常驻工具 = 9（数量不得被本次改动增减）', () => {
+test('工具总数 = 91，核心常驻工具 = 10（数量不得被本次改动增减）', () => {
   const { names } = buildDomainTools('x', 'test-model');
   assert.equal(names.length, 91);
   assert.equal(new Set(names).size, 91, '无重名工具');
-  assert.equal(CORE_ALWAYS_TOOLS.length, 9);
+  assert.equal(CORE_ALWAYS_TOOLS.length, 10);
 });
 
 // ---------- 2. 写工具最小返回：不回灌完整对象（数据仍真实落库） ----------
