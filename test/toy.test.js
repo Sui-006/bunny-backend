@@ -41,6 +41,20 @@ test('encodeCommand：strength 越界被夹到 0-100', () => {
   assert.equal(hex(b), '5813e20106080110641800');
 });
 
+test('encodeCommand：缺省 durationMs/strength 时给安全默认值（不再 0 时长导致不动）', () => {
+  // 只给 strength 漏传 durationMs → 时长默认 2000ms、强度 100
+  assert.equal(hex(encodeCommand('motor', { strength: 100 })), '5813e201070800106418d00f');
+  // 全缺省 → strength 100、durationMs 2000
+  assert.equal(hex(encodeCommand('motor', {})), '5813e201070800106418d00f');
+  // 显式 durationMs=0 仍尊重（0 不被默认覆盖）
+  assert.equal(hex(encodeCommand('motor', { strength: 80, durationMs: 0 })), '5813e20106080010501800');
+});
+
+test('encodeCommand：burst 缺省 active 默认开、时长默认 2000ms', () => {
+  assert.equal(hex(encodeCommand('burst', {})), '580dba0105080110d00f');
+  assert.equal(hex(encodeCommand('burst', { active: false })), '580dba0105080010d00f');
+});
+
 test('extractChannelId：从分享链接抽取 channelId', () => {
   const url = 'http://vibrator.game.sihande.vip/?viewid=3&channelId=ws0hlva1rm8dli1xypi879f7.1006522611&language=en-CN&motorCountList=8,9';
   assert.equal(extractChannelId(url), 'ws0hlva1rm8dli1xypi879f7.1006522611');
