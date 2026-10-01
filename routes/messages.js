@@ -71,8 +71,14 @@ async function resolveToyNote(content, app) {
   const extracted = extractChannelId(content);
   const current = app?.toy_channel_id || '';
   if (extracted && extracted !== current) {
-    try { await saveAppSettings({ toy_channel_id: extracted }); }
-    catch (e) { console.warn('[messages] 保存玩具频道失败（不阻断对话）：', e.message); }
+    try {
+      await saveAppSettings({ toy_channel_id: extracted });
+    } catch (e) {
+      // 写库失败（最常见：014 迁移没跑，app_settings 缺 toy_channel_id 列）→ 显性暴露给 AI/用户，
+      // 绝不假装绑定成功，否则会一直「看起来绑了、实际没绑」。
+      console.error('[messages] 保存玩具频道失败（不阻断对话）：', e.message);
+      return `用户刚发来了震动玩具的分享链接，但绑定频道失败：${e.message}。请如实告知用户绑定失败，并提示检查数据库是否已执行迁移 014_toy_channel.sql（app_settings 需有 toy_channel_id 列）。`;
+    }
     return `用户刚发来了震动玩具的分享链接，已自动绑定频道 channelId=${extracted}。现在可以用 control_toy 工具远程控制玩具了。`;
   }
   return current
